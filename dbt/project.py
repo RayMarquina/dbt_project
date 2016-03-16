@@ -3,7 +3,7 @@ import yaml
 import pprint
 import copy
 
-default_cfg = {
+default_project_cfg = {
     'source-paths': ['model'],
     'test-paths': ['test'],
     'target-path': 'target',
@@ -12,15 +12,20 @@ default_cfg = {
     'run-target': 'default',
 }
 
-default_profiles = ['user']
+default_profiles = {
+    'user': {}
+}
+
+default_active_profiles = ['user']
 
 
 class Project:
 
     def __init__(self, cfg, profiles, active_profile_names=[]):
-        self.cfg = default_cfg.copy()
+        self.cfg = default_project_cfg.copy()
         self.cfg.update(cfg)
-        self.profiles = profiles
+        self.profiles = default_profiles.copy()
+        self.profiles.update(profiles)
         self.active_profile_names = active_profile_names
 
         for profile_name in active_profile_names:
@@ -71,7 +76,7 @@ def read_profiles():
 
 def init_project(project_cfg):
     profiles = read_profiles()
-    return Project(project_cfg, profiles, default_profiles)
+    return Project(project_cfg, profiles, default_active_profiles)
 
 
 def read_project(filename):
@@ -81,4 +86,4 @@ def read_project(filename):
 
 
 def default_project():
-    return init_project(default_cfg)
+    return init_project(default_project_cfg)
