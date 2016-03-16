@@ -17,7 +17,7 @@ outputs:
     # best practice: specify outputs in your user profile
     # located in ~/.dbt/profiles.yml to ensure credentials
     # don't get checked in alongside your model code
-    password: password
+    pass: password
     dbname: dev
     schema: my_model_schema
 run-target: my_redshift

@@ -13,7 +13,17 @@ From the root directory of this repository,
 #### use
 
 Create a `dbt_project.yml` file in the root of your source tree
-following sample.dbt_project.yml.
+following sample.dbt_project.yml. If you place the config file
+in your root directory (~/.dbt/profiles.yml), be sure to subclass
+your configuration paramters under `user`, eg:
+
+```yml
+user:
+  source-paths: [...]
+  ...
+  outputs:
+    ...
+```
 
 `dbt compile` to generate runnable SQL from model files
 
