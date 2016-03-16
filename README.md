@@ -19,10 +19,10 @@ your configuration paramters under `user`, eg:
 
 ```yml
 user:
-	source-paths: [...]
-	...
-	outputs:
-		...
+  source-paths: [...]
+  ...
+  outputs:
+    ...
 ```
 
 `dbt compile` to generate runnable SQL from model files
