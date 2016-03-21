@@ -3,6 +3,7 @@ import psycopg2
 import os
 import fnmatch
 
+from compiler.linker import Linker
 
 class RedshiftTarget:
     def __init__(self, cfg):
@@ -32,6 +33,8 @@ class RunTask:
         self.args = args
         self.project = project
 
+        self.linker = Linker()
+
     def __compiled_files(self):
         compiled_files = []
         sql_path = self.project['target-path']
@@ -59,15 +62,22 @@ class RunTask:
             with handle.cursor() as cursor:
                 cursor.execute('create schema if not exists "{}"'.format(target_cfg['schema']))
 
+    def __load_models(self):
+        target = self.__get_target()
+        for f in self.__compiled_files():
+            with open(os.path.join(self.project['target-path'], f), 'r') as fh:
+                self.linker.link(fh.read())
+
     def __execute_models(self):
         target = self.__get_target()
         with target.get_handle() as handle:
             with handle.cursor() as cursor:
-                for f in self.__compiled_files():
-                    with open(os.path.join(self.project['target-path'], f), 'r') as fh:
-                        cursor.execute(fh.read())
+                for (node, sql) in self.linker.as_dependency_list():
+                    cursor.execute(sql)
                     print "         {}".format(cursor.statusmessage)
 
     def run(self):
         self.__create_schema()
+        self.__load_models()
         self.__execute_models()
+

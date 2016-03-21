@@ -3,7 +3,6 @@ import os
 import fnmatch
 import jinja2
 
-
 class CompileTask:
     def __init__(self, args, project):
         self.args = args
