@@ -9,6 +9,20 @@ class CompileTask:
         self.args = args
         self.project = project
 
+    def __is_specified_model(self, path):
+        if 'models' not in self.project:
+            return True
+
+        path_parts = path.split("/")
+        if len(path_parts) < 2:
+            return False
+        else:
+            model = path_parts[1]
+            for allowed_model in self.project['models']:
+                if fnmatch.fnmatch(model, allowed_model):
+                    return True
+        return False
+
     def __src_index(self):
         """returns: {'model': ['pardot/model.sql', 'segment/model.sql']}
         """
@@ -16,6 +30,8 @@ class CompileTask:
 
         for source_path in self.project['source-paths']:
             for root, dirs, files in os.walk(source_path):
+                if not self.__is_specified_model(root):
+                    continue
                 for filename in files:
                     if fnmatch.fnmatch(filename, "*.sql"):
                         abs_path = os.path.join(root, filename)
