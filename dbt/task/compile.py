@@ -8,6 +8,20 @@ class CompileTask:
         self.args = args
         self.project = project
 
+    def __is_specified_model(self, path):
+        if 'models' not in self.project:
+            return True
+
+        path_parts = path.split("/")
+        if len(path_parts) < 2:
+            return False
+        else:
+            model = path_parts[1]
+            for allowed_model in self.project['models']:
+                if fnmatch.fnmatch(model, allowed_model):
+                    return True
+        return False
+
     def __src_index(self):
         """returns: {'model': ['pardot/model.sql', 'segment/model.sql']}
         """
@@ -15,6 +29,8 @@ class CompileTask:
 
         for source_path in self.project['source-paths']:
             for root, dirs, files in os.walk(source_path):
+                if not self.__is_specified_model(root):
+                    continue
                 for filename in files:
                     if fnmatch.fnmatch(filename, "*.sql"):
                         abs_path = os.path.join(root, filename)
@@ -34,12 +50,26 @@ class CompileTask:
         with open(target_path, 'w') as f:
             f.write(payload)
 
+    def __wrap_in_create(self, path, query):
+        filename = os.path.basename(path)
+        identifier, ext = os.path.splitext(filename)
+
+        # default to view if not provided in config!
+        table_or_view = self.project.get('table_or_view', 'view')
+
+        ctx = self.project.context()
+        schema = ctx['env']['schema']
+
+        template = "create or replace {table_or_view} {schema}.{identifier} as ( {query} );"
+        return template.format(table_or_view=table_or_view, schema=schema, identifier=identifier, query=query)
+
     def __compile(self, src_index):
         for src_path, files in src_index.iteritems():
             jinja = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath=src_path))
             for f in files:
                 template = jinja.get_template(f)
-                self.__write(f, template.render(self.project.context()))
+                rendered = template.render(self.project.context())
+                self.__write(f, self.__wrap_in_create(f, rendered))
 
     def run(self):
         src_index = self.__src_index()
