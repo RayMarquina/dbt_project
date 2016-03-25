@@ -40,6 +40,9 @@ class Project:
     def __getitem__(self, key):
         return self.cfg.__getitem__(key)
 
+    def __contains__(self, key):
+        return self.cfg.__contains__(key)
+
     def __setitem__(self, key, value):
         return self.cfg.__setitem__(key, value)
 
