@@ -29,29 +29,40 @@ class Linker(object):
 
         definition = table_def.token_next_by_instance(0, sqlparse.sql.Parenthesis)
 
-        node = (schema, tbl_or_view)
+        definition_node = (schema, tbl_or_view)
 
-        i = 0
-        token = definition.token_next_by_instance(0, sqlparse.sql.Identifier)
-        while token is not None:
-            new_node = (token.get_parent_name(), token.get_real_name())
-            # not great -- our parser doesn't differentiate between SELECTed fields and tables
-            if None not in new_node:
-                self.graph.add_node(new_node)
-                self.graph.add_edge(node, new_node)
+        local_defs = set()
 
-            i = definition.token_index(token) + 1
-            token = definition.token_next_by_instance(i, sqlparse.sql.Identifier)
+        def extract_deps(stmt):
+            token = stmt.token_first()
+            while token is not None:
+                if type(token) != sqlparse.sql.IdentifierList and token.is_group():
+                    local_defs.add(token.get_name())
+                    extract_deps(token)
 
-        return node
+                if type(token) == sqlparse.sql.Identifier and token.get_parent_name() not in local_defs:
+                    new_node = (token.get_parent_name(), token.get_real_name())
+                    if None not in new_node:
+                        self.graph.add_node(new_node)
+                        self.graph.add_edge(definition_node, new_node)
+
+                index = stmt.token_index(token)
+                token = stmt.token_next(index)
+
+        extract_deps(definition)
+        return definition_node
 
     def as_dependency_list(self):
         order = nx.topological_sort(self.graph, reverse=True)
         for node in order:
+            #print "{}.{}".format(node[0], node[1])
             if node in self.node_sql_map: # TODO : check against db??? or what?
+                #for (schema, tbl_or_view) in self.graph[node]:
+                #    print "   {}.{}".format(schema, tbl_or_view)
                 yield (node, self.node_sql_map[node])
             else:
-                print "Skipping {}".format(node)
+                #print "Skipping {}".format(node)
+                pass
 
     def register(self, node, sql):
         if node in self.node_sql_map:
@@ -61,9 +72,9 @@ class Linker(object):
     def link(self, sql):
         sql = sql.strip()
         for statement in sqlparse.parse(sql):
-            if statement.get_type() == 'CREATE':
-                print "DEBUG: ERROR: Use CREATE OR REPLACE instead of CREATE!"
-            elif statement.get_type() == 'CREATE OR REPLACE':
+            if statement.get_type().startswith('CREATE'):
                 node = self.extract_name_and_deps(statement)
                 self.register(node, sql)
+            else:
+                print "Ignoring {}".format(sql[0:100].replace('\n', ' '))
 

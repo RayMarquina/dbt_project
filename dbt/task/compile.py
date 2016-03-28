@@ -60,7 +60,13 @@ class CompileTask:
         ctx = self.project.context()
         schema = ctx['env']['schema']
 
-        template = "create or replace {table_or_view} {schema}.{identifier} as ( {query} );"
+        if table_or_view == 'table':
+            template = "create {table_or_view} {schema}.{identifier} as ( {query} );"
+        elif table_or_view == 'view':
+            template = "create view {table_or_view} {schema}.{identifier} as ( {query} );"
+        else:
+            raise RuntimeError("bad value for `table_or_view`: {}".format(table_or_view))
+
         return template.format(table_or_view=table_or_view, schema=schema, identifier=identifier, query=query)
 
     def __compile(self, src_index):
