@@ -32,24 +32,35 @@ class Linker(object):
         definition_node = (schema, tbl_or_view)
 
         local_defs = set()
+        new_nodes = set()
 
         def extract_deps(stmt):
             token = stmt.token_first()
             while token is not None:
-                if type(token) != sqlparse.sql.IdentifierList and token.is_group():
+                excluded_types = [sqlparse.sql.Function] # don't dive into window functions
+                if type(token) not in excluded_types and token.is_group():
+                    # this is a thing that has a name -- note that!
                     local_defs.add(token.get_name())
+                    # recurse into the group
                     extract_deps(token)
 
-                if type(token) == sqlparse.sql.Identifier and token.get_parent_name() not in local_defs:
+                if type(token) == sqlparse.sql.Identifier:
                     new_node = (token.get_parent_name(), token.get_real_name())
-                    if None not in new_node:
-                        self.graph.add_node(new_node)
-                        self.graph.add_edge(definition_node, new_node)
+                    if None not in new_node: # hack for now -- make sure it's qualified w/ schema
+                        # don't add edges yet!
+                        new_nodes.add(new_node)
 
                 index = stmt.token_index(token)
                 token = stmt.token_next(index)
 
         extract_deps(definition)
+
+        # only add nodes which don't reference locally defined constructs
+        for new_node in new_nodes:
+            if new_node[0] not in local_defs:
+                self.graph.add_node(new_node)
+                self.graph.add_edge(definition_node, new_node)
+
         return definition_node
 
     def as_dependency_list(self):
