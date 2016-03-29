@@ -4,7 +4,7 @@ import pprint
 import copy
 
 default_project_cfg = {
-    'source-paths': ['model'],
+    'source-paths': ['models'],
     'test-paths': ['test'],
     'target-path': 'target',
     'clean-targets': ['target'],
