@@ -78,8 +78,6 @@ class RunTask:
         with target.get_handle() as handle:
             with handle.cursor() as cursor:
                 for (node, sql) in self.linker.as_dependency_list():
-                    print node, self.linker.graph[node]
-                    continue
                     self.__drop_if_needed(node)
                     print "creating {}".format(".".join(node))
                     #print "         {}...".format(re.sub( '\s+', ' ', sql[0:100] ).strip())
