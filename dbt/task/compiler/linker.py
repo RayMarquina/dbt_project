@@ -1,6 +1,24 @@
 import sqlparse
 import networkx as nx
 
+class Relation(object):
+    def __init__(self, schema, name):
+        self.schema = schema
+        self.name = name
+
+    def valid(self):
+        return None not in (self.schema, self.name)
+
+    @property
+    def val(self):
+        return "{}.{}".format(self.schema, self.name)
+
+    def __repr__(self):
+        return self.val()
+
+    def __str__(self):
+        return self.val()
+
 class Linker(object):
     def __init__(self, graph=None):
         if graph is None:
@@ -29,7 +47,7 @@ class Linker(object):
 
         definition = table_def.token_next_by_instance(0, sqlparse.sql.Parenthesis)
 
-        definition_node = (schema, tbl_or_view)
+        definition_node = Relation(schema, tbl_or_view)
 
         local_defs = set()
         new_nodes = set()
@@ -45,10 +63,10 @@ class Linker(object):
                     extract_deps(token)
 
                 if type(token) == sqlparse.sql.Identifier:
-                    new_node = (token.get_parent_name(), token.get_real_name())
-                    if None not in new_node: # hack for now -- make sure it's qualified w/ schema
-                        # don't add edges yet!
-                        new_nodes.add(new_node)
+                    new_node = Relation(token.get_parent_name(), token.get_real_name())
+
+                    if new_node.valid():
+                        new_nodes.add(new_node) # don't add edges yet!
 
                 index = stmt.token_index(token)
                 token = stmt.token_next(index)
@@ -57,11 +75,11 @@ class Linker(object):
 
         # only add nodes which don't reference locally defined constructs
         for new_node in new_nodes:
-            if new_node[0] not in local_defs:
-                self.graph.add_node(new_node)
-                self.graph.add_edge(definition_node, new_node)
+            if new_node.schema not in local_defs:
+                self.graph.add_node(new_node.val)
+                self.graph.add_edge(definition_node.val, new_node.val)
 
-        return definition_node
+        return definition_node.val
 
     def as_dependency_list(self):
         order = nx.topological_sort(self.graph, reverse=True)

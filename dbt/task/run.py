@@ -70,16 +70,12 @@ class RunTask:
             with open(os.path.join(self.project['target-path'], f), 'r') as fh:
                 self.linker.link(fh.read())
 
-    def __drop_if_needed(self, node):
-        schema, tbl = node
-
     def __execute_models(self):
         target = self.__get_target()
         with target.get_handle() as handle:
             with handle.cursor() as cursor:
-                for (node, sql) in self.linker.as_dependency_list():
-                    self.__drop_if_needed(node)
-                    print "creating {}".format(".".join(node))
+                for (relation, sql) in self.linker.as_dependency_list():
+                    print "creating {}".format(relation)
                     #print "         {}...".format(re.sub( '\s+', ' ', sql[0:100] ).strip())
                     cursor.execute(sql)
                     print "         {}".format(cursor.statusmessage)
