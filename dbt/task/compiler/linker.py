@@ -28,21 +28,10 @@ class Linker(object):
 
         self.node_sql_map = {}
 
-    def serialized(self):
-        return "\n".join(nx.generate_adjlist(self.graph))
-
-    @classmethod
-    def deserialize(self, serialized_file):
-        graph = nx.read_adjlist(serialized_file, create_using=nx.DiGraph())
-        return Linker(graph)
-
     def extract_name_and_deps(self, stmt):
         table_def = stmt.token_next_by_instance(0, sqlparse.sql.Identifier)
         schema, tbl_or_view =  table_def.get_parent_name(), table_def.get_real_name()
         if schema is None or tbl_or_view is None:
-            print "SCHEMA: ", schema
-            print "TBL/VIEWL ", tbl_or_view
-            print "DEF: ", table_def
             raise RuntimeError('schema or view not defined?')
 
         definition = table_def.token_next_by_instance(0, sqlparse.sql.Parenthesis)
@@ -84,13 +73,9 @@ class Linker(object):
     def as_dependency_list(self):
         order = nx.topological_sort(self.graph, reverse=True)
         for node in order:
-            #print "{}.{}".format(node[0], node[1])
-            if node in self.node_sql_map: # TODO : check against db??? or what?
-                #for (schema, tbl_or_view) in self.graph[node]:
-                #    print "   {}.{}".format(schema, tbl_or_view)
+            if node in self.node_sql_map: # TODO :
                 yield (node, self.node_sql_map[node])
             else:
-                #print "Skipping {}".format(node)
                 pass
 
     def register(self, node, sql):
@@ -106,4 +91,3 @@ class Linker(object):
                 self.register(node, sql)
             else:
                 print "Ignoring {}".format(sql[0:100].replace('\n', ' '))
-
