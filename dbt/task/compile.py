@@ -60,10 +60,8 @@ class CompileTask:
         ctx = self.project.context()
         schema = ctx['env']['schema']
 
-        if table_or_view == 'table':
+        if table_or_view in ['table', 'view']:
             template = "create {table_or_view} {schema}.{identifier} as ( {query} );"
-        elif table_or_view == 'view':
-            template = "create view {table_or_view} {schema}.{identifier} as ( {query} );"
         else:
             raise RuntimeError("bad value for `table_or_view`: {}".format(table_or_view))
 
