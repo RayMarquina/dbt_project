@@ -61,8 +61,7 @@ class RunTask:
         target = self.__get_target()
         with target.get_handle() as handle:
             with handle.cursor() as cursor:
-                cursor.execute('drop schema if exists "{}" cascade'.format(target_cfg['schema']))
-                cursor.execute('create schema "{}"'.format(target_cfg['schema']))
+                cursor.execute('create schema if not exists "{}"'.format(target_cfg['schema']))
 
     def __load_models(self):
         target = self.__get_target()
@@ -70,11 +69,38 @@ class RunTask:
             with open(os.path.join(self.project['target-path'], f), 'r') as fh:
                 self.linker.link(fh.read())
 
+    def __query_for_existing(self, cursor, schema):
+        sql = """
+            select '{schema}.' || tablename as name, 'table' as type from pg_tables where schemaname = '{schema}'
+                union all
+            select '{schema}.' || viewname as name, 'view' as type from pg_views where schemaname = '{schema}' """.format(schema=schema)
+
+        cursor.execute(sql)
+        existing = [(name, relation_type) for (name, relation_type) in cursor.fetchall()]
+
+        return dict(existing)
+
+    def __drop(self, cursor, relation, relation_type):
+        cascade = "cascade" if relation_type == 'view' else ""
+
+        sql = "drop {relation_type} if exists {relation} {cascade}".format(relation_type=relation_type, relation=relation, cascade=cascade)
+
+        cursor.execute(sql)
+
     def __execute_models(self):
         target = self.__get_target()
+
         with target.get_handle() as handle:
             with handle.cursor() as cursor:
+
+                existing =  self.__query_for_existing(cursor, target.schema);
+
                 for (relation, sql) in self.linker.as_dependency_list():
+
+                    if relation in existing:
+                        self.__drop(cursor, relation, existing[relation])
+                        handle.commit()
+
                     print "creating {}".format(relation)
                     #print "         {}...".format(re.sub( '\s+', ' ', sql[0:100] ).strip())
                     cursor.execute(sql)

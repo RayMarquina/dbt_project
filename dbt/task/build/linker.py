@@ -14,10 +14,10 @@ class Relation(object):
         return "{}.{}".format(self.schema, self.name)
 
     def __repr__(self):
-        return self.val()
+        return self.val
 
     def __str__(self):
-        return self.val()
+        return self.val
 
 class Linker(object):
     def __init__(self, graph=None):

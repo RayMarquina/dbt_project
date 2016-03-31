@@ -70,9 +70,16 @@ class CompileTask:
         ctx = self.project.context()
         schema = ctx['env']['schema']
 
-        template = "create {table_or_view} {schema}.{identifier} as ( {query} );"
+        create_template = "create {table_or_view} {schema}.{identifier} as ( {query} );"
 
-        return template.format(table_or_view=table_or_view, schema=schema, identifier=identifier, query=query)
+        opts = {
+            "table_or_view": table_or_view,
+            "schema": schema,
+            "identifier": identifier,
+            "query": query
+        }
+
+        return create_template.format(**opts)
 
 
     def __get_sql_file_config(self, src_path, f):
