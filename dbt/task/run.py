@@ -81,10 +81,7 @@ class RunTask:
         return dict(existing)
 
     def __drop(self, cursor, relation, relation_type):
-        cascade = "cascade" if relation_type == 'view' else ""
-
-        sql = "drop {relation_type} if exists {relation} {cascade}".format(relation_type=relation_type, relation=relation, cascade=cascade)
-
+        sql = "drop {relation_type} if exists {relation} cascade".format(relation_type=relation_type, relation=relation)
         cursor.execute(sql)
 
     def __execute_models(self):
