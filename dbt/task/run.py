@@ -4,7 +4,7 @@ import os
 import fnmatch
 import re
 
-from build.linker import Linker
+from .build.linker import Linker
 
 class RedshiftTarget:
     def __init__(self, cfg):
@@ -98,10 +98,10 @@ class RunTask:
                         self.__drop(cursor, relation, existing[relation])
                         handle.commit()
 
-                    print "creating {}".format(relation)
-                    #print "         {}...".format(re.sub( '\s+', ' ', sql[0:100] ).strip())
+                    print("creating {}".format(relation))
+                    #print("         {}...".format(re.sub( '\s+', ' ', sql[0:100] ).strip()))
                     cursor.execute(sql)
-                    print "         {}".format(cursor.statusmessage)
+                    print("         {}".format(cursor.statusmessage))
                     handle.commit()
 
     def run(self):

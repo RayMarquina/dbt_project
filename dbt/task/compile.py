@@ -55,7 +55,7 @@ class CompileTask:
         if not os.path.exists(os.path.dirname(target_path)):
             os.makedirs(os.path.dirname(target_path))
         elif os.path.exists(target_path):
-            print "Compiler overwrite of {}".format(target_path)
+            print("Compiler overwrite of {}".format(target_path))
 
         with open(target_path, 'w') as f:
             f.write(payload)
@@ -94,7 +94,7 @@ class CompileTask:
         return model_config
 
     def __compile(self, src_index):
-        for src_path, files in src_index.iteritems():
+        for src_path, files in src_index.items():
             jinja = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath=src_path))
             for f in files:
                 template = jinja.get_template(f)
