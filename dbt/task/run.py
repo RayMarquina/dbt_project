@@ -4,7 +4,7 @@ import os
 import fnmatch
 import re
 
-from compiler.linker import Linker
+from build.linker import Linker
 
 class RedshiftTarget:
     def __init__(self, cfg):
