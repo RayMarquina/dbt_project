@@ -119,7 +119,7 @@ class Linker(object):
                 node = self.extract_name_and_deps(statement)
                 self.register(node, sql)
             else:
-                print "Ignoring {}".format(sql[0:100].replace('\n', ' '))
+                print("Ignoring {}".format(sql[0:100].replace('\n', ' ')))
 
 
 class RunTask:
