@@ -3,12 +3,21 @@ from setuptools import setup, find_packages
 import os.path
 
 package_name = "dbt"
-package_version = "0.1.0-SNAPSHOT"
+package_version = "0.1.0"
 
 setup(
   name=package_name,
   version=package_version,
+  description="Data build tool for Analyst Collective",
+  author="Analyst Collective",
+  author_email="admin@analystcollective.org",
+  url="https://github.com/analyst-collective/dbt",
   packages=find_packages(),
+  entry_points={
+    'console_scripts': [
+      'dbt = dbt.main:main',
+    ],
+  },
   scripts=[
     'scripts/dbt',
   ],
