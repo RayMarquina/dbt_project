@@ -1,5 +1,6 @@
 import argparse
 import os.path
+import sys
 import dbt.project as project
 import dbt.task.run as run_task
 import dbt.task.compile as compile_task
@@ -7,7 +8,10 @@ import dbt.task.debug as debug_task
 import dbt.task.clean as clean_task
 
 
-def main(args):
+def main(args=None):
+    if args is None:
+        args = sys.argv[1:]
+
     if os.path.isfile('dbt_project.yml'):
         proj = project.read_project('dbt_project.yml')
     else:
