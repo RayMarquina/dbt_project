@@ -7,8 +7,8 @@ target-path: "target"     # path for compiled code
 clean-targets: ["target"] # directories removed by the clean task
 
 model-defaults:
-    enabled: true        # enable all models by default
-    materialized: false  # If true, create tables. If false, create views
+  enabled: true        # enable all models by default
+  materialized: false  # If true, create tables. If false, create views
 
 models:
   pardot:
@@ -31,7 +31,7 @@ outputs:
     pass: password
     dbname: dev
     schema: my_model_schema
-run-target: my_redshift
+run-target: my-redshift
 
 # Test configuration
 test-paths: ["test"]
