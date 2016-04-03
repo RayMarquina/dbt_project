@@ -86,6 +86,9 @@ class CompileTask:
                 model_group, model_name = self.__get_model_identifiers(f)
                 model_config = self.__get_model_config(model_group, model_name)
 
+                if not model_config.get('enabled'):
+                    continue
+
                 template = jinja.get_template(f)
                 rendered = template.render(self.project.context())
 
