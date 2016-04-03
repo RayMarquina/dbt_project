@@ -10,11 +10,10 @@ default_project_cfg = {
     'clean-targets': ['target'],
     'outputs': {'default': {}},
     'run-target': 'default',
-    'models': {
-        'base': {
-            "materialized": False,
-            "enabled": True
-        }
+    'models': {},
+    'model-defaults': {
+        "enabled": True,
+        "materialized": False
     }
 }
 

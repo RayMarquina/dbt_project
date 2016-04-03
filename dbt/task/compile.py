@@ -67,9 +67,9 @@ class CompileTask:
         """merges model, model group, and base configs together. Model config
         takes precedence, then model_group, then base config"""
 
-        model_configs = self.project['models']
+        config = self.project['model-defaults'].copy()
 
-        config = model_configs['base'].copy()
+        model_configs = self.project['models']
         model_group_config = model_configs.get(model_group, {})
         model_config = model_group_config.get(model_name, {})
 
