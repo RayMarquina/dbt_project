@@ -10,6 +10,12 @@ default_project_cfg = {
     'clean-targets': ['target'],
     'outputs': {'default': {}},
     'run-target': 'default',
+    'models': {
+        'base': {
+            "materialized": False,
+            "enabled": True
+        }
+    }
 }
 
 default_profiles = {
@@ -17,7 +23,6 @@ default_profiles = {
 }
 
 default_active_profiles = ['user']
-
 
 class Project:
 

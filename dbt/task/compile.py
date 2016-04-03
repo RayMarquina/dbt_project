@@ -5,30 +5,10 @@ import jinja2
 import yaml
 from collections import defaultdict
 
-default_model_config = {
-    "materialized": False,
-    "enabled": True,
-}
-
 class CompileTask:
     def __init__(self, args, project):
         self.args = args
         self.project = project
-
-        self.model_configs = {}
-
-    def __load_model_config(self, config_path):
-        # directory containing the config file
-        model_path = os.path.dirname(config_path)
-
-        if model_path not in self.model_configs and os.path.exists(config_path):
-            with open(config_path, 'r') as config_fh:
-                model_config = yaml.safe_load(config_fh)
-
-                config = default_model_config.copy()
-                config.update(model_config)
-
-                self.model_configs[model_path] = config
 
     def __src_index(self):
         """returns: {'model': ['pardot/model.sql', 'segment/model.sql']}
@@ -43,9 +23,6 @@ class CompileTask:
 
                     if fnmatch.fnmatch(filename, "*.sql"):
                         indexed_files[source_path].append(rel_path)
-
-                    elif filename == 'config.yml':
-                        self.__load_model_config(abs_path)
 
         return indexed_files
 
@@ -81,29 +58,36 @@ class CompileTask:
 
         return create_template.format(**opts)
 
+    def __get_model_identifiers(self, model_filepath):
+        model_group = os.path.dirname(model_filepath)
+        model_name, _ = os.path.splitext(os.path.basename(model_filepath))
+        return model_group, model_name
 
-    def __get_sql_file_config(self, src_path, f):
-        model_path = os.path.join(src_path, os.path.dirname(f))
-        config = self.model_configs.get(model_path, default_model_config)
-        identifier, ext = os.path.splitext(os.path.basename(f))
-        model_config = config.copy()
+    def __get_model_config(self, model_group, model_name):
+        """merges model, model group, and base configs together. Model config
+        takes precedence, then model_group, then base config"""
 
-        if identifier in model_config:
-            model_config.update(config[identifier])
+        model_configs = self.project['models']
 
-        return model_config
+        config = model_configs['base'].copy()
+        model_group_config = model_configs.get(model_group, {})
+        model_config = model_group_config.get(model_name, {})
+
+        config.update(model_group_config)
+        config.update(model_config)
+
+        return config
 
     def __compile(self, src_index):
         for src_path, files in src_index.items():
             jinja = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath=src_path))
             for f in files:
+
+                model_group, model_name = self.__get_model_identifiers(f)
+                model_config = self.__get_model_config(model_group, model_name)
+
                 template = jinja.get_template(f)
                 rendered = template.render(self.project.context())
-
-                model_config = self.__get_sql_file_config(src_path, f)
-
-                if not model_config['enabled']:
-                    continue
 
                 create_stmt = self.__wrap_in_create(f, rendered, model_config)
 
