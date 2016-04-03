@@ -6,6 +6,17 @@ source-paths: ["model"]   # paths with source code to compile
 target-path: "target"     # path for compiled code
 clean-targets: ["target"] # directories removed by the clean task
 
+model-defaults:
+    enabled: true        # enable all models by default
+    materialized: false  # If true, create tables. If false, create views
+
+models:
+  pardot:
+    enabled: false          # disable all pardot models except where overriden
+    pardot_visitoractivity: # override configs for a particular model
+      enabled: true         # enable this model
+      materialized: true    # create a table instead of a view (overriding the base config)
+
 # Run configuration
 # output environments
 outputs:

@@ -22,9 +22,10 @@ setup(
     'scripts/dbt',
   ],
   install_requires=[
-    'argparse>=1.2.1',
     'Jinja2>=2.8',
     'PyYAML>=3.11',
     'psycopg2==2.6.1',
+    'sqlparse==0.1.19',
+    'networkx==1.11',
   ],
 )

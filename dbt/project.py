@@ -4,12 +4,17 @@ import pprint
 import copy
 
 default_project_cfg = {
-    'source-paths': ['model'],
+    'source-paths': ['models'],
     'test-paths': ['test'],
     'target-path': 'target',
     'clean-targets': ['target'],
     'outputs': {'default': {}},
     'run-target': 'default',
+    'models': {},
+    'model-defaults': {
+        "enabled": True,
+        "materialized": False
+    }
 }
 
 default_profiles = {
@@ -17,7 +22,6 @@ default_profiles = {
 }
 
 default_active_profiles = ['user']
-
 
 class Project:
 
@@ -45,6 +49,9 @@ class Project:
 
     def __setitem__(self, key, value):
         return self.cfg.__setitem__(key, value)
+
+    def get(self, key, default=None):
+        return self.cfg.get(key, default)
 
     def run_environment(self):
         target_name = self.cfg['run-target']

@@ -7,6 +7,6 @@ class DebugTask:
         self.project = project
 
     def run(self):
-        print "args: {}".format(self.args)
-        print "project: "
+        print("args: {}".format(self.args))
+        print("project: ")
         pprint.pprint(self.project)
