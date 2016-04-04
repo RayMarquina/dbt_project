@@ -67,6 +67,7 @@ user:                         # you can have multiple profiles for different pro
 
 If you see an error that looks like
 > Error: pg_config executable not found
+
 while installing dbt, make sure that you have development versions of postgres installed
 
 ```bash
