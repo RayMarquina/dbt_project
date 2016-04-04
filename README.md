@@ -63,6 +63,20 @@ user:                         # you can have multiple profiles for different pro
 `dbt clean` to clear compiled files
 
 
+#### troubleshooting
+
+If you see an error that looks like
+> Error: pg_config executable not found
+while installing dbt, make sure that you have development versions of postgres installed
+
+```bash
+# linux
+sudo apt-get install libpq-dev python-dev
+
+# osx
+brew install postgresql
+```
+
 #### contributing
 
 From the root directory of this repository, run:
