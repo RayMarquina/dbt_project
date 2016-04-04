@@ -12,9 +12,9 @@ model-defaults:
 
 models:
   pardot:
-    enabled: false          # disable all pardot models except where overriden
+    enabled: true           # explicity enable all models in this group
     pardot_visitoractivity: # override configs for a particular model
-      enabled: true         # enable this model
+      enabled: true         # explicitly enable this model. Could optionally be "false" instead
       materialized: true    # create a table instead of a view (overriding the base config)
 
 # Run configuration
