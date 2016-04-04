@@ -14,7 +14,7 @@ A data build tool
   `dbt_project.yml` file should be checked in to your models repository, so be sure that it does *not* contain any database
   credentials! Make sure that all of your private information is stored in the `~/.dbt/profiles.yml` configuration file.
 
-##### dbt_project.yml
+##### example dbt_project.yml
 ```yml
 
 # configure dbt file paths (relative to dbt_project.yml)
@@ -39,7 +39,7 @@ models:
       materialized: true  # create a table instead of a view
 ```
 
-##### ~/.dbt/profiles.yml
+##### example ~/.dbt/profiles.yml
 ```yml
 user:                         # you can have multiple profiles for different projects
   outputs:
