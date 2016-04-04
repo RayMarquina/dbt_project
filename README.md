@@ -10,7 +10,7 @@ A data build tool
 
 #### configuration
 
-  Create a `dbt_project.yml` file in the root of your [models](https://github.com/analyst-collective/models) directory. Also create a  `profiles.yml` file in the `~/.dbt` directory. If this directory doesn't exist, you should create it. The
+  Create a `dbt_project.yml` file in the root of your [analytics](https://github.com/analyst-collective/analytics) directory. Also create a  `profiles.yml` file in the `~/.dbt` directory. If this directory doesn't exist, you should create it. The
   `dbt_project.yml` file should be checked in to your models repository, so be sure that it does *not* contain any database
   credentials! Make sure that all of your private information is stored in the `~/.dbt/profiles.yml` configuration file.
 
