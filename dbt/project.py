@@ -12,9 +12,11 @@ default_project_cfg = {
     'run-target': 'default',
     'models': {},
     'model-defaults': {
-        "enabled": True,
-        "materialized": False
-    }
+        'enabled': True,
+        'materialized': False
+    },
+    'repositories': [],
+    'modules-path': 'dbt_modules'
 }
 
 default_profiles = {

@@ -20,3 +20,5 @@ models:
       enabled: true       # enable this specific model (false to disable)
       materialized: true  # create a table instead of a view
 
+repositories:
+  - "git@github.com:analyst-collective/analytics"
