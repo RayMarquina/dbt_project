@@ -4,6 +4,9 @@ import fnmatch
 import jinja2
 import yaml
 from collections import defaultdict
+from functools import partial
+
+NAMESPACE_DELIMITER = "."
 
 class CompileTask:
     def __init__(self, args, project):
@@ -37,17 +40,16 @@ class CompileTask:
         with open(target_path, 'w') as f:
             f.write(payload)
 
-    def __wrap_in_create(self, path, query, model_config):
-        filename = os.path.basename(path)
-        identifier, ext = os.path.splitext(filename)
-
+    def __wrap_in_create(self, namespace, model_name, query, model_config):
         # default to view if not provided in config!
         table_or_view = 'table' if model_config['materialized'] else 'view'
 
         ctx = self.project.context()
         schema = ctx['env']['schema']
 
-        create_template = "create {table_or_view} {schema}.{identifier} as ( {query} );"
+        create_template = 'create {table_or_view} "{schema}"."{identifier}" as ( {query} );'
+
+        identifier = NAMESPACE_DELIMITER.join(namespace + [model_name])
 
         opts = {
             "table_or_view": table_or_view,
@@ -59,40 +61,52 @@ class CompileTask:
         return create_template.format(**opts)
 
     def __get_model_identifiers(self, model_filepath):
-        model_group = os.path.dirname(model_filepath)
+        namespace = os.path.dirname(model_filepath).split("/")
         model_name, _ = os.path.splitext(os.path.basename(model_filepath))
-        return model_group, model_name
+        return namespace, model_name
 
-    def __get_model_config(self, model_group, model_name):
+    def __get_model_config(self, namespace, model_name):
         """merges model, model group, and base configs together. Model config
-        takes precedence, then model_group, then base config"""
+        takes precedence, then namespace, then base config"""
 
         config = self.project['model-defaults'].copy()
 
-        model_configs = self.project['models']
-        model_group_config = model_configs.get(model_group, {})
-        model_config = model_group_config.get(model_name, {})
+        namespace_config = self.project['models']
 
-        config.update(model_group_config)
+        for item in namespace:
+            namespace_config = namespace_config.get(item, {})
+            config.update(namespace_config)
+
+        model_config = namespace_config.get(model_name, {})
         config.update(model_config)
 
         return config
+
+    def __include(self, calling_model, *args):
+        print 'called from', calling_model, 'args:', args
+
+    def __context(self, calling_model):
+        ctx = self.project.context()
+        ctx['resolve'] = partial(self.__include, calling_model)
+        return ctx
 
     def __compile(self, src_index):
         for src_path, files in src_index.items():
             jinja = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath=src_path))
             for f in files:
 
-                model_group, model_name = self.__get_model_identifiers(f)
-                model_config = self.__get_model_config(model_group, model_name)
+                namespace, model_name = self.__get_model_identifiers(f)
+                model_config = self.__get_model_config(namespace, model_name)
 
                 if not model_config.get('enabled'):
                     continue
 
-                template = jinja.get_template(f)
-                rendered = template.render(self.project.context())
+                qualified_name = namespace + [model_name]
 
-                create_stmt = self.__wrap_in_create(f, rendered, model_config)
+                template = jinja.get_template(f)
+                rendered = template.render(self.__context(qualified_name))
+
+                create_stmt = self.__wrap_in_create(namespace, model_name, rendered, model_config)
 
                 if create_stmt:
                     self.__write(f, create_stmt)
