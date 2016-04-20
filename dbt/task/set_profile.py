@@ -34,7 +34,7 @@ class SetProfileTask:
             self.write_local_config(config)
 
             profiles_str = ", ".join('"{}"'.format(profile) for profile in profiles)
-            print("Set environemnt to use profiles: [{}]".format(profiles_str))
+            print("Set environment to use profiles: [{}]".format(profiles_str))
         else:
 
             invalid_profiles_str = ", ".join('"{}"'.format(profile) for profile in invalid_profiles)
