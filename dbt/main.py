@@ -6,37 +6,40 @@ import dbt.task.run as run_task
 import dbt.task.compile as compile_task
 import dbt.task.debug as debug_task
 import dbt.task.clean as clean_task
-
+import dbt.task.set_profile as set_profile_task
 
 def main(args=None):
     if args is None:
         args = sys.argv[1:]
-
-    p = argparse.ArgumentParser(prog='dbt: data build tool')
-    subs = p.add_subparsers()
-
-    base_subparser = argparse.ArgumentParser(add_help=False)
-    base_subparser.add_argument('--profile', default=["user"], nargs='+', type=str, help='Which profile to load')
-
-    sub = subs.add_parser('clean', parents=[base_subparser])
-    sub.set_defaults(cls=clean_task.CleanTask)
-
-    sub = subs.add_parser('run', parents=[base_subparser])
-    sub.set_defaults(cls=run_task.RunTask)
-
-    sub = subs.add_parser('compile', parents=[base_subparser])
-    sub.set_defaults(cls=compile_task.CompileTask)
-
-    sub = subs.add_parser('debug', parents=[base_subparser])
-    sub.set_defaults(cls=debug_task.DebugTask)
-
-    parsed = p.parse_args(args)
 
     if os.path.isfile('dbt_project.yml'):
         proj = project.read_project('dbt_project.yml')
     else:
         proj = project.default_project()
 
-    proj = proj.with_profiles(parsed.profile)
+    local_config = proj.load_local_config()
+    local_profiles = local_config.get('profiles', [])
+    proj = proj.with_profiles(local_profiles)
+
+    p = argparse.ArgumentParser(prog='dbt: data build tool')
+    subs = p.add_subparsers()
+
+    sub = subs.add_parser('clean')
+    sub.set_defaults(cls=clean_task.CleanTask)
+
+    sub = subs.add_parser('run')
+    sub.set_defaults(cls=run_task.RunTask)
+
+    sub = subs.add_parser('compile')
+    sub.set_defaults(cls=compile_task.CompileTask)
+
+    sub = subs.add_parser('set-profile')
+    sub.add_argument('profiles', nargs='+', default=[])
+    sub.set_defaults(cls=set_profile_task.SetProfileTask)
+
+    sub = subs.add_parser('debug')
+    sub.set_defaults(cls=debug_task.DebugTask)
+
+    parsed = p.parse_args(args)
 
     parsed.cls(args=parsed, project=proj).run()

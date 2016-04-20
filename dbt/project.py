@@ -69,6 +69,14 @@ class Project:
             copy.deepcopy(self.profiles),
             profiles)
 
+    def load_local_config(self):
+        config = {}
+        if os.path.isfile('.dbt.yml'):
+            with open('.dbt.yml') as local_config_fh:
+                config = yaml.safe_load(local_config_fh)
+        return config
+
+
 
 def read_profiles():
     profiles = {}
