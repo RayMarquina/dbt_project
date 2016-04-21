@@ -1,25 +1,40 @@
 import os
+import re
 import yaml
 import pprint
 import subprocess
-
+import dbt.project as project
 
 class DepsTask:
     def __init__(self, args, project):
         self.args = args
         self.project = project
 
-    def __clone_or_update_repo(self, repo):
-        p = subprocess.Popen(
+    def __pull_repo(self, repo):
+        proc = subprocess.Popen(
             ['git', 'clone', repo],
-            cwd=self.project['modules-path'])
+            cwd=self.project['modules-path'],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE)
 
-        out = p.communicate()
+        out, err = proc.communicate()
+        pattern = re.compile("Cloning into '(.+)'")
+        matches = pattern.match(err)
+        folder = matches.group(1)
+        return folder
+
+    def __pull_deps_recursive(self, repos):
+        for repo in repos:
+            dep_folder = self.__pull_repo(repo)
+            dep_project = project.read_project(
+                os.path.join(self.project['modules-path'],
+                             dep_folder,
+                             'dbt_project.yml')
+            )
+            self.__pull_deps_recursive(dep_project['repositories'])
 
     def run(self):
-        pprint.pprint(self.project['modules-path'])
-        if not os.path.exists(os.path.dirname(self.project['modules-path'])):
+        if not os.path.exists(self.project['modules-path']):
             os.makedirs(self.project['modules-path'])
 
-        for repo in self.project['repositories']:
-            self.__clone_or_update_repo(repo)
+        self.__pull_deps_recursive(self.project['repositories'])
