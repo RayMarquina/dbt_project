@@ -23,6 +23,15 @@ default_profiles = {
 
 default_active_profiles = ['user']
 
+class ProjectConfigError(Exception):
+    def __init__(self, missing_key, project):
+
+        debug_str = project.__str__()
+        pprint.pformat({'project': self.cfg, 'profiles': self.profiles})
+        message = "Error: Expected field '{}' was not given in project configuration.\n\nSupplied profile:\n{}".format(missing_key, debug_str)
+
+        super(ProjectConfigError, self).__init__(message)
+
 class Project:
 
     def __init__(self, cfg, profiles, active_profile_names=[]):
@@ -69,6 +78,15 @@ class Project:
             copy.deepcopy(self.profiles),
             profiles)
 
+    def validate(self):
+        target_cfg = self.run_environment()
+        target_name = self.cfg['run-target']
+
+        required_keys = ['host', 'user', 'pass', 'schema', 'type', 'dbname', 'port']
+        for key in required_keys:
+            if key not in target_cfg or len(str(target_cfg[key])) == 0:
+                full_key = "{}.{}.{}.{}".format('profiles', active_profile, target_name, key)
+                raise ProjectConfigError(full_key, self)
 
 def read_profiles():
     profiles = {}
