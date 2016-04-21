@@ -5,6 +5,12 @@ import jinja2
 import yaml
 from collections import defaultdict
 
+CREATE_TABLE_TEMPLATE = """
+create {table_or_view} {schema}.{identifier} {distkey_str} {sortkey_str}
+    as (
+        {query}
+);"""
+
 class CompileTask:
     def __init__(self, args, project):
         self.args = args
@@ -47,16 +53,28 @@ class CompileTask:
         ctx = self.project.context()
         schema = ctx['env']['schema']
 
-        create_template = "create {table_or_view} {schema}.{identifier} as ( {query} );"
+        sort_key = ""
+        if 'sort' in model_config:
+            sort_config = model_config['sort']
+            if type(sort_config) == 'str':
+                sort_config = [sort_config]
+            sort_key_list = ", ".join('"{}"'.format(key) for key in sort_config)
+            sort_key = "sortkey ({})".format(sort_key_list)
+
+        dist_key = ""
+        if 'dist' in model_config:
+            dist_key = 'distkey ("{}")'.format(model_config['dist'])
 
         opts = {
             "table_or_view": table_or_view,
             "schema": schema,
             "identifier": identifier,
-            "query": query
+            "query": query,
+            "distkey_str": dist_key,
+            "sortkey_str": sort_key
         }
 
-        return create_template.format(**opts)
+        return CREATE_TABLE_TEMPLATE.format(**opts)
 
     def __get_model_identifiers(self, model_filepath):
         model_group = os.path.dirname(model_filepath)

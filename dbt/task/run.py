@@ -71,6 +71,9 @@ class Linker(object):
         new_nodes = set()
 
         def extract_deps(stmt):
+            if stmt is None:
+                return
+
             token = stmt.token_first()
             while token is not None:
                 excluded_types = [sqlparse.sql.Function] # don't dive into window functions
