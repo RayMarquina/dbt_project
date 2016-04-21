@@ -27,7 +27,7 @@ class ProjectConfigError(Exception):
     def __init__(self, missing_key, project):
 
         debug_str = project.__str__()
-        pprint.pformat({'project': self.cfg, 'profiles': self.profiles})
+        pprint.pformat({'project': project.cfg, 'profiles': project.profiles})
         message = "Error: Expected field '{}' was not given in project configuration.\n\nSupplied profile:\n{}".format(missing_key, debug_str)
 
         super(ProjectConfigError, self).__init__(message)
@@ -85,8 +85,7 @@ class Project:
         required_keys = ['host', 'user', 'pass', 'schema', 'type', 'dbname', 'port']
         for key in required_keys:
             if key not in target_cfg or len(str(target_cfg[key])) == 0:
-                full_key = "{}.{}.{}.{}".format('profiles', active_profile, target_name, key)
-                raise ProjectConfigError(full_key, self)
+                raise ProjectConfigError(key, self)
 
 def read_profiles():
     profiles = {}
