@@ -18,9 +18,30 @@ class DepsTask:
             stderr=subprocess.PIPE)
 
         out, err = proc.communicate()
-        pattern = re.compile("Cloning into '(.+)'")
-        matches = pattern.match(err)
-        folder = matches.group(1)
+
+        exists = re.match("fatal: destination path '(.+)' already exists", err)
+        folder = None
+        if exists:
+            folder = exists.group(1)
+            print "updating existing dependency {}".format(folder)
+            full_path = os.path.join(self.project['modules-path'], folder)
+            proc = subprocess.Popen(
+                ['git', 'fetch', '--all'],
+                cwd=full_path,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE)
+            out, err = proc.communicate()
+            proc = subprocess.Popen(
+                ['git', 'reset', '--hard', 'origin/master'],
+                cwd=full_path,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE)
+            out, err = proc.communicate()
+        else:
+            matches = re.match("Cloning into '(.+)'", err)
+            folder = matches.group(1)
+            print "pulled new dependency {}".format(folder)
+
         return folder
 
     def __pull_deps_recursive(self, repos):
