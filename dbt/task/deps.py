@@ -1,4 +1,5 @@
 import os
+import errno
 import re
 import yaml
 import pprint
@@ -46,13 +47,20 @@ class DepsTask:
 
     def __pull_deps_recursive(self, repos):
         for repo in repos:
-            dep_folder = self.__pull_repo(repo)
-            dep_project = project.read_project(
-                os.path.join(self.project['modules-path'],
-                             dep_folder,
-                             'dbt_project.yml')
-            )
-            self.__pull_deps_recursive(dep_project['repositories'])
+            try:
+                dep_folder = self.__pull_repo(repo)
+                dep_project = project.read_project(
+                    os.path.join(self.project['modules-path'],
+                                 dep_folder,
+                                 'dbt_project.yml')
+                )
+                self.__pull_deps_recursive(dep_project['repositories'])
+            except IOError as e:
+                if e.errno == errno.ENOENT:
+                    print "'{}' is not a valid dbt project - dbt_project.yml not found".format(repo)
+                    exit(1)
+                else:
+                    raise e
 
     def run(self):
         if not os.path.exists(self.project['modules-path']):
