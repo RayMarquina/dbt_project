@@ -16,7 +16,7 @@ def main(args=None):
     if os.path.isfile('dbt_project.yml'):
         proj = project.read_project('dbt_project.yml')
     else:
-        proj = project.default_project()
+        raise RuntimeError("dbt must be run from a project root directory with a dbt_project.yml file")
 
     p = argparse.ArgumentParser(prog='dbt: data build tool')
     subs = p.add_subparsers()
