@@ -6,6 +6,11 @@ import pprint
 import subprocess
 import dbt.project as project
 
+def folder_from_git_remote(remote_spec):
+    start = remote_spec.rfind('/') + 1
+    end = len(remote_spec) - (4 if remote_spec.endswith('.git') else 0)
+    return remote_spec[start:end]
+
 class DepsTask:
     def __init__(self, args, project):
         self.args = args
@@ -45,16 +50,21 @@ class DepsTask:
 
         return folder
 
-    def __pull_deps_recursive(self, repos):
+    def __pull_deps_recursive(self, repos, processed_repos = set()):
         for repo in repos:
+            repo_folder = folder_from_git_remote(repo)
             try:
-                dep_folder = self.__pull_repo(repo)
-                dep_project = project.read_project(
-                    os.path.join(self.project['modules-path'],
-                                 dep_folder,
-                                 'dbt_project.yml')
-                )
-                self.__pull_deps_recursive(dep_project['repositories'])
+                if repo_folder in processed_repos:
+                    print "skipping already processed dependency {}".format(repo_folder)
+                else:
+                    dep_folder = self.__pull_repo(repo)
+                    dep_project = project.read_project(
+                        os.path.join(self.project['modules-path'],
+                                     dep_folder,
+                                     'dbt_project.yml')
+                    )
+                    processed_repos.add(dep_folder)
+                    self.__pull_deps_recursive(dep_project['repositories'], processed_repos)
             except IOError as e:
                 if e.errno == errno.ENOENT:
                     print "'{}' is not a valid dbt project - dbt_project.yml not found".format(repo)
