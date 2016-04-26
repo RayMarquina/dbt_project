@@ -71,8 +71,14 @@ class CompileTask:
         ctx = self.project.context()
         schema = ctx['env'].get('schema', 'public')
 
-        dist_qualifier = self.__dist_qualifier(model_config) if 'dist' in model_config else ""
-        sort_qualifier = self.__sort_qualifier(model_config) if 'sort' in model_config else ""
+        dist_qualifier = ""
+        sort_qualifier = ""
+
+        if table_or_view == 'table':
+            if 'dist' in model_config:
+                dist_qualifier = self.__dist_qualifier(model_config)
+            if 'sort' in model_config:
+                sort_qualifier = self.__sort_qualifier(model_config)
 
         opts = {
             "table_or_view": table_or_view,
