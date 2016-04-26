@@ -52,7 +52,12 @@ class CompileTask:
         return "sortkey ({})".format(', '.join(formatted_sort_keys))
 
     def __dist_qualifier(self, model_config):
-        return 'distkey ("{}")'.format(model_config['dist'])
+        dist_key = model_config['dist']
+
+        if type(dist_key) != str:
+            raise RuntimeError("The provided distkey '{}' is not valid!".format(dist_key))
+
+        return 'distkey ("{}")'.format(dist_key)
 
     def __wrap_in_create(self, path, query, model_config):
         filename = os.path.basename(path)
