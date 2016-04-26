@@ -5,7 +5,7 @@ import jinja2
 import yaml
 from collections import defaultdict
 
-CREATE_TABLE_TEMPLATE = """
+CREATE_STATEMENT_TEMPLATE = """
 create {table_or_view} {schema}.{identifier} {distkey_str} {sortkey_str}
     as (
         {query}
@@ -74,7 +74,7 @@ class CompileTask:
             "sortkey_str": sort_key
         }
 
-        return CREATE_TABLE_TEMPLATE.format(**opts)
+        return CREATE_STATEMENT_TEMPLATE.format(**opts)
 
     def __get_model_identifiers(self, model_filepath):
         model_group = os.path.dirname(model_filepath)
