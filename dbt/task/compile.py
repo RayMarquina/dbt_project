@@ -3,6 +3,7 @@ import os
 import fnmatch
 import jinja2
 import yaml
+import dbt.project
 from collections import defaultdict
 from functools import partial
 
@@ -13,19 +14,20 @@ class CompileTask:
         self.args = args
         self.project = project
 
-    def __src_index(self):
+    def __project_sources(self, project):
         """returns: {'model': ['pardot/model.sql', 'segment/model.sql']}
         """
         indexed_files = defaultdict(list)
 
-        for source_path in self.project['source-paths']:
-            for root, dirs, files in os.walk(source_path):
+        for source_path in project['source-paths']:
+            full_source_path = os.path.join(project['project-root'], source_path)
+            for root, dirs, files in os.walk(full_source_path):
                 for filename in files:
                     abs_path = os.path.join(root, filename)
-                    rel_path = os.path.relpath(abs_path, source_path)
+                    rel_path = os.path.relpath(abs_path, full_source_path)
 
                     if fnmatch.fnmatch(filename, "*.sql"):
-                        indexed_files[source_path].append(rel_path)
+                        indexed_files[full_source_path].append(rel_path)
 
         return indexed_files
 
@@ -45,7 +47,7 @@ class CompileTask:
         table_or_view = 'table' if model_config['materialized'] else 'view'
 
         ctx = self.project.context()
-        schema = ctx['env']['schema']
+        schema = ctx['env'].get('schema', 'public')
 
         create_template = 'create {table_or_view} "{schema}"."{identifier}" as ( {query} );'
 
@@ -112,5 +114,12 @@ class CompileTask:
                     self.__write(f, create_stmt)
 
     def run(self):
-        src_index = self.__src_index()
-        self.__compile(src_index)
+        sources = self.__project_sources(self.project)
+
+        for obj in os.listdir(self.project['modules-path']):
+            full_obj = os.path.join(self.project['modules-path'], obj)
+            if os.path.isdir(full_obj):
+                project = dbt.project.read_project(os.path.join(full_obj, 'dbt_project.yml'))
+                sources.update(self.__project_sources(project))
+
+        self.__compile(sources)
