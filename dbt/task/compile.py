@@ -6,9 +6,8 @@ import yaml
 from collections import defaultdict
 
 CREATE_STATEMENT_TEMPLATE = """
-create {table_or_view} {schema}.{identifier} {distkey_str} {sortkey_str}
-    as (
-        {query}
+create {table_or_view} {schema}.{identifier} {dist_qualifier} {sort_qualifier} as (
+    {query}
 );"""
 
 class CompileTask:
@@ -43,6 +42,18 @@ class CompileTask:
         with open(target_path, 'w') as f:
             f.write(payload)
 
+    def __sort_qualifier(self, model_config):
+        sort_keys = model_config['sort']
+        if type(sort_keys) == str:
+            sort_keys = [sort_keys]
+
+        # remove existing quotes in field name, then wrap in quotes
+        formatted_sort_keys = ['"{}"'.format(sort_key.replace('"', '')) for sort_key in sort_keys]
+        return "sortkey ({})".format(', '.join(formatted_sort_keys))
+
+    def __dist_qualifier(self, model_config):
+        return 'distkey ("{}")'.format(model_config['dist'])
+
     def __wrap_in_create(self, path, query, model_config):
         filename = os.path.basename(path)
         identifier, ext = os.path.splitext(filename)
@@ -53,25 +64,16 @@ class CompileTask:
         ctx = self.project.context()
         schema = ctx['env']['schema']
 
-        sort_key = ""
-        if 'sort' in model_config:
-            sort_config = model_config['sort']
-            if type(sort_config) == str:
-                sort_config = [sort_config]
-            sort_key_list = ", ".join('"{}"'.format(key) for key in sort_config)
-            sort_key = "sortkey ({})".format(sort_key_list)
-
-        dist_key = ""
-        if 'dist' in model_config:
-            dist_key = 'distkey ("{}")'.format(model_config['dist'])
+        dist_qualifier = self.__dist_qualifier(model_config) if 'dist' in model_config else ""
+        sort_qualifier = self.__sort_qualifier(model_config) if 'sort' in model_config else ""
 
         opts = {
             "table_or_view": table_or_view,
             "schema": schema,
             "identifier": identifier,
             "query": query,
-            "distkey_str": dist_key,
-            "sortkey_str": sort_key
+            "dist_qualifier": dist_qualifier,
+            "sort_qualifier": sort_qualifier
         }
 
         return CREATE_STATEMENT_TEMPLATE.format(**opts)
