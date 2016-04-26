@@ -56,7 +56,7 @@ class CompileTask:
         sort_key = ""
         if 'sort' in model_config:
             sort_config = model_config['sort']
-            if type(sort_config) == 'str':
+            if type(sort_config) == str:
                 sort_config = [sort_config]
             sort_key_list = ", ".join('"{}"'.format(key) for key in sort_config)
             sort_key = "sortkey ({})".format(sort_key_list)
