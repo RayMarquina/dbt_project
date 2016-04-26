@@ -12,9 +12,11 @@ default_project_cfg = {
     'run-target': 'default',
     'models': {},
     'model-defaults': {
-        "enabled": True,
-        "materialized": False
-    }
+        'enabled': True,
+        'materialized': False
+    },
+    'repositories': [],
+    'modules-path': 'dbt_modules'
 }
 
 default_profiles = {
@@ -60,7 +62,7 @@ class Project:
     def context(self):
         target_cfg = self.run_environment()
         filtered_target = copy.deepcopy(target_cfg)
-        filtered_target.pop('pass')
+        filtered_target.pop('pass', None)
         return {'env': target_cfg}
 
     def with_profiles(self, profiles=[]):
@@ -83,17 +85,9 @@ def read_profiles():
 
     return profiles
 
-
-def init_project(project_cfg):
-    profiles = read_profiles()
-    return Project(project_cfg, profiles, default_active_profiles)
-
-
 def read_project(filename):
     with open(filename, 'r') as f:
-        cfg = yaml.safe_load(f)
-        return init_project(cfg)
-
-
-def default_project():
-    return init_project(default_project_cfg)
+        project_cfg = yaml.safe_load(f)
+        project_cfg['project-root'] = os.path.dirname(os.path.abspath(filename))
+        profiles = read_profiles()
+        return Project(project_cfg, profiles, default_active_profiles)

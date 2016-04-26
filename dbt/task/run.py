@@ -204,4 +204,3 @@ class RunTask:
         self.__create_schema()
         self.__load_models()
         self.__execute_models()
-
