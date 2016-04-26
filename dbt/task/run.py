@@ -210,5 +210,3 @@ class RunTask:
             print("ERROR: Could not connect to the target database. Try `dbt debug` for more information")
             print(e.message)
             sys.exit(1)
-
-
