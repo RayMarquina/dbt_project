@@ -62,6 +62,11 @@ user:                         # you can have multiple profiles for different pro
 
 `dbt clean` to clear compiled files
 
+#### docker
+
+an alternate means of using dbt is with the docker image jthandy/dbt. if you already have docker installed on your system, run with:
+```docker run -v ${PWD}:/dbt -v ~/.dbt:/root/.dbt jthandy/dbt /bin/bash -c "[type your command here]"
+this can be run from any dbt project directory. it relies on the same configuration setup outlined above.
 
 #### troubleshooting
 
