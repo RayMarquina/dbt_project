@@ -86,8 +86,6 @@ class Project:
             if key not in target_cfg or len(str(target_cfg[key])) == 0:
                 raise DbtProjectError("Expected project configuration '{}' was not supplied".format(key), self)
 
-
-
 def read_profiles():
     profiles = {}
     paths = [
