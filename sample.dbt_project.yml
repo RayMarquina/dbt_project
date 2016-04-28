@@ -26,5 +26,9 @@ models:
       sort: ['@timestamp', '@userid'] # optionally set one or more sort keys on the materialized table
       dist: '@userid'                 # optionally set a distribution key on the materialized table
 
+    pardot_visitoractivity:
+      materialized: false
+      sort: ['@timestamp']  # this has no effect, as sort and dist keys only apply to materialized tables
+
 repositories:
   - "git@github.com:analyst-collective/analytics"
