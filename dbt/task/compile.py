@@ -5,9 +5,6 @@ import jinja2
 import yaml
 import dbt.project
 from collections import defaultdict
-from functools import partial
-
-NAMESPACE_DELIMITER = "."
 
 from functools import partial
 import networkx as nx
@@ -93,9 +90,7 @@ class CompileTask:
 
         return 'distkey ("{}")'.format(dist_key)
 
-    def __wrap_in_create(self, path, query, model_config):
-        filename = os.path.basename(path)
-        identifier, ext = os.path.splitext(filename)
+    def __wrap_in_create(self, model_name, query, model_config):
 
         # default to view if not provided in config!
         table_or_view = 'table' if model_config['materialized'] else 'view'
@@ -115,7 +110,7 @@ class CompileTask:
         opts = {
             "table_or_view": table_or_view,
             "schema": schema,
-            "identifier": identifier,
+            "identifier": model_name,
             "query": query,
             "dist_qualifier": dist_qualifier,
             "sort_qualifier": sort_qualifier
@@ -124,23 +119,21 @@ class CompileTask:
         return CREATE_STATEMENT_TEMPLATE.format(**opts)
 
     def __get_model_identifiers(self, model_filepath):
-        namespace = os.path.dirname(model_filepath).split("/")
+        model_group = os.path.dirname(model_filepath)
         model_name, _ = os.path.splitext(os.path.basename(model_filepath))
-        return namespace, model_name
+        return model_group, model_name
 
-    def __get_model_config(self, namespace, model_name):
+    def __get_model_config(self, model_group, model_name):
         """merges model, model group, and base configs together. Model config
-        takes precedence, then namespace, then base config"""
+        takes precedence, then model_group, then base config"""
 
         config = self.project['model-defaults'].copy()
 
-        namespace_config = self.project['models']
+        model_configs = self.project['models']
+        model_group_config = model_configs.get(model_group, {})
+        model_config = model_group_config.get(model_name, {})
 
-        for item in namespace:
-            namespace_config = namespace_config.get(item, {})
-            config.update(namespace_config)
-
-        model_config = namespace_config.get(model_name, {})
+        config.update(model_group_config)
         config.update(model_config)
 
         return config
@@ -167,13 +160,11 @@ class CompileTask:
             jinja = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath=src_path))
             for f in files:
 
-                namespace, model_name = self.__get_model_identifiers(f)
-                model_config = self.__get_model_config(namespace, model_name)
+                model_group, model_name = self.__get_model_identifiers(f)
+                model_config = self.__get_model_config(model_group, model_name)
 
                 if not model_config.get('enabled'):
                     continue
-
-                qualified_name = namespace + [model_name]
 
                 template = jinja.get_template(f)
 
@@ -183,7 +174,7 @@ class CompileTask:
 
                 rendered = template.render(context)
 
-                create_stmt = self.__wrap_in_create(namespace, model_name, rendered, model_config)
+                create_stmt = self.__wrap_in_create(model_name, rendered, model_config)
 
                 if create_stmt:
                     self.__write(f, create_stmt)
