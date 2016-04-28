@@ -9,15 +9,35 @@ from functools import partial
 
 NAMESPACE_DELIMITER = "."
 
+from functools import partial
+import networkx as nx
+
 CREATE_STATEMENT_TEMPLATE = """
 create {table_or_view} {schema}.{identifier} {dist_qualifier} {sort_qualifier} as (
     {query}
 );"""
 
+class Linker(object):
+    def __init__(self):
+        self.graph = nx.DiGraph()
+
+    def as_dependency_list(self):
+        return nx.topological_sort(self.graph, reverse=True)
+
+    def dependency(self, node1, node2):
+        "indicate that node1 depends on node2"
+        self.graph.add_node(node1)
+        self.graph.add_node(node2)
+        self.graph.add_edge(node1, node2)
+
+
 class CompileTask:
     def __init__(self, args, project):
         self.args = args
         self.project = project
+
+        self.models = []
+        self.linker = Linker()
 
     def __project_sources(self, project):
         """returns: {'model': ['pardot/model.sql', 'segment/model.sql']}
@@ -33,6 +53,15 @@ class CompileTask:
 
                     if fnmatch.fnmatch(filename, "*.sql"):
                         indexed_files[full_source_path].append(rel_path)
+
+                        # TODO : include project name here!
+                        model_group = os.path.dirname(rel_path)
+                        model_name  = os.path.splitext(filename)[0]
+                        model = (model_group, model_name)
+                        if model not in self.models:
+                            self.models.append(model)
+                        else:
+                            print("WARNING: Conflicting model found {}".format(abs_path))
 
         return indexed_files
 
@@ -116,13 +145,22 @@ class CompileTask:
 
         return config
 
-    def __include(self, calling_model, *args):
-        print 'called from', calling_model, 'args:', args
+    def __find_model_by_name(self, name):
+        for model in self.models:
+            model_group, model_name = model
+            if model_name == name:
+                return model
+        raise RuntimeError("Can't find a model named '{}' -- does it exist?".format(name))
 
-    def __context(self, calling_model):
-        ctx = self.project.context()
-        ctx['resolve'] = partial(self.__include, calling_model)
-        return ctx
+    def __load(self, ctx, source_model):
+        schema = ctx['env']['schema']
+
+        def do_load(other_model_name):
+            other_model = self.__find_model_by_name(other_model_name)
+            self.linker.dependency(source_model, other_model)
+            return '"{}"."{}"'.format(schema, other_model_name)
+
+        return do_load
 
     def __compile(self, src_index):
         for src_path, files in src_index.items():
@@ -138,7 +176,12 @@ class CompileTask:
                 qualified_name = namespace + [model_name]
 
                 template = jinja.get_template(f)
-                rendered = template.render(self.__context(qualified_name))
+
+                context = self.project.context()
+                source_model = (model_group, model_name)
+                context['load'] = self.__load(context, source_model)
+
+                rendered = template.render(context)
 
                 create_stmt = self.__wrap_in_create(namespace, model_name, rendered, model_config)
 
