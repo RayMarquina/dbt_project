@@ -6,6 +6,11 @@ import yaml
 import dbt.project
 from collections import defaultdict
 
+CREATE_STATEMENT_TEMPLATE = """
+create {table_or_view} {schema}.{identifier} {dist_qualifier} {sort_qualifier} as (
+    {query}
+);"""
+
 class CompileTask:
     def __init__(self, args, project):
         self.args = args
@@ -39,6 +44,23 @@ class CompileTask:
         with open(target_path, 'w') as f:
             f.write(payload)
 
+    def __sort_qualifier(self, model_config):
+        sort_keys = model_config['sort']
+        if type(sort_keys) == str:
+            sort_keys = [sort_keys]
+
+        # remove existing quotes in field name, then wrap in quotes
+        formatted_sort_keys = ['"{}"'.format(sort_key.replace('"', '')) for sort_key in sort_keys]
+        return "sortkey ({})".format(', '.join(formatted_sort_keys))
+
+    def __dist_qualifier(self, model_config):
+        dist_key = model_config['dist']
+
+        if type(dist_key) != str:
+            raise RuntimeError("The provided distkey '{}' is not valid!".format(dist_key))
+
+        return 'distkey ("{}")'.format(dist_key)
+
     def __wrap_in_create(self, path, query, model_config):
         filename = os.path.basename(path)
         identifier, ext = os.path.splitext(filename)
@@ -49,16 +71,25 @@ class CompileTask:
         ctx = self.project.context()
         schema = ctx['env'].get('schema', 'public')
 
-        create_template = "create {table_or_view} {schema}.{identifier} as ( {query} );"
+        dist_qualifier = ""
+        sort_qualifier = ""
+
+        if table_or_view == 'table':
+            if 'dist' in model_config:
+                dist_qualifier = self.__dist_qualifier(model_config)
+            if 'sort' in model_config:
+                sort_qualifier = self.__sort_qualifier(model_config)
 
         opts = {
             "table_or_view": table_or_view,
             "schema": schema,
             "identifier": identifier,
-            "query": query
+            "query": query,
+            "dist_qualifier": dist_qualifier,
+            "sort_qualifier": sort_qualifier
         }
 
-        return create_template.format(**opts)
+        return CREATE_STATEMENT_TEMPLATE.format(**opts)
 
     def __get_model_identifiers(self, model_filepath):
         model_group = os.path.dirname(model_filepath)
