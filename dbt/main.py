@@ -8,7 +8,6 @@ import dbt.task.debug as debug_task
 import dbt.task.clean as clean_task
 import dbt.task.deps as deps_task
 
-
 def main(args=None):
     if args is None:
         args = sys.argv[1:]
@@ -21,21 +20,25 @@ def main(args=None):
     p = argparse.ArgumentParser(prog='dbt: data build tool')
     subs = p.add_subparsers()
 
-    sub = subs.add_parser('clean')
+    base_subparser = argparse.ArgumentParser(add_help=False)
+    base_subparser.add_argument('--profile', default=["user"], nargs='+', type=str, help='Which profile to load')
+
+    sub = subs.add_parser('clean', parents=[base_subparser])
     sub.set_defaults(cls=clean_task.CleanTask)
 
-    sub = subs.add_parser('compile')
+    sub = subs.add_parser('compile', parents=[base_subparser])
     sub.set_defaults(cls=compile_task.CompileTask)
 
-    sub = subs.add_parser('debug')
+    sub = subs.add_parser('debug', parents=[base_subparser])
     sub.set_defaults(cls=debug_task.DebugTask)
 
-    sub = subs.add_parser('deps')
+    sub = subs.add_parser('deps', parents=[base_subparser])
     sub.set_defaults(cls=deps_task.DepsTask)
 
-    sub = subs.add_parser('run')
+    sub = subs.add_parser('run', parents=[base_subparser])
     sub.set_defaults(cls=run_task.RunTask)
 
     parsed = p.parse_args(args)
 
+    proj = proj.with_profiles(parsed.profile)
     parsed.cls(args=parsed, project=proj).run()
