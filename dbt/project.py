@@ -71,7 +71,6 @@ class Project:
             copy.deepcopy(self.profiles),
             profiles)
 
-
 def read_profiles():
     profiles = {}
     paths = [
