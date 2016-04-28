@@ -10,5 +10,3 @@ class DebugTask:
         print("args: {}".format(self.args))
         print("project: ")
         pprint.pprint(self.project)
-        print("local config: ")
-        pprint.pprint(self.project.load_local_config())
