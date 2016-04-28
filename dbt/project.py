@@ -2,6 +2,7 @@ import os.path
 import yaml
 import pprint
 import copy
+import sys
 
 default_project_cfg = {
     'source-paths': ['models'],
@@ -25,14 +26,10 @@ default_profiles = {
 
 default_active_profiles = ['user']
 
-class ProjectConfigError(Exception):
-    def __init__(self, missing_key, project):
-
-        debug_str = project.__str__()
-        pprint.pformat({'project': project.cfg, 'profiles': project.profiles})
-        message = "Error: Expected field '{}' was not given in project configuration.\n\nSupplied profile:\n{}".format(missing_key, debug_str)
-
-        super(ProjectConfigError, self).__init__(message)
+class DbtProjectError(Exception):
+    def __init__(self, message, project):
+        self.project = project
+        super(DbtProjectError, self).__init__(message)
 
 class Project:
 
@@ -87,7 +84,9 @@ class Project:
         required_keys = ['host', 'user', 'pass', 'schema', 'type', 'dbname', 'port']
         for key in required_keys:
             if key not in target_cfg or len(str(target_cfg[key])) == 0:
-                raise ProjectConfigError(key, self)
+                raise DbtProjectError("Expected project configuration '{}' was not supplied".format(key), self)
+
+
 
 def read_profiles():
     profiles = {}
@@ -107,4 +106,12 @@ def read_project(filename):
         project_cfg = yaml.safe_load(f)
         project_cfg['project-root'] = os.path.dirname(os.path.abspath(filename))
         profiles = read_profiles()
-        return Project(project_cfg, profiles, default_active_profiles)
+        proj = Project(project_cfg, profiles, default_active_profiles)
+
+        try:
+            proj.validate()
+        except DbtProjectError as e:
+          print(e.message)
+          print(e.project)
+
+        return proj

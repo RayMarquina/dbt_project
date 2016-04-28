@@ -38,10 +38,4 @@ def main(args=None):
 
     parsed = p.parse_args(args)
 
-    try:
-        proj.validate()
-    except project.ProjectConfigError as e:
-        print(e)
-        sys.exit(1)
-
     parsed.cls(args=parsed, project=proj).run()
