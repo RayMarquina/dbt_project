@@ -20,5 +20,11 @@ models:
       enabled: true       # enable this specific model (false to disable)
       materialized: true  # create a table instead of a view
 
+      # You can choose sort keys, a dist key, or both to improve query efficiency. By default, materialized
+      # tables are created with no sort or dist keys.
+      #
+      sort: ['@timestamp', '@userid'] # optionally set one or more sort keys on the materialized table
+      dist: '@userid'                 # optionally set a distribution key on the materialized table
+
 repositories:
   - "git@github.com:analyst-collective/analytics"
