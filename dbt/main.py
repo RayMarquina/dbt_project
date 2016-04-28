@@ -7,7 +7,7 @@ import dbt.task.compile as compile_task
 import dbt.task.debug as debug_task
 import dbt.task.clean as clean_task
 import dbt.task.deps as deps_task
-
+import dbt.task.set_profile as set_profile_task
 
 def main(args=None):
     if args is None:
@@ -18,6 +18,10 @@ def main(args=None):
     else:
         raise RuntimeError("dbt must be run from a project root directory with a dbt_project.yml file")
 
+    local_config = proj.load_local_config()
+    local_profiles = local_config.get('profiles', [])
+    proj = proj.with_profiles(local_profiles)
+
     p = argparse.ArgumentParser(prog='dbt: data build tool')
     subs = p.add_subparsers()
 
@@ -26,6 +30,10 @@ def main(args=None):
 
     sub = subs.add_parser('compile')
     sub.set_defaults(cls=compile_task.CompileTask)
+
+    sub = subs.add_parser('set-profile')
+    sub.add_argument('profiles', nargs='+', default=[])
+    sub.set_defaults(cls=set_profile_task.SetProfileTask)
 
     sub = subs.add_parser('debug')
     sub.set_defaults(cls=debug_task.DebugTask)
