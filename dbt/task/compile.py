@@ -27,6 +27,14 @@ class Linker(object):
         self.graph.add_node(node2)
         self.graph.add_edge(node1, node2)
 
+    def add_node(self, node):
+        self.graph.add_node(node)
+
+    def write_graph(self, outfile):
+        nx.write_yaml(self.graph, outfile)
+
+    def read_graph(self, infile):
+        self.graph = nx.read_yaml(infile)
 
 class CompileTask:
     def __init__(self, args, project):
@@ -148,6 +156,9 @@ class CompileTask:
     def __ref(self, ctx, source_model):
         schema = ctx['env']['schema']
 
+        # if this node doesn't have any deps, still make sure it's a part of the graph
+        self.linker.add_node(source_model)
+
         def do_ref(other_model_name):
             other_model = self.__find_model_by_name(other_model_name)
             self.linker.dependency(source_model, other_model)
@@ -189,3 +200,6 @@ class CompileTask:
                 sources.update(self.__project_sources(project))
 
         self.__compile(sources)
+
+        graph_path = os.path.join(self.project['target-path'], 'graph.yml')
+        self.linker.write_graph(graph_path)

@@ -2,6 +2,7 @@ import pprint
 import psycopg2
 import os
 import fnmatch
+from compile import Linker
 
 class RedshiftTarget:
     def __init__(self, cfg):
@@ -25,11 +26,13 @@ class RedshiftTarget:
     def get_handle(self):
         return psycopg2.connect(self.__get_spec())
 
-
 class RunTask:
     def __init__(self, args, project):
         self.args = args
         self.project = project
+
+        self.linker = Linker()
+        self.model_sql_map = {}
 
     def __compiled_files(self):
         compiled_files = []
@@ -51,6 +54,10 @@ class RunTask:
         else:
             raise NotImplementedError("Unknown target type '{}'".format(target_cfg['type']))
 
+    def __deserialize_graph(self):
+        graph_file = os.path.join(self.project['target-path'], 'graph.yml')
+        self.linker.read_graph(graph_file)
+
     def __create_schema(self):
         target_cfg = self.project.run_environment()
         target = self.__get_target()
@@ -62,21 +69,25 @@ class RunTask:
         target = self.__get_target()
         for f in self.__compiled_files():
             with open(os.path.join(self.project['target-path'], f), 'r') as fh:
-                self.linker.link(fh.read())
+                namespace = os.path.dirname(f)
+                model_name, _ = os.path.splitext(os.path.basename(f))
+
+                model = (namespace, model_name)
+                self.model_sql_map[model] = fh.read()
 
     def __query_for_existing(self, cursor, schema):
         sql = """
-            select '{schema}.' || tablename as name, 'table' as type from pg_tables where schemaname = '{schema}'
+            select tablename as name, 'table' as type from pg_tables where schemaname = '{schema}'
                 union all
-            select '{schema}.' || viewname as name, 'view' as type from pg_views where schemaname = '{schema}' """.format(schema=schema)
+            select viewname as name, 'view' as type from pg_views where schemaname = '{schema}' """.format(schema=schema)
 
         cursor.execute(sql)
         existing = [(name, relation_type) for (name, relation_type) in cursor.fetchall()]
 
         return dict(existing)
 
-    def __drop(self, cursor, relation, relation_type):
-        sql = "drop {relation_type} if exists {relation} cascade".format(relation_type=relation_type, relation=relation)
+    def __drop(self, cursor, schema, relation, relation_type):
+        sql = 'drop {relation_type} if exists "{schema}"."{relation}" cascade'.format(schema=schema, relation_type=relation_type, relation=relation)
         cursor.execute(sql)
 
     def __execute_models(self):
@@ -85,20 +96,26 @@ class RunTask:
         with target.get_handle() as handle:
             with handle.cursor() as cursor:
 
-                existing =  self.__query_for_existing(cursor, target.schema);
+                existing = self.__query_for_existing(cursor, target.schema);
 
-                for (relation, sql) in self.linker.as_dependency_list():
+                for model in self.linker.as_dependency_list():
 
-                    if relation in existing:
-                        self.__drop(cursor, relation, existing[relation])
+                    namespace, model_name = model
+
+                    if model_name in existing:
+                        print("dropping {} '{}.{}'".format(existing[model_name], target.schema, model_name))
+                        self.__drop(cursor, target.schema, model_name, existing[model_name])
                         handle.commit()
 
-                    print("creating {}".format(relation))
+                    print("creating {}".format(model_name))
+                    sql = self.model_sql_map[model]
                     cursor.execute(sql)
                     print("         {}".format(cursor.statusmessage))
                     handle.commit()
 
     def run(self):
-        self.__create_schema()
+        self.__deserialize_graph()
         self.__load_models()
+
+        self.__create_schema()
         self.__execute_models()
