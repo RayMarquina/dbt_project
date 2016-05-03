@@ -145,15 +145,15 @@ class CompileTask:
                 return model
         raise RuntimeError("Can't find a model named '{}' -- does it exist?".format(name))
 
-    def __load(self, ctx, source_model):
+    def __ref(self, ctx, source_model):
         schema = ctx['env']['schema']
 
-        def do_load(other_model_name):
+        def do_ref(other_model_name):
             other_model = self.__find_model_by_name(other_model_name)
             self.linker.dependency(source_model, other_model)
             return '"{}"."{}"'.format(schema, other_model_name)
 
-        return do_load
+        return do_ref
 
     def __compile(self, src_index):
         for src_path, files in src_index.items():
@@ -170,7 +170,7 @@ class CompileTask:
 
                 context = self.project.context()
                 source_model = (model_group, model_name)
-                context['load'] = self.__load(context, source_model)
+                context['ref'] = self.__ref(context, source_model)
 
                 rendered = template.render(context)
 
