@@ -6,48 +6,25 @@ import yaml
 import dbt.project
 from collections import defaultdict
 
-from functools import partial
-import networkx as nx
+from ..compilation import Linker
 
 CREATE_STATEMENT_TEMPLATE = """
 create {table_or_view} {schema}.{identifier} {dist_qualifier} {sort_qualifier} as (
     {query}
 );"""
 
-class Linker(object):
-    def __init__(self):
-        self.graph = nx.DiGraph()
-
-    def as_dependency_list(self):
-        return nx.topological_sort(self.graph, reverse=True)
-
-    def dependency(self, node1, node2):
-        "indicate that node1 depends on node2"
-        self.graph.add_node(node1)
-        self.graph.add_node(node2)
-        self.graph.add_edge(node1, node2)
-
-    def add_node(self, node):
-        self.graph.add_node(node)
-
-    def write_graph(self, outfile):
-        nx.write_yaml(self.graph, outfile)
-
-    def read_graph(self, infile):
-        self.graph = nx.read_yaml(infile)
-
 class CompileTask:
     def __init__(self, args, project):
         self.args = args
         self.project = project
 
-        self.models = []
         self.linker = Linker()
 
     def __project_sources(self, project):
         """returns: {'model': ['pardot/model.sql', 'segment/model.sql']}
         """
         indexed_files = defaultdict(list)
+        models = []
 
         for source_path in project['source-paths']:
             full_source_path = os.path.join(project['project-root'], source_path)
@@ -59,16 +36,25 @@ class CompileTask:
                     if fnmatch.fnmatch(filename, "*.sql"):
                         indexed_files[full_source_path].append(rel_path)
 
-                        # TODO : include project name here!
-                        model_group = os.path.dirname(rel_path)
-                        model_name  = os.path.splitext(filename)[0]
-                        model = (model_group, model_name)
-                        if model not in self.models:
-                            self.models.append(model)
-                        else:
-                            print("WARNING: Conflicting model found {}".format(abs_path))
-
         return indexed_files
+
+    def __project_models(self, project_sources):
+        project_models = []
+        for (source_path, model_files) in project_sources.items():
+            for model_file in model_files:
+
+                # TODO : include project name here!
+                filename = os.path.basename(model_file)
+                model_group = os.path.dirname(model_file)
+                model_name  = os.path.splitext(filename)[0]
+                model = (model_group, model_name)
+                if model not in project_models:
+                    project_models.append(model)
+                else:
+                    print("WARNING: Conflicting model found {}".format(model_file))
+
+        return project_models
+
 
     def __write(self, path, payload):
         target_path = os.path.join(self.project['target-path'], path)
@@ -146,27 +132,28 @@ class CompileTask:
 
         return config
 
-    def __find_model_by_name(self, name):
-        for model in self.models:
+    def __find_model_by_name(self, project_models, name):
+
+        for model in project_models:
             model_group, model_name = model
             if model_name == name:
                 return model
         raise RuntimeError("Can't find a model named '{}' -- does it exist?".format(name))
 
-    def __ref(self, ctx, source_model):
+    def __ref(self, ctx, source_model, project_models):
         schema = ctx['env']['schema']
 
         # if this node doesn't have any deps, still make sure it's a part of the graph
         self.linker.add_node(source_model)
 
         def do_ref(other_model_name):
-            other_model = self.__find_model_by_name(other_model_name)
+            other_model = self.__find_model_by_name(project_models, other_model_name)
             self.linker.dependency(source_model, other_model)
             return '"{}"."{}"'.format(schema, other_model_name)
 
         return do_ref
 
-    def __compile(self, src_index):
+    def __compile(self, src_index, project_models):
         for src_path, files in src_index.items():
             jinja = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath=src_path))
             for f in files:
@@ -181,7 +168,7 @@ class CompileTask:
 
                 context = self.project.context()
                 source_model = (model_group, model_name)
-                context['ref'] = self.__ref(context, source_model)
+                context['ref'] = self.__ref(context, source_model, project_models)
 
                 rendered = template.render(context)
 
@@ -199,7 +186,8 @@ class CompileTask:
                 project = dbt.project.read_project(os.path.join(full_obj, 'dbt_project.yml'))
                 sources.update(self.__project_sources(project))
 
-        self.__compile(sources)
+        project_models = self.__project_models(sources)
+        self.__compile(sources, project_models)
 
         graph_path = os.path.join(self.project['target-path'], 'graph.yml')
         self.linker.write_graph(graph_path)

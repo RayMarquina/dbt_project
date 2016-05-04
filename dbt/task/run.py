@@ -2,7 +2,8 @@ import pprint
 import psycopg2
 import os
 import fnmatch
-from compile import Linker
+
+from ..compilation import Linker
 
 class RedshiftTarget:
     def __init__(self, cfg):
