@@ -1,6 +1,6 @@
 import pprint
 import psycopg2
-import os
+import os, sys
 import fnmatch
 
 from ..compilation import Linker
@@ -99,10 +99,14 @@ class RunTask:
 
                 existing = self.__query_for_existing(cursor, target.schema);
 
-                for model in self.linker.as_dependency_list():
+                dependency_list = list(self.linker.as_dependency_list())
 
+                if len(dependency_list) == 0:
+                    print("WARNING: Target directory is empty: '{}'. Try running `dbt compile`.".format(self.project['target-path']))
+                    return
+
+                for model in dependency_list:
                     namespace, model_name = model
-
                     if model_name in existing:
                         print("dropping {} '{}.{}'".format(existing[model_name], target.schema, model_name))
                         self.__drop(cursor, target.schema, model_name, existing[model_name])
@@ -118,5 +122,10 @@ class RunTask:
         self.__deserialize_graph()
         self.__load_models()
 
-        self.__create_schema()
-        self.__execute_models()
+        try:
+            self.__create_schema()
+            self.__execute_models()
+        except psycopg2.OperationalError as e:
+            print("ERROR: Could not connect to the target database. Try `dbt debug` for more information")
+            print(e.message)
+            sys.exit(1)
