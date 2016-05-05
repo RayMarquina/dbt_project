@@ -5,6 +5,7 @@ import copy
 import sys
 
 default_project_cfg = {
+    'package': {'name': None, 'version': None},
     'source-paths': ['models'],
     'test-paths': ['test'],
     'target-path': 'target',
@@ -69,7 +70,7 @@ class Project:
         target_cfg = self.run_environment()
         filtered_target = copy.deepcopy(target_cfg)
         filtered_target.pop('pass', None)
-        return {'env': target_cfg}
+        return {'env': filtered_target}
 
     def with_profiles(self, profiles=[]):
         return Project(
@@ -80,6 +81,11 @@ class Project:
     def validate(self):
         target_cfg = self.run_environment()
         target_name = self.cfg['run-target']
+
+        package = self.cfg['package']
+
+        if package['name'] is None or package['version'] is None:
+            raise DbtProjectError("Project name and version is not provided", self)
 
         required_keys = ['host', 'user', 'pass', 'schema', 'type', 'dbname', 'port']
         for key in required_keys:
@@ -106,10 +112,5 @@ def read_project(filename):
         profiles = read_profiles()
         proj = Project(project_cfg, profiles, default_active_profiles)
 
-        try:
-            proj.validate()
-        except DbtProjectError as e:
-          print(e.message)
-          print(e.project)
-
+        proj.validate()
         return proj
