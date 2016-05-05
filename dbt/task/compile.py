@@ -24,7 +24,6 @@ class CompileTask:
         """returns: {'model': ['pardot/model.sql', 'segment/model.sql']}
         """
         indexed_files = defaultdict(list)
-        models = []
 
         for source_path in project['source-paths']:
             full_source_path = os.path.join(project['project-root'], source_path)
@@ -34,24 +33,28 @@ class CompileTask:
                     rel_path = os.path.relpath(abs_path, full_source_path)
 
                     if fnmatch.fnmatch(filename, "*.sql"):
-                        indexed_files[full_source_path].append(rel_path)
+                        indexed_files[full_source_path].append((project, rel_path))
 
         return indexed_files
 
     def __project_models(self, project_sources):
         project_models = []
-        for (source_path, model_files) in project_sources.items():
-            for model_file in model_files:
+        for (source_path, model_definitions) in project_sources.items():
 
-                # TODO : include project name here!
+            for (project, model_file) in model_definitions:
+
+                package_name = project.cfg['package']['name']
+
                 filename = os.path.basename(model_file)
                 model_group = os.path.dirname(model_file)
                 model_name  = os.path.splitext(filename)[0]
-                model = (model_group, model_name)
-                if model not in project_models:
-                    project_models.append(model)
-                else:
-                    print("WARNING: Conflicting model found {}".format(model_file))
+                model = (package_name, model_group, model_name)
+
+                if model in project_models:
+                    print("WARNING: Conflicting model found package={}, model={}".format(package_name, model_name))
+
+                # add the conflict and catch it if it's used in compilation
+                project_models.append(model)
 
         return project_models
 
@@ -132,13 +135,22 @@ class CompileTask:
 
         return config
 
-    def __find_model_by_name(self, project_models, name):
-
+    def __find_model_by_name(self, project_models, name, package_namespace=None):
+        found = []
         for model in project_models:
-            model_group, model_name = model
+            package, model_group, model_name = model
             if model_name == name:
-                return model
-        raise RuntimeError("Can't find a model named '{}' -- does it exist?".format(name))
+                if package_namespace is None:
+                    found.append(model)
+                elif package_namespace is not None and package_namespace == package:
+                    found.append(model)
+
+        if len(found) == 0:
+            raise RuntimeError("Can't find a model named '{}' in package '{}' -- does it exist?".format(name, package_namespace))
+        elif len(found) == 1:
+            return found[0]
+        else:
+            raise RuntimeError("Model specification is ambiguous: model='{}' package='{}' -- {} models match criteria".format(name, package_namespace, len(found)))
 
     def __ref(self, ctx, source_model, project_models):
         schema = ctx['env']['schema']
@@ -146,17 +158,22 @@ class CompileTask:
         # if this node doesn't have any deps, still make sure it's a part of the graph
         self.linker.add_node(source_model)
 
-        def do_ref(other_model_name):
-            other_model = self.__find_model_by_name(project_models, other_model_name)
+        def do_ref(*args):
+            if len(args) == 1:
+                other_model_name = args[0]
+                other_model = self.__find_model_by_name(project_models, other_model_name)
+            elif len(args) == 2:
+                other_model_package, other_model_name = args
+                other_model = self.__find_model_by_name(project_models, other_model_name, package_namespace=other_model_package)
             self.linker.dependency(source_model, other_model)
             return '"{}"."{}"'.format(schema, other_model_name)
 
         return do_ref
 
     def __compile(self, src_index, project_models):
-        for src_path, files in src_index.items():
+        for src_path, project_files in src_index.items():
             jinja = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath=src_path))
-            for f in files:
+            for (project, f) in project_files:
 
                 model_group, model_name = self.__get_model_identifiers(f)
                 model_config = self.__get_model_config(model_group, model_name)
