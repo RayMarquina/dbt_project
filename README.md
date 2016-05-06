@@ -19,7 +19,7 @@ A data build tool
 
 # configure dbt file paths (relative to dbt_project.yml)
 
-# the package config is _required_. If other packages import this package, 
+# the package config is _required_. If other packages import this package,
 # the name given below is used to reference this package
 package:
   name: 'package_name'
@@ -30,7 +30,8 @@ target-path: "target"      # path for compiled code
 clean-targets: ["target"]  # directories removed by the clean task
 test-paths: ["test"]       # where to store test results
 
-# default paramaters the apply to _all_ models (unless overriden below)
+# default paramaters that apply to _all_ models (unless overridden below)
+
 model-defaults:
   enabled: true           # enable all models by default
   materialized: false     # If true, create tables. If false, create views
@@ -38,11 +39,27 @@ model-defaults:
 # custom configurations for each model. Unspecified models will use the model-defaults information above.
 
 models:
-  pardot:                 # assuming pardot is listed in the models/ directory                   
-    enabled: false        # disable all pardot models except where overriden
+  pardot:                 # assuming pardot is listed in the models/ directory
+    enabled: true         # enable all pardot models except where overriden (same as default)
     pardot_emails:        # override the configs for the pardot_emails model
-      enabled: true       # enable this specific model
+      enabled: true       # enable this specific model (false to disable)
       materialized: true  # create a table instead of a view
+
+      # You can choose sort keys, a dist key, or both to improve query efficiency. By default, materialized
+      # tables are created with no sort or dist keys.
+      #
+      sort: ['@timestamp', '@userid'] # optionally set one or more sort keys on the materialized table
+      dist: '@userid'                 # optionally set a distribution key on the materialized table
+
+    pardot_visitoractivity:
+      materialized: false
+      sort: ['@timestamp']  # this has no effect, as sort and dist keys only apply to materialized tables
+
+# add dependencies. these will get pulled during the `dbt deps` process.
+
+repositories:
+  - "git@github.com:analyst-collective/analytics"
+
 ```
 
 ##### example ~/.dbt/profiles.yml
