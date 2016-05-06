@@ -29,7 +29,7 @@ class DepsTask:
         folder = None
         if exists:
             folder = exists.group(1)
-            print "updating existing dependency {}".format(folder)
+            print("updating existing dependency {}".format(folder))
             full_path = os.path.join(self.project['modules-path'], folder)
             proc = subprocess.Popen(
                 ['git', 'fetch', '--all'],
@@ -46,7 +46,7 @@ class DepsTask:
         else:
             matches = re.match("Cloning into '(.+)'", err)
             folder = matches.group(1)
-            print "pulled new dependency {}".format(folder)
+            print("pulled new dependency {}".format(folder))
 
         return folder
 
@@ -55,7 +55,7 @@ class DepsTask:
             repo_folder = folder_from_git_remote(repo)
             try:
                 if repo_folder in processed_repos:
-                    print "skipping already processed dependency {}".format(repo_folder)
+                    print("skipping already processed dependency {}".format(repo_folder))
                 else:
                     dep_folder = self.__pull_repo(repo)
                     dep_project = project.read_project(
@@ -67,7 +67,7 @@ class DepsTask:
                     self.__pull_deps_recursive(dep_project['repositories'], processed_repos)
             except IOError as e:
                 if e.errno == errno.ENOENT:
-                    print "'{}' is not a valid dbt project - dbt_project.yml not found".format(repo)
+                    print("'{}' is not a valid dbt project - dbt_project.yml not found".format(repo))
                     exit(1)
                 else:
                     raise e
