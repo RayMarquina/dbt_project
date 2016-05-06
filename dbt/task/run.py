@@ -32,7 +32,6 @@ class RunTask:
         self.args = args
         self.project = project
 
-        self.linker = Linker()
         self.model_sql_map = {}
 
     def __compiled_files(self):
@@ -55,9 +54,9 @@ class RunTask:
         else:
             raise NotImplementedError("Unknown target type '{}'".format(target_cfg['type']))
 
-    def __deserialize_graph(self):
+    def __deserialize_graph(self, linker):
         graph_file = os.path.join(self.project['target-path'], 'graph.yml')
-        self.linker.read_graph(graph_file)
+        linker.read_graph(graph_file)
 
     def __create_schema(self):
         target_cfg = self.project.run_environment()
@@ -91,7 +90,7 @@ class RunTask:
         sql = 'drop {relation_type} if exists "{schema}"."{relation}" cascade'.format(schema=schema, relation_type=relation_type, relation=relation)
         cursor.execute(sql)
 
-    def __execute_models(self):
+    def __execute_models(self, linker):
         target = self.__get_target()
 
         with target.get_handle() as handle:
@@ -99,7 +98,7 @@ class RunTask:
 
                 existing = self.__query_for_existing(cursor, target.schema);
 
-                dependency_list = list(self.linker.as_dependency_list())
+                dependency_list = list(linker.as_dependency_list())
 
                 if len(dependency_list) == 0:
                     print("WARNING: Target directory is empty: '{}'. Try running `dbt compile`.".format(self.project['target-path']))
@@ -119,12 +118,13 @@ class RunTask:
                     handle.commit()
 
     def run(self):
-        self.__deserialize_graph()
+        linker = Linker()
+        self.__deserialize_graph(linker)
         self.__load_models()
 
         try:
             self.__create_schema()
-            self.__execute_models()
+            self.__execute_models(linker)
         except psycopg2.OperationalError as e:
             print("ERROR: Could not connect to the target database. Try `dbt debug` for more information")
             print(e.message)
