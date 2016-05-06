@@ -6,7 +6,7 @@ import yaml
 import dbt.project
 from collections import defaultdict
 
-from ..compilation import Linker
+from dbt.compilation import Linker
 
 CREATE_STATEMENT_TEMPLATE = """
 create {table_or_view} {schema}.{identifier} {dist_qualifier} {sort_qualifier} as (

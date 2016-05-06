@@ -3,7 +3,7 @@ import psycopg2
 import os, sys
 import fnmatch
 
-from ..compilation import Linker
+from dbt.compilation import Linker
 
 class RedshiftTarget:
     def __init__(self, cfg):
