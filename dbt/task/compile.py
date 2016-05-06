@@ -184,7 +184,7 @@ class CompileTask:
                 template = jinja.get_template(f)
 
                 context = self.project.context()
-                source_model = (model_group, model_name)
+                source_model = (project['name'], model_group, model_name)
                 context['ref'] = self.__ref(linker, context, source_model, project_models)
 
                 rendered = template.render(context)

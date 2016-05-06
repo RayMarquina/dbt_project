@@ -72,7 +72,7 @@ class RunTask:
                 namespace = os.path.dirname(f)
                 model_name, _ = os.path.splitext(os.path.basename(f))
 
-                model = (namespace, model_name)
+                model = (self.project['name'], namespace, model_name)
                 self.model_sql_map[model] = fh.read()
 
     def __query_for_existing(self, cursor, schema):
@@ -105,7 +105,7 @@ class RunTask:
                     return
 
                 for model in dependency_list:
-                    namespace, model_name = model
+                    package_name, namespace, model_name = model
                     if model_name in existing:
                         print("dropping {} '{}.{}'".format(existing[model_name], target.schema, model_name))
                         self.__drop(cursor, target.schema, model_name, existing[model_name])
