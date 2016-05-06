@@ -199,6 +199,9 @@ class CompileTask:
     def run(self):
         sources = self.__project_sources(self.project)
 
+        if not os.path.exists(self.project['modules-path']):
+            os.makedirs(self.project['modules-path'])
+
         for obj in os.listdir(self.project['modules-path']):
             full_obj = os.path.join(self.project['modules-path'], obj)
             if os.path.isdir(full_obj):
