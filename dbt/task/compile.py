@@ -18,8 +18,6 @@ class CompileTask:
         self.args = args
         self.project = project
 
-        self.linker = Linker()
-
     def __project_sources(self, project):
         """returns: {'model': ['pardot/model.sql', 'segment/model.sql']}
         """
@@ -43,7 +41,7 @@ class CompileTask:
 
             for (project, model_file) in model_definitions:
 
-                package_name = project.cfg['package']['name']
+                package_name = project.cfg['name']
 
                 filename = os.path.basename(model_file)
                 model_group = os.path.dirname(model_file)
@@ -152,11 +150,11 @@ class CompileTask:
         else:
             raise RuntimeError("Model specification is ambiguous: model='{}' package='{}' -- {} models match criteria".format(name, package_namespace, len(found)))
 
-    def __ref(self, ctx, source_model, project_models):
+    def __ref(self, linker, ctx, source_model, project_models):
         schema = ctx['env']['schema']
 
         # if this node doesn't have any deps, still make sure it's a part of the graph
-        self.linker.add_node(source_model)
+        linker.add_node(source_model)
 
         def do_ref(*args):
             if len(args) == 1:
@@ -165,12 +163,14 @@ class CompileTask:
             elif len(args) == 2:
                 other_model_package, other_model_name = args
                 other_model = self.__find_model_by_name(project_models, other_model_name, package_namespace=other_model_package)
-            self.linker.dependency(source_model, other_model)
+            linker.dependency(source_model, other_model)
             return '"{}"."{}"'.format(schema, other_model_name)
 
         return do_ref
 
     def __compile(self, src_index, project_models):
+        linker = Linker()
+
         for src_path, project_files in src_index.items():
             jinja = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath=src_path))
             for (project, f) in project_files:
@@ -185,7 +185,7 @@ class CompileTask:
 
                 context = self.project.context()
                 source_model = (model_group, model_name)
-                context['ref'] = self.__ref(context, source_model, project_models)
+                context['ref'] = self.__ref(linker, context, source_model, project_models)
 
                 rendered = template.render(context)
 
@@ -193,6 +193,8 @@ class CompileTask:
 
                 if create_stmt:
                     self.__write(f, create_stmt)
+
+        return linker
 
     def run(self):
         sources = self.__project_sources(self.project)
@@ -204,7 +206,7 @@ class CompileTask:
                 sources.update(self.__project_sources(project))
 
         project_models = self.__project_models(sources)
-        self.__compile(sources, project_models)
+        linker = self.__compile(sources, project_models)
 
         graph_path = os.path.join(self.project['target-path'], 'graph.yml')
-        self.linker.write_graph(graph_path)
+        linker.write_graph(graph_path)

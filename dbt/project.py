@@ -5,7 +5,6 @@ import copy
 import sys
 
 default_project_cfg = {
-    'package': {'name': None, 'version': None},
     'source-paths': ['models'],
     'test-paths': ['test'],
     'target-path': 'target',
@@ -82,9 +81,10 @@ class Project:
         target_cfg = self.run_environment()
         target_name = self.cfg['run-target']
 
-        package = self.cfg['package']
+        package_name = self.cfg.get('name', None)
+        package_version = self.cfg.get('version', None)
 
-        if package['name'] is None or package['version'] is None:
+        if package_name is None or package_version is None:
             raise DbtProjectError("Project name and version is not provided", self)
 
         required_keys = ['host', 'user', 'pass', 'schema', 'type', 'dbname', 'port']
