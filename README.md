@@ -19,6 +19,12 @@ A data build tool
 
 # configure dbt file paths (relative to dbt_project.yml)
 
+# the package config is _required_. If other packages import this package, 
+# the name given below is used to reference this package
+package:
+  name: 'package_name'
+  version: '1.0'
+
 source-paths: ["models"]   # paths with source code to compile
 target-path: "target"      # path for compiled code
 clean-targets: ["target"]  # directories removed by the clean task
