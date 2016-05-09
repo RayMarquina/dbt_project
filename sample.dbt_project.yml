@@ -1,6 +1,6 @@
 # configure dbt file paths (relative to dbt_project.yml)
 
-# the package config is _required_. If other packages import this package, 
+# the package config is _required_. If other packages import this package,
 # the name given below is used to reference this package
 package:
   name: 'package_name'
@@ -35,6 +35,8 @@ models:
     pardot_visitoractivity:
       materialized: false
       sort: ['@timestamp']  # this has no effect, as sort and dist keys only apply to materialized tables
+
+# add dependencies. these will get pulled during the `dbt deps` process.
 
 repositories:
   - "git@github.com:analyst-collective/analytics"
