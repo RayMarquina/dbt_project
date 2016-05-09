@@ -79,6 +79,8 @@ user:                         # you can have multiple profiles for different pro
 
 #### use
 
+`dbt deps` to pull most recent version of dependencies
+
 `dbt compile` to generate runnable SQL from model files
 
 `dbt run` to run model files on the current `run-target` database
