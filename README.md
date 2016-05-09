@@ -125,3 +125,15 @@ From the root directory of this repository, run:
 ```
 
 to install a development version of `dbt`.
+
+#### design principles
+
+dbt that supports an [opinionated analytics workflow](https://github.com/analyst-collective/wiki/wiki/Building-a-Mature-Analytics-Workflow:-The-Analyst-Collective-Viewpoint). Currently, dbt supports data modeling workflow. Future versions of dbt will support workflow for testing.
+
+##### modeling data with dbt
+- A model is a table or view built either on top of raw data or other models. Models are not transient; they are materialized in the database.
+- Models are composed of a single SQL `select` statement. Any valid SQL can be used. As such, models can provide functionality such as data cleansing, data transformation, etc.
+- Model files should be saved with a `.sql` extension.
+- Each model should be stored in its own `.sql` file. The file name will become the name of the table or view in the database.
+- Other models should be referenced with the `ref` function. This function will resolve dependencies during the `compile` stage. The only tables referenced without this function should be source raw data tables.
+- Models should be minimally coupled to the underlying schema to make them robust to changes therein. Examples of how to implement this practice: a) provide aliases when specifying table and field names in models that select directly from raw data, b) minimize the number of models that select directly from raw data.
