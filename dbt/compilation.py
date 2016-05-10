@@ -3,13 +3,31 @@ import os
 import fnmatch
 import jinja2
 from collections import defaultdict
+import dbt.project
 
 import networkx as nx
 
 CREATE_STATEMENT_TEMPLATE = """
-create {table_or_view} {schema}.{identifier} {dist_qualifier} {sort_qualifier} as (
+create {table_or_view} "{schema}"."{identifier}" {dist_qualifier} {sort_qualifier} as (
     {query}
 );"""
+
+
+TEST_CREATE_STATEMENT_TEMPLATE = """
+create table "{schema}"."{identifier}" {dist_qualifier} {sort_qualifier} as (
+    SELECT * FROM (
+        {query}
+    ) LIMIT 0
+);"""
+
+class BaseCreateTemplate(object):
+    def wrap(self, opts):
+        return CREATE_STATEMENT_TEMPLATE.format(**opts)
+
+class TestCreateTemplate(object):
+    def wrap(self, opts):
+        opts['identifier'] = 'test_{}'.format(opts['identifier'])
+        return TEST_CREATE_STATEMENT_TEMPLATE.format(**opts)
 
 
 class Linker(object):
@@ -35,10 +53,27 @@ class Linker(object):
         self.graph = nx.read_yaml(infile)
 
 class Compiler(object):
-    def __init__(self, project):
+    def __init__(self, project, create_template_class):
         self.project = project
+        self.create_template = create_template_class()
 
-    def project_sources(self, project):
+    def initialize(self):
+        if not os.path.exists(self.project['target-path']):
+            os.makedirs(self.project['target-path'])
+
+        if not os.path.exists(self.project['modules-path']):
+            os.makedirs(self.project['modules-path'])
+
+    def __dependency_projects(self):
+        for obj in os.listdir(self.project['modules-path']):
+            full_obj = os.path.join(self.project['modules-path'], obj)
+            if os.path.isdir(full_obj):
+                project = dbt.project.read_project(os.path.join(full_obj, 'dbt_project.yml'))
+                yield project
+
+
+
+    def __project_sources(self, project):
         """returns: {'model': ['pardot/model.sql', 'segment/model.sql']}
         """
         indexed_files = defaultdict(list)
@@ -55,7 +90,7 @@ class Compiler(object):
 
         return indexed_files
 
-    def project_models(self, project_sources):
+    def __project_models(self, project_sources):
         project_models = []
         for (source_path, model_definitions) in project_sources.items():
 
@@ -131,7 +166,7 @@ class Compiler(object):
             "sort_qualifier": sort_qualifier
         }
 
-        return CREATE_STATEMENT_TEMPLATE.format(**opts)
+        return self.create_template.wrap(opts)
 
     def __get_model_identifiers(self, model_filepath):
         model_group = os.path.dirname(model_filepath)
@@ -188,7 +223,7 @@ class Compiler(object):
 
         return do_ref
 
-    def compile(self, src_index, project_models):
+    def __do_compile(self, src_index, project_models):
         linker = Linker()
 
         for src_path, project_files in src_index.items():
@@ -215,4 +250,18 @@ class Compiler(object):
                     self.__write(f, create_stmt)
 
         return linker
+
+    def __write_graph_file(self, linker):
+        graph_path = os.path.join(self.project['target-path'], 'graph.yml')
+        linker.write_graph(graph_path)
+
+    def compile(self):
+        sources = self.__project_sources(self.project)
+
+        for project in self.__dependency_projects():
+            sources.update(self.__project_sources(project))
+
+        project_models = self.__project_models(sources)
+        linker = self.__do_compile(sources, project_models)
+        self.__write_graph_file(linker)
 
