@@ -41,7 +41,7 @@ def main(args=None):
     parsed = p.parse_args(args)
 
     if parsed.which == 'init':
-        # bypass making a project file if we're running `dbt init`
+        # bypass looking for a project file if we're running `dbt init`
         parsed.cls(args=parsed).run()
 
     elif os.path.isfile('dbt_project.yml'):
