@@ -182,7 +182,8 @@ class Compiler(object):
         if len(found) == 0:
             raise RuntimeError("Can't find a model named '{}' in package '{}' -- does it exist?".format(name, package_namespace))
         elif len(found) == 1:
-            return found[0]
+            model = found[0]
+            return (model[0], model[1], self.create_template.model_name(model[2]))
         else:
             raise RuntimeError("Model specification is ambiguous: model='{}' package='{}' -- {} models match criteria".format(name, package_namespace, len(found)))
 
@@ -220,7 +221,7 @@ class Compiler(object):
                 template = jinja.get_template(f)
 
                 context = self.project.context()
-                source_model = (project['name'], model_group, model_name)
+                source_model = (project['name'], model_group, self.create_template.model_name(model_name))
                 context['ref'] = self.__ref(linker, context, source_model, project_models)
 
                 rendered = template.render(context)
