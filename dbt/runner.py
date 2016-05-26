@@ -28,9 +28,10 @@ class RedshiftTarget:
         return psycopg2.connect(self.__get_spec())
 
 class Runner:
-    def __init__(self, project, target_path):
+    def __init__(self, project, target_path, run_mode):
         self.project = project
         self.target_path = target_path
+        self.run_mode = run_mode
         self.model_sql_map = {}
 
     def __compiled_files(self):
@@ -54,7 +55,8 @@ class Runner:
 
     def __deserialize_graph(self, linker):
         base_target_path = self.project['target-path']
-        graph_file = os.path.join(base_target_path, 'graph.yml')
+        filename = 'graph-{}.yml'.format(self.run_mode)
+        graph_file = os.path.join(base_target_path, filename)
         linker.read_graph(graph_file)
 
     def __create_schema(self):

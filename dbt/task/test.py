@@ -20,10 +20,10 @@ class TestTask:
 
     def execute(self):
         target_path = self.get_target()
-        runner = Runner(self.project, target_path)
+        runner = Runner(self.project, target_path, TestCreateTemplate.label)
         runner.run()
 
     def run(self):
         self.compile()
-        self.execute()
+        #self.execute()
 

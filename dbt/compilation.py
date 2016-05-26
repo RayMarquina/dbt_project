@@ -89,8 +89,12 @@ class Compiler(object):
         return project_models
 
 
-    def __write(self, path, payload):
-        target_path = os.path.join(self.project['target-path'], self.create_template.label, path)
+    def __write(self, original_path, payload):
+        dirname = os.path.dirname(original_path)
+        filename = os.path.basename(original_path)
+        out_path = os.path.join(dirname, self.create_template.model_name(filename))
+
+        target_path = os.path.join(self.project['target-path'], self.create_template.label, out_path)
 
         if not os.path.exists(os.path.dirname(target_path)):
             os.makedirs(os.path.dirname(target_path))
@@ -229,7 +233,8 @@ class Compiler(object):
         return linker
 
     def __write_graph_file(self, linker):
-        graph_path = os.path.join(self.project['target-path'], 'graph.yml')
+        filename = 'graph-{}.yml'.format(self.create_template.label)
+        graph_path = os.path.join(self.project['target-path'], filename)
         linker.write_graph(graph_path)
 
     def compile(self):

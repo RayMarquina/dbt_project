@@ -7,6 +7,9 @@ class BaseCreateTemplate(object):
 
     label = "build"
 
+    def model_name(self, base_name):
+        return base_name
+
     def wrap(self, opts):
         return self.template.format(**opts)
 
@@ -20,8 +23,11 @@ class TestCreateTemplate(object):
 
     label = "test"
 
+    def model_name(self, base_name):
+        return 'test_{}'.format(base_name)
+
     def wrap(self, opts):
-        opts['identifier'] = 'test_{}'.format(opts['identifier'])
+        opts['identifier'] = self.model_name(opts['identifier'])
         return self.template.format(**opts)
 
 
