@@ -182,8 +182,7 @@ class Compiler(object):
         if len(found) == 0:
             raise RuntimeError("Can't find a model named '{}' in package '{}' -- does it exist?".format(name, package_namespace))
         elif len(found) == 1:
-            model = found[0]
-            return (model[0], model[1], self.create_template.model_name(model[2]))
+            return found[0]
         else:
             raise RuntimeError("Model specification is ambiguous: model='{}' package='{}' -- {} models match criteria".format(name, package_namespace, len(found)))
 
@@ -200,6 +199,10 @@ class Compiler(object):
             elif len(args) == 2:
                 other_model_package, other_model_name = args
                 other_model = self.__find_model_by_name(project_models, other_model_name, package_namespace=other_model_package)
+
+            other_model_name = self.create_template.model_name(other_model_name)
+            other_model = (other_model[0], other_model[1], self.create_template.model_name(other_model[2]))
+
             linker.dependency(source_model, other_model)
             return '"{}"."{}"'.format(schema, other_model_name)
 
@@ -213,6 +216,7 @@ class Compiler(object):
             for (project, f) in project_files:
 
                 model_group, model_name = self.__get_model_identifiers(f)
+                model_name = self.create_template.model_name(model_name)
                 model_config = self.__get_model_config(model_group, model_name)
 
                 if not model_config.get('enabled'):
@@ -221,7 +225,7 @@ class Compiler(object):
                 template = jinja.get_template(f)
 
                 context = self.project.context()
-                source_model = (project['name'], model_group, self.create_template.model_name(model_name))
+                source_model = (project['name'], model_group, model_name)
                 context['ref'] = self.__ref(linker, context, source_model, project_models)
 
                 rendered = template.render(context)

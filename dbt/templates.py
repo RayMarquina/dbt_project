@@ -27,7 +27,6 @@ class TestCreateTemplate(object):
         return 'test_{}'.format(base_name)
 
     def wrap(self, opts):
-        opts['identifier'] = self.model_name(opts['identifier'])
         return self.template.format(**opts)
 
 

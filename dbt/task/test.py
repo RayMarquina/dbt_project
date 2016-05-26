@@ -25,5 +25,5 @@ class TestTask:
 
     def run(self):
         self.compile()
-        #self.execute()
+        self.execute()
 
