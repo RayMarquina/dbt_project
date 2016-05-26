@@ -7,35 +7,6 @@ import dbt.project
 
 import networkx as nx
 
-CREATE_STATEMENT_TEMPLATE = """
-create {table_or_view} "{schema}"."{identifier}" {dist_qualifier} {sort_qualifier} as (
-    {query}
-);"""
-
-
-TEST_CREATE_STATEMENT_TEMPLATE = """
-create table "{schema}"."{identifier}" {dist_qualifier} {sort_qualifier} as (
-    SELECT * FROM (
-        {query}
-    ) LIMIT 0
-);"""
-
-class BaseCreateTemplate(object):
-    def dir(self):
-        return "build"
-
-    def wrap(self, opts):
-        return CREATE_STATEMENT_TEMPLATE.format(**opts)
-
-class TestCreateTemplate(object):
-    def dir(self):
-        return "test"
-
-    def wrap(self, opts):
-        opts['identifier'] = 'test_{}'.format(opts['identifier'])
-        return TEST_CREATE_STATEMENT_TEMPLATE.format(**opts)
-
-
 class Linker(object):
     def __init__(self):
         self.graph = nx.DiGraph()

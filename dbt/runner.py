@@ -28,19 +28,19 @@ class RedshiftTarget:
         return psycopg2.connect(self.__get_spec())
 
 class Runner:
-    def __init__(self, project, sql_path):
+    def __init__(self, project, target_path):
         self.project = project
-        self.sql_path = sql_path
+        self.target_path = target_path
         self.model_sql_map = {}
 
     def __compiled_files(self):
         compiled_files = []
 
-        for root, dirs, files in os.walk(self.sql_path):
+        for root, dirs, files in os.walk(self.target_path):
             for filename in files:
                 if fnmatch.fnmatch(filename, "*.sql"):
                     abs_path = os.path.join(root, filename)
-                    rel_path = os.path.relpath(abs_path, self.sql_path)
+                    rel_path = os.path.relpath(abs_path, self.target_path)
                     compiled_files.append(rel_path)
 
         return compiled_files
@@ -53,7 +53,8 @@ class Runner:
             raise NotImplementedError("Unknown target type '{}'".format(target_cfg['type']))
 
     def __deserialize_graph(self, linker):
-        graph_file = os.path.join(self.project['target-path'], 'graph.yml')
+        base_target_path = self.project['target-path']
+        graph_file = os.path.join(base_target_path, 'graph.yml')
         linker.read_graph(graph_file)
 
     def __create_schema(self):
@@ -66,7 +67,7 @@ class Runner:
     def __load_models(self):
         target = self.__get_target()
         for f in self.__compiled_files():
-            with open(os.path.join(self.project['target-path'], f), 'r') as fh:
+            with open(os.path.join(self.target_path, f), 'r') as fh:
                 namespace = os.path.dirname(f)
                 model_name, _ = os.path.splitext(os.path.basename(f))
 
@@ -99,7 +100,7 @@ class Runner:
                 dependency_list = list(linker.as_dependency_list())
 
                 if len(dependency_list) == 0:
-                    print("WARNING: Target directory is empty: '{}'. Try running `dbt compile`.".format(self.project['target-path']))
+                    print("WARNING: Target directory is empty: '{}'. Try running `dbt compile`.".format(self.target_path))
                     return
 
                 for model in dependency_list:

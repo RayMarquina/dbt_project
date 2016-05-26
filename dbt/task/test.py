@@ -1,13 +1,29 @@
 
-from dbt.compilation import Compiler, TestCreateTemplate
+import os
+
+from dbt.compilation import Compiler
+from dbt.templates import TestCreateTemplate
+from dbt.runner import Runner
 
 class TestTask:
     def __init__(self, args, project):
         self.args = args
         self.project = project
 
-    def run(self):
+    def get_target(self):
+        return os.path.join(self.project['target-path'], TestCreateTemplate.dir())
+
+    def compile(self):
         compiler = Compiler(self.project, TestCreateTemplate)
         compiler.initialize()
         compiler.compile()
+
+    def execute(self):
+        target_path = self.get_target()
+        runner = Runner(self.project, target_path)
+        runner.run()
+
+    def run(self):
+        self.compile()
+        self.execute()
 

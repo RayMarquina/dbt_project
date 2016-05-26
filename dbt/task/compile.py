@@ -1,5 +1,6 @@
 
-from dbt.compilation import Compiler, BaseCreateTemplate
+from dbt.compilation import Compiler
+from dbt.templates import BaseCreateTemplate
 
 
 class CompileTask:
