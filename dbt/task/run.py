@@ -9,7 +9,7 @@ class RunTask:
         self.project = project
 
     def get_target(self):
-        return os.path.join(self.project['target-path'], BaseCreateTemplate.dir())
+        return os.path.join(self.project['target-path'], BaseCreateTemplate.label)
 
     def run(self):
         target_path = self.get_target()

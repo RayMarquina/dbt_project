@@ -90,7 +90,7 @@ class Compiler(object):
 
 
     def __write(self, path, payload):
-        target_path = os.path.join(self.project['target-path'], self.create_template.dir(), path)
+        target_path = os.path.join(self.project['target-path'], self.create_template.label, path)
 
         if not os.path.exists(os.path.dirname(target_path)):
             os.makedirs(os.path.dirname(target_path))

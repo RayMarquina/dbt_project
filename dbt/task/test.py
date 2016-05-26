@@ -11,7 +11,7 @@ class TestTask:
         self.project = project
 
     def get_target(self):
-        return os.path.join(self.project['target-path'], TestCreateTemplate.dir())
+        return os.path.join(self.project['target-path'], TestCreateTemplate.label)
 
     def compile(self):
         compiler = Compiler(self.project, TestCreateTemplate)
