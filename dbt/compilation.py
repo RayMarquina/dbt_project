@@ -21,10 +21,16 @@ create table "{schema}"."{identifier}" {dist_qualifier} {sort_qualifier} as (
 );"""
 
 class BaseCreateTemplate(object):
+    def dir(self):
+        return "build"
+
     def wrap(self, opts):
         return CREATE_STATEMENT_TEMPLATE.format(**opts)
 
 class TestCreateTemplate(object):
+    def dir(self):
+        return "test"
+
     def wrap(self, opts):
         opts['identifier'] = 'test_{}'.format(opts['identifier'])
         return TEST_CREATE_STATEMENT_TEMPLATE.format(**opts)
@@ -113,7 +119,7 @@ class Compiler(object):
 
 
     def __write(self, path, payload):
-        target_path = os.path.join(self.project['target-path'], path)
+        target_path = os.path.join(self.project['target-path'], self.create_template.dir(), path)
 
         if not os.path.exists(os.path.dirname(target_path)):
             os.makedirs(os.path.dirname(target_path))
