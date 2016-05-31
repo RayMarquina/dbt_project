@@ -19,30 +19,30 @@ class TestTask:
         compiler.initialize()
         compiler.compile()
 
-    def execute(self):
-        target_path = self.get_target()
-        runner = Runner(self.project, target_path, TestCreateTemplate.label)
-        executed_models = runner.run()
-
-        # clean up
-        runner.drop_models(executed_models)
-
-        return executed_models
-
     def run(self):
-        self.compile()
+        target_path = self.get_target()
 
+        self.compile()
+        runner = Runner(self.project, target_path, TestCreateTemplate.label)
+
+        executed_models = []
+        errored = False
         try:
-            results = self.execute()
+            for model in runner.run():
+                executed_models.append(model)
         except psycopg2.ProgrammingError as e:
+            errored = True
             print("")
             print("Error encountered while trying to execute tests")
             print("Model: {}".format(".".join(e.model)))
             print(e.message)
+        finally:
+            runner.drop_models(executed_models)
+
+        if errored:
             print("Exiting.")
             sys.exit(1)
-        print("")
-
-        num_passed = len(results)
-        print("{num_passed}/{num_passed} tests passed!".format(num_passed=num_passed))
+        else:
+            num_passed = len(executed_models)
+            print("{num_passed}/{num_passed} tests passed!".format(num_passed=num_passed))
 

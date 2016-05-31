@@ -116,7 +116,6 @@ class Runner:
     def __execute_models(self, linker):
         target = self.__get_target()
 
-        executed_models = []
         with target.get_handle() as handle:
             with handle.cursor() as cursor:
                 existing = self.__query_for_existing(cursor, target.schema);
@@ -137,9 +136,7 @@ class Runner:
                     sql = self.model_sql_map[model]
                     self.__do_execute(cursor, sql, model)
                     handle.commit()
-                    executed_models.append(model)
-
-        return executed_models
+                    yield model
 
     def run(self):
         linker = Linker()
@@ -148,8 +145,8 @@ class Runner:
 
         try:
             self.__create_schema()
-            executed_models = self.__execute_models(linker)
-            return executed_models
+            for model in self.__execute_models(linker):
+                yield model
         except psycopg2.OperationalError as e:
             print("ERROR: Could not connect to the target database. Try `dbt debug` for more information")
             print(e.message)

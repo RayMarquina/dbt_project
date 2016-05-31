@@ -86,6 +86,8 @@ user:                         # you can have multiple profiles for different pro
 
 `dbt deps` to pull most recent version of dependencies
 
+`dbt test` to check this validity of your SQL model files (this runs against the DB)
+
 `dbt compile` to generate runnable SQL from model files
 
 `dbt run` to run model files on the current `run-target` database
