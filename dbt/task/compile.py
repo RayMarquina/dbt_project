@@ -197,7 +197,13 @@ class CompileTask:
         return linker
 
     def run(self):
+        if not os.path.exists(self.project['target-path']):
+            os.makedirs(self.project['target-path'])
+
         sources = self.__project_sources(self.project)
+
+        if not os.path.exists(self.project['modules-path']):
+            os.makedirs(self.project['modules-path'])
 
         for obj in os.listdir(self.project['modules-path']):
             full_obj = os.path.join(self.project['modules-path'], obj)
