@@ -1,3 +1,6 @@
+
+from __future__ import print_function
+
 import pprint
 import psycopg2
 import os, sys
@@ -119,21 +122,20 @@ class Runner:
                 existing = self.__query_for_existing(cursor, target.schema);
                 dependency_list = list(linker.as_dependency_list())
 
-                if len(dependency_list) == 0:
+                num_models = len(dependency_list)
+                if num_models == 0:
                     print("WARNING: Target directory is empty: '{}'. Try running `dbt compile`.".format(self.target_path))
                     return
 
-                for model in dependency_list:
+                for index, model in enumerate(dependency_list):
                     package_name, namespace, model_name = model
                     if model_name in existing:
-                        print("dropping {} '{}.{}'".format(existing[model_name], target.schema, model_name))
                         self.__drop(cursor, target.schema, model_name, existing[model_name])
                         handle.commit()
 
-                    print("creating {}".format(model_name))
+                    print("{} of {} -- Creating relation {}.{}".format(index + 1, num_models, target.schema, model_name))
                     sql = self.model_sql_map[model]
                     self.__do_execute(cursor, sql, model)
-                    print("         {}".format(cursor.statusmessage))
                     handle.commit()
                     executed_models.append(model)
 

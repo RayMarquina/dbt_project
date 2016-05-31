@@ -98,8 +98,6 @@ class Compiler(object):
 
         if not os.path.exists(os.path.dirname(target_path)):
             os.makedirs(os.path.dirname(target_path))
-        elif os.path.exists(target_path):
-            print("Compiler overwrite of {}".format(target_path))
 
         with open(target_path, 'w') as f:
             f.write(payload)
