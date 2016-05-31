@@ -11,5 +11,6 @@ class CompileTask:
     def run(self):
         compiler = Compiler(self.project, BaseCreateTemplate)
         compiler.initialize()
-        compiler.compile()
+        created_models = compiler.compile()
 
+        print("Created {} models".format(len(created_models)))

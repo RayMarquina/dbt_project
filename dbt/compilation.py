@@ -11,6 +11,9 @@ class Linker(object):
     def __init__(self):
         self.graph = nx.DiGraph()
 
+    def nodes(self):
+        return self.graph.nodes()
+
     def as_dependency_list(self):
         return nx.topological_sort(self.graph, reverse=True)
 
@@ -250,3 +253,4 @@ class Compiler(object):
         linker = self.__do_compile(sources, project_models)
         self.__write_graph_file(linker)
 
+        return linker.nodes()

@@ -14,5 +14,5 @@ class RunTask:
     def run(self):
         target_path = self.get_target()
 
-        runner = Runner(self.project, target_path(), BaseCreateTemplate.label)
+        runner = Runner(self.project, target_path, BaseCreateTemplate.label)
         runner.run()
