@@ -91,6 +91,13 @@ class Runner:
         sql = 'drop {relation_type} if exists "{schema}"."{relation}" cascade'.format(schema=schema, relation_type=relation_type, relation=relation)
         cursor.execute(sql)
 
+    def __do_execute(self, cursor, sql, model):
+        try:
+            cursor.execute(sql)
+        except Exception as e:
+            e.model = model
+            raise e
+
     def __execute_models(self, linker):
         target = self.__get_target()
 
@@ -114,7 +121,7 @@ class Runner:
 
                     print("creating {}".format(model_name))
                     sql = self.model_sql_map[model]
-                    cursor.execute(sql)
+                    self.__do_execute(cursor, sql, model)
                     print("         {}".format(cursor.statusmessage))
                     handle.commit()
 

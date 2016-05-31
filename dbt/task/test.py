@@ -1,5 +1,6 @@
 
 import os
+import psycopg2
 
 from dbt.compilation import Compiler
 from dbt.templates import TestCreateTemplate
@@ -25,5 +26,12 @@ class TestTask:
 
     def run(self):
         self.compile()
-        self.execute()
 
+        try:
+            self.execute()
+        except psycopg2.ProgrammingError as e:
+            print("")
+            print("Error encountered while trying to execute tests")
+            print("Model: {}".format(".".join(e.model)))
+            print(e.message)
+            print("Exiting.")

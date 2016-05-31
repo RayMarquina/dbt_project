@@ -15,7 +15,7 @@ class BaseCreateTemplate(object):
 
 class TestCreateTemplate(object):
     template = """
-    create table "{schema}"."{identifier}" {dist_qualifier} {sort_qualifier} as (
+    create view "{schema}"."{identifier}" {dist_qualifier} {sort_qualifier} as (
         SELECT * FROM (
             {query}
         ) LIMIT 0
