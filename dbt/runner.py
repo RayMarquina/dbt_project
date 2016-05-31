@@ -98,7 +98,7 @@ class Runner:
             e.model = model
             raise e
 
-    def __execute_models(self, linker):
+    def drop_models(self, models):
         target = self.__get_target()
 
         with target.get_handle() as handle:
@@ -106,6 +106,17 @@ class Runner:
 
                 existing = self.__query_for_existing(cursor, target.schema);
 
+                for model in models:
+                    model_name = model[-1]
+                    self.__drop(cursor, target.schema, model_name, existing[model_name])
+
+    def __execute_models(self, linker):
+        target = self.__get_target()
+
+        executed_models = []
+        with target.get_handle() as handle:
+            with handle.cursor() as cursor:
+                existing = self.__query_for_existing(cursor, target.schema);
                 dependency_list = list(linker.as_dependency_list())
 
                 if len(dependency_list) == 0:
@@ -124,6 +135,9 @@ class Runner:
                     self.__do_execute(cursor, sql, model)
                     print("         {}".format(cursor.statusmessage))
                     handle.commit()
+                    executed_models.append(model)
+
+        return executed_models
 
     def run(self):
         linker = Linker()
@@ -132,7 +146,8 @@ class Runner:
 
         try:
             self.__create_schema()
-            self.__execute_models(linker)
+            executed_models = self.__execute_models(linker)
+            return executed_models
         except psycopg2.OperationalError as e:
             print("ERROR: Could not connect to the target database. Try `dbt debug` for more information")
             print(e.message)

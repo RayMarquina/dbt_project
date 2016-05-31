@@ -1,5 +1,5 @@
 
-import os
+import os, sys
 import psycopg2
 
 from dbt.compilation import Compiler
@@ -22,16 +22,27 @@ class TestTask:
     def execute(self):
         target_path = self.get_target()
         runner = Runner(self.project, target_path, TestCreateTemplate.label)
-        runner.run()
+        executed_models = runner.run()
+
+        # clean up
+        runner.drop_models(executed_models)
+
+        return executed_models
 
     def run(self):
         self.compile()
 
         try:
-            self.execute()
+            results = self.execute()
         except psycopg2.ProgrammingError as e:
             print("")
             print("Error encountered while trying to execute tests")
             print("Model: {}".format(".".join(e.model)))
             print(e.message)
             print("Exiting.")
+            sys.exit(1)
+        print("")
+
+        num_passed = len(results)
+        print("{num_passed}/{num_passed} tests passed!".format(num_passed=num_passed))
+
