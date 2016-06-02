@@ -8,6 +8,7 @@ import dbt.task.debug as debug_task
 import dbt.task.clean as clean_task
 import dbt.task.deps as deps_task
 import dbt.task.init as init_task
+import dbt.task.test as test_task
 
 def main(args=None):
     if args is None:
@@ -37,6 +38,9 @@ def main(args=None):
 
     sub = subs.add_parser('run', parents=[base_subparser])
     sub.set_defaults(cls=run_task.RunTask, which='run')
+
+    sub = subs.add_parser('test', parents=[base_subparser])
+    sub.set_defaults(cls=test_task.TestTask, which='test')
 
     parsed = p.parse_args(args)
 
