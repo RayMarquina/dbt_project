@@ -1,12 +1,22 @@
 
 import os, sys
 import psycopg2
+import yaml
 
 from dbt.compilation import Compiler
 from dbt.templates import TestCreateTemplate
 from dbt.runner import Runner
+from dbt.schema_tester import SchemaTester
 
 class TestTask:
+    """
+    Testing:
+        1) Create tmp views w/ 0 rows to ensure all tables, schemas, and SQL statements are valid
+        2) Read schema files and validate that constraints are satisfied
+           a) not null
+           b) uniquenss
+           c) referential integrity
+    """
     def __init__(self, args, project):
         self.args = args
         self.project = project
@@ -30,6 +40,10 @@ class TestTask:
         return executed_models
 
     def run(self):
+        schema_tester = SchemaTester(self.project)
+        schema_tester.test()
+
+        return
         self.compile()
 
         try:
