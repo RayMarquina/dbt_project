@@ -40,6 +40,7 @@ def main(args=None):
     sub.set_defaults(cls=run_task.RunTask, which='run')
 
     sub = subs.add_parser('test', parents=[base_subparser])
+    sub.add_argument('--validate', action='store_true', help='Name of the new project')
     sub.set_defaults(cls=test_task.TestTask, which='test')
 
     parsed = p.parse_args(args)

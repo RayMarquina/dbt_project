@@ -35,15 +35,12 @@ class TestTask:
         executed_models = runner.run()
 
         # clean up
+        print("Cleaning up.")
         runner.drop_models(executed_models)
 
         return executed_models
 
     def run(self):
-        schema_tester = SchemaTester(self.project)
-        schema_tester.test()
-
-        return
         self.compile()
 
         try:
@@ -59,4 +56,10 @@ class TestTask:
 
         num_passed = len(results)
         print("{num_passed}/{num_passed} tests passed!".format(num_passed=num_passed))
+
+        if self.args.validate:
+            print("")
+            print("Validating schemas")
+            schema_tester = SchemaTester(self.project)
+            schema_tester.test()
 
