@@ -40,7 +40,7 @@ class TestTask:
 
         return executed_models
 
-    def run(self):
+    def run_test_creates(self):
         self.compile()
 
         try:
@@ -56,10 +56,23 @@ class TestTask:
 
         num_passed = len(results)
         print("{num_passed}/{num_passed} tests passed!".format(num_passed=num_passed))
+        print("")
+
+    def run_validations(self):
+        print("Validating schemas")
+        schema_tester = SchemaTester(self.project)
+        schema_tester.test()
+
+
+    def run(self):
+        if self.args.skip_test_creates:
+            print("Skipping test creates (--skip-test-creates provided)")
+        else:
+            self.run_test_creates()
 
         if self.args.validate:
-            print("")
-            print("Validating schemas")
-            schema_tester = SchemaTester(self.project)
-            schema_tester.test()
+            self.run_validations()
+        else:
+            print("Skipping validations (--validate not provided)")
 
+        print("Done!")
