@@ -29,6 +29,8 @@ class TestTask:
         compiler.initialize()
         compiler.compile()
 
+        return compiler
+
     def execute(self):
         target_path = self.get_target()
         runner = Runner(self.project, target_path, TestCreateTemplate.label)
@@ -41,7 +43,6 @@ class TestTask:
         return executed_models
 
     def run_test_creates(self):
-        self.compile()
 
         try:
             results = self.execute()
@@ -58,20 +59,22 @@ class TestTask:
         print("{num_passed}/{num_passed} tests passed!".format(num_passed=num_passed))
         print("")
 
-    def run_validations(self):
+    def run_validations(self, compiler):
         print("Validating schemas")
         schema_tester = SchemaTester(self.project)
-        schema_tester.test()
+        schema_tester.test(compiler)
 
 
     def run(self):
+        compiler = self.compile()
+
         if self.args.skip_test_creates:
             print("Skipping test creates (--skip-test-creates provided)")
         else:
             self.run_test_creates()
 
         if self.args.validate:
-            self.run_validations()
+            self.run_validations(compiler)
         else:
             print("Skipping validations (--validate not provided)")
 

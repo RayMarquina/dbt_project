@@ -46,9 +46,12 @@ class SchemaTester(object):
                 for filename in files:
                     if filename == "schema.yml":
                         filepath = os.path.join(root, filename)
+                        abs_path = os.path.join(root, filename)
+                        rel_path = os.path.relpath(abs_path, full_source_path)
+                        parent_path = os.path.dirname(rel_path)
                         with open(filepath) as fh:
                             project_cfg = yaml.safe_load(fh)
-                            schemas.update(project_cfg)
+                            schemas[parent_path] = project_cfg
 
         return schemas
 
@@ -143,17 +146,23 @@ class SchemaTester(object):
         else:
             raise RuntimeError("Invalid constraint '{}' specified for '{}' in schema.yml".format(constraint_type, model))
 
-    def validate_schema(self, schemas):
+    def validate_schema(self, schemas, compiler):
         "generate queries for each schema constraints"
+        for model_group, model_schemas in schemas.items():
+            for model, schema_info in model_schemas.items():
 
-        for model, schema_info in schemas.items():
-            constraints = schema_info['constraints']
-            for constraint_type, constraint_data in constraints.items():
-                try:
-                    self.validate_schema_constraint(model, constraint_type, constraint_data)
-                except RuntimeError as e:
-                    print("ERRROR: {}".format(e.message))
+                # skip this model if it's not enabled
+                model_config = compiler.get_model_config(model_group, model)
+                if not model_config['enabled']:
+                    continue
 
-    def test(self):
+                constraints = schema_info['constraints']
+                for constraint_type, constraint_data in constraints.items():
+                    try:
+                        self.validate_schema_constraint(model, constraint_type, constraint_data)
+                    except RuntimeError as e:
+                        print("ERRROR: {}".format(e.message))
+
+    def test(self, compiler):
         schemas = self.project_schemas()
-        self.validate_schema(schemas)
+        self.validate_schema(schemas, compiler)
