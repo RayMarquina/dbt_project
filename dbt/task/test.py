@@ -31,39 +31,42 @@ class TestTask:
 
         return compiler
 
-    def execute(self):
-        target_path = self.get_target()
-        runner = Runner(self.project, target_path, TestCreateTemplate.label)
-        executed_models = runner.run()
+    def run_and_catch_errors(self, func, onFinally=None):
+        executed_models = []
 
-        # clean up
-        print("Cleaning up.")
-        runner.drop_models(executed_models)
-
-        return executed_models
-
-    def run_test_creates(self):
-
+        errored = False
         try:
-            results = self.execute()
+            for model in func():
+                executed_models.append(model)
         except psycopg2.ProgrammingError as e:
+            errored = True
             print("")
             print("Error encountered while trying to execute tests")
             print("Model: {}".format(".".join(e.model)))
             print(e.message)
+        finally:
+            if onFinally:
+                onFinally(executed_models)
+
+        if errored:
             print("Exiting.")
             sys.exit(1)
         print("")
 
-        num_passed = len(results)
+        num_passed = len(executed_models)
         print("{num_passed}/{num_passed} tests passed!".format(num_passed=num_passed))
         print("")
+
+    def run_test_creates(self):
+        target_path = self.get_target()
+        runner = Runner(self.project, target_path, TestCreateTemplate.label)
+        self.run_and_catch_errors(runner.run, runner.drop_models)
 
     def run_validations(self, compiler):
         print("Validating schemas")
         schema_tester = SchemaTester(self.project)
-        schema_tester.test(compiler)
-
+        func = lambda: schema_tester.test(compiler)
+        self.run_and_catch_errors(func)
 
     def run(self):
         compiler = self.compile()

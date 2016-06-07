@@ -15,4 +15,5 @@ class RunTask:
         target_path = self.get_target()
 
         runner = Runner(self.project, target_path, BaseCreateTemplate.label)
-        runner.run()
+        for model in runner.run():
+            pass

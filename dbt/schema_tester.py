@@ -94,10 +94,11 @@ class SchemaTester(object):
                     return result[0]
 
     def validate_not_null(self, model, constraint_data):
+        table = model[-1]
         for field in constraint_data:
-            params = self.get_query_params(model, field)
+            params = self.get_query_params(table, field)
             sql = self.make_query(QUERY_VALIDATE_NOT_NULL, params)
-            print ('VALIDATE NOT NULL "{}"."{}"'.format(model, field))
+            print ('VALIDATE NOT NULL "{}"."{}"'.format(table, field))
             num_rows = self.execute_query(model, sql)
             if num_rows == 0:
                 print("  OK")
@@ -105,10 +106,11 @@ class SchemaTester(object):
                 print("  FAILED ({})".format(num_rows))
 
     def validate_unique(self, model, constraint_data):
+        table = model[-1]
         for field in constraint_data:
-            params = self.get_query_params(model, field)
+            params = self.get_query_params(table, field)
             sql = self.make_query(QUERY_VALIDATE_UNIQUE, params)
-            print ('VALIDATE UNIQUE "{}"."{}"'.format(model, field))
+            print ('VALIDATE UNIQUE "{}"."{}"'.format(table, field))
             num_rows = self.execute_query(model, sql)
             if num_rows == 0:
                 print("  OK")
@@ -116,17 +118,18 @@ class SchemaTester(object):
                 print("  FAILED ({})".format(num_rows))
 
     def validate_relationships(self, model, constraint_data):
+        table = model[-1]
         for reference in constraint_data:
             target_cfg = self.project.run_environment()
             params = {
                 "schema": target_cfg['schema'],
-                "parent_table": model,
+                "parent_table": table,
                 "parent_field": reference['from'],
                 "child_table": reference['to'],
                 "child_field": reference['field']
             }
             sql = self.make_query(QUERY_VALIDATE_REFERENTIAL_INTEGRITY, params)
-            print ('VALIDATE REFERENTIAL INTEGRITY "{}"."{}" to "{}"."{}"'.format(model, reference['from'], reference['to'], reference['field']))
+            print ('VALIDATE REFERENTIAL INTEGRITY "{}"."{}" to "{}"."{}"'.format(table, reference['from'], reference['to'], reference['field']))
             num_rows = self.execute_query(model, sql)
             if num_rows == 0:
                 print("  OK")
@@ -149,10 +152,11 @@ class SchemaTester(object):
     def validate_schema(self, schemas, compiler):
         "generate queries for each schema constraints"
         for model_group, model_schemas in schemas.items():
-            for model, schema_info in model_schemas.items():
+            for model_name, schema_info in model_schemas.items():
 
+                model = (model_group, model_name)
                 # skip this model if it's not enabled
-                model_config = compiler.get_model_config(model_group, model)
+                model_config = compiler.get_model_config(model_group, model_name)
                 if not model_config['enabled']:
                     continue
 
@@ -160,9 +164,11 @@ class SchemaTester(object):
                 for constraint_type, constraint_data in constraints.items():
                     try:
                         self.validate_schema_constraint(model, constraint_type, constraint_data)
+                        yield model
                     except RuntimeError as e:
                         print("ERRROR: {}".format(e.message))
 
     def test(self, compiler):
         schemas = self.project_schemas()
-        self.validate_schema(schemas, compiler)
+        for model in self.validate_schema(schemas, compiler):
+            yield model
