@@ -33,11 +33,14 @@ class TestTask:
 
     def run_and_catch_errors(self, func, onFinally=None):
         executed_models = []
+        passed = 0
 
         errored = False
         try:
-            for model in func():
+            for (model, test_passed) in func():
                 executed_models.append(model)
+                if test_passed:
+                    passed += 1
         except psycopg2.ProgrammingError as e:
             errored = True
             print("")
@@ -54,7 +57,7 @@ class TestTask:
         print("")
 
         num_passed = len(executed_models)
-        print("{num_passed}/{num_passed} tests passed!".format(num_passed=num_passed))
+        print("{passed}/{num_executed} tests passed!".format(passed=passed, num_executed=num_passed))
         print("")
 
     def run_test_creates(self):

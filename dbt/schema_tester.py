@@ -102,8 +102,10 @@ class SchemaTester(object):
             num_rows = self.execute_query(model, sql)
             if num_rows == 0:
                 print("  OK")
+                yield True
             else:
                 print("  FAILED ({})".format(num_rows))
+                yield False
 
     def validate_unique(self, model, constraint_data):
         table = model[-1]
@@ -114,8 +116,10 @@ class SchemaTester(object):
             num_rows = self.execute_query(model, sql)
             if num_rows == 0:
                 print("  OK")
+                yield True
             else:
                 print("  FAILED ({})".format(num_rows))
+                yield False
 
     def validate_relationships(self, model, constraint_data):
         table = model[-1]
@@ -133,8 +137,10 @@ class SchemaTester(object):
             num_rows = self.execute_query(model, sql)
             if num_rows == 0:
                 print("  OK")
+                yield True
             else:
                 print("  FAILED ({})".format(num_rows))
+                yield False
 
     def validate_schema_constraint(self, model, constraint_type, constraint_data):
         constraint_map = {
@@ -145,7 +151,8 @@ class SchemaTester(object):
 
         if constraint_type in constraint_map:
             validator = constraint_map[constraint_type]
-            validator(model, constraint_data)
+            for test_passed in validator(model, constraint_data):
+                yield test_passed
         else:
             raise RuntimeError("Invalid constraint '{}' specified for '{}' in schema.yml".format(constraint_type, model))
 
@@ -163,12 +170,12 @@ class SchemaTester(object):
                 constraints = schema_info['constraints']
                 for constraint_type, constraint_data in constraints.items():
                     try:
-                        self.validate_schema_constraint(model, constraint_type, constraint_data)
-                        yield model
+                        for test_passed in self.validate_schema_constraint(model, constraint_type, constraint_data):
+                            yield model, test_passed
                     except RuntimeError as e:
                         print("ERRROR: {}".format(e.message))
 
     def test(self, compiler):
         schemas = self.project_schemas()
-        for model in self.validate_schema(schemas, compiler):
-            yield model
+        for (model, test_passed) in self.validate_schema(schemas, compiler):
+            yield model, test_passed
