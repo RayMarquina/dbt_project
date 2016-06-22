@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 import os.path
 
 package_name = "dbt"
-package_version = "0.1.14"
+package_version = "0.2.0"
 
 setup(
   name=package_name,
