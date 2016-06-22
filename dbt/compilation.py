@@ -155,7 +155,7 @@ class Compiler(object):
         model_name, _ = os.path.splitext(os.path.basename(model_filepath))
         return model_group, model_name
 
-    def __get_model_config(self, model_group, model_name):
+    def get_model_config(self, model_group, model_name):
         """merges model, model group, and base configs together. Model config
         takes precedence, then model_group, then base config"""
 
@@ -218,7 +218,7 @@ class Compiler(object):
 
                 model_group, model_name = self.__get_model_identifiers(f)
                 model_name = self.create_template.model_name(model_name)
-                model_config = self.__get_model_config(model_group, model_name)
+                model_config = self.get_model_config(model_group, model_name)
 
                 if not model_config.get('enabled'):
                     continue
