@@ -146,7 +146,7 @@ class Runner:
         try:
             self.__create_schema()
             for model in self.__execute_models(linker):
-                yield model
+                yield model, True
         except psycopg2.OperationalError as e:
             print("ERROR: Could not connect to the target database. Try `dbt debug` for more information")
             print(e.message)
