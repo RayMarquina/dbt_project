@@ -128,10 +128,10 @@ class SchemaTester(object):
             target_cfg = self.project.run_environment()
             params = {
                 "schema": target_cfg['schema'],
-                "parent_table": table,
-                "parent_field": reference['from'],
-                "child_table": reference['to'],
-                "child_field": reference['field']
+                "child_table": table,
+                "child_field": reference['from'],
+                "parent_table": reference['to'],
+                "parent_field": reference['field']
             }
             sql = self.make_query(QUERY_VALIDATE_REFERENTIAL_INTEGRITY, params)
             print ('VALIDATE REFERENTIAL INTEGRITY "{}"."{}" to "{}"."{}"'.format(table, reference['from'], reference['to'], reference['field']))
