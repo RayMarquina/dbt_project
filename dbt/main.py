@@ -45,6 +45,8 @@ def main(args=None):
     sub.add_argument('--validate', action='store_true', help='Run constraint validations from schema.yml files')
     sub.set_defaults(cls=test_task.TestTask, which='test')
 
+    if len(args) == 0: return p.print_help()
+
     parsed = p.parse_args(args)
 
     if parsed.which == 'init':
