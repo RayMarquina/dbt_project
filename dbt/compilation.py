@@ -52,13 +52,12 @@ class Compiler(object):
                 yield project
 
 
-
-    def __project_sources(self, project):
+    def __walk_dir_for_sources(self, project, paths):
         """returns: {'model': ['pardot/model.sql', 'segment/model.sql']}
         """
         indexed_files = defaultdict(list)
 
-        for source_path in project['source-paths']:
+        for source_path in paths:
             full_source_path = os.path.join(project['project-root'], source_path)
             for root, dirs, files in os.walk(full_source_path):
                 for filename in files:
@@ -69,6 +68,14 @@ class Compiler(object):
                         indexed_files[full_source_path].append((project, rel_path))
 
         return indexed_files
+
+    def __project_sources(self, project):
+      source_paths = project.get('source-paths', [])
+      return self.__walk_dir_for_sources(project, source_paths)
+
+    def __project_analyses(self, project):
+      source_paths = project.get('analysis-paths', [])
+      return self.__walk_dir_for_sources(project, source_paths)
 
     def __project_models(self, project_sources):
         project_models = []
@@ -92,12 +99,13 @@ class Compiler(object):
         return project_models
 
 
-    def __write(self, original_path, payload):
+    def __write(self, original_path, payload, target_suffix=""):
         dirname = os.path.dirname(original_path)
         filename = os.path.basename(original_path)
         out_path = os.path.join(dirname, self.create_template.model_name(filename))
 
-        target_path = os.path.join(self.project['target-path'], self.create_template.label, out_path)
+        target_dir = self.create_template.label + target_suffix
+        target_path = os.path.join(self.project['target-path'], target_dir, out_path)
 
         if not os.path.exists(os.path.dirname(target_path)):
             os.makedirs(os.path.dirname(target_path))
@@ -209,13 +217,13 @@ class Compiler(object):
 
         return do_ref
 
-    def __do_compile(self, src_index, project_models):
+    def __do_compile(self, src_index, project_models, make_create=True):
         linker = Linker()
 
+        created = 0
         for src_path, project_files in src_index.items():
             jinja = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath=src_path))
             for (project, f) in project_files:
-
                 model_group, model_name = self.__get_model_identifiers(f)
                 model_name = self.create_template.model_name(model_name)
                 model_config = self.get_model_config(model_group, model_name)
@@ -231,12 +239,16 @@ class Compiler(object):
 
                 rendered = template.render(context)
 
-                create_stmt = self.__wrap_in_create(model_name, rendered, model_config)
+                if make_create:
+                  create_stmt = self.__wrap_in_create(model_name, rendered, model_config)
+                  if create_stmt:
+                      self.__write(f, create_stmt)
+                      created += 1
+                else:
+                  self.__write(f, rendered, "-analysis")
+                  created += 1
 
-                if create_stmt:
-                    self.__write(f, create_stmt)
-
-        return linker
+        return linker, created
 
     def __write_graph_file(self, linker):
         filename = 'graph-{}.yml'.format(self.create_template.label)
@@ -250,7 +262,10 @@ class Compiler(object):
             sources.update(self.__project_sources(project))
 
         project_models = self.__project_models(sources)
-        linker = self.__do_compile(sources, project_models)
-        self.__write_graph_file(linker)
+        model_linker, model_created = self.__do_compile(sources, project_models)
+        self.__write_graph_file(model_linker)
 
-        return linker.nodes()
+        analysis_sources = self.__project_analyses(self.project)
+        analysis_linker, analysis_created = self.__do_compile(analysis_sources, project_models, make_create=False)
+
+        return model_created, analysis_created
