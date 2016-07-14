@@ -58,6 +58,9 @@ def main(args=None):
           print("Encountered an error while reading the project:")
           print("  ERROR {}".format(e.message))
           print("Did you set the correct --profile? Using: {}".format(parsed.profile))
+          all_profiles = project.read_profiles().keys()
+          profiles_string = "\n".join([" - " + key for key in all_profiles])
+          print("Valid profiles:\n{}".format(profiles_string))
           return
         parsed.cls(args=parsed, project=proj).run()
 
