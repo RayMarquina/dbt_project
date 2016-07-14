@@ -51,7 +51,14 @@ def main(args=None):
         parsed.cls(args=parsed).run()
 
     elif os.path.isfile('dbt_project.yml'):
-        proj = project.read_project('dbt_project.yml').with_profiles(parsed.profile)
+        try:
+          proj = project.read_project('dbt_project.yml', validate=False).with_profiles(parsed.profile)
+          proj.validate()
+        except project.DbtProjectError as e:
+          print("Encountered an error while reading the project:")
+          print("  ERROR {}".format(e.message))
+          print("Did you set the correct --profile? Using: {}".format(parsed.profile))
+          return
         parsed.cls(args=parsed, project=proj).run()
 
     else:
