@@ -22,6 +22,17 @@ validation_errors as (
 select count(*) from validation_errors
 """
 
+QUERY_VALIDATE_ACCEPTED_VALUES = """
+with all_values as (
+  select distinct "{field}" as f
+  from "{schema}"."{table}"
+),
+validation_errors as (
+    select f from all_values where f not in ({values_csv})
+)
+select count(*) from validation_errors
+"""
+
 QUERY_VALIDATE_REFERENTIAL_INTEGRITY = """
 with parent as (
   select "{parent_field}" as id
@@ -143,11 +154,35 @@ class SchemaTester(object):
                 print("  FAILED ({})".format(num_rows))
                 yield False
 
+    def validate_accepted_values(self, model, constraint_data):
+        table = model[-1]
+        for constraint in constraint_data:
+            quoted_values = ["'{}'".format(v) for v in constraint['values']]
+            quoted_values_csv = ",".join(quoted_values)
+            target_cfg = self.project.run_environment()
+            params = {
+                "schema": target_cfg['schema'],
+                "table" : table,
+                "field" : constraint['field'],
+                "values_csv": quoted_values_csv
+            }
+            sql = self.make_query(QUERY_VALIDATE_ACCEPTED_VALUES, params)
+            print ('VALIDATE ACCEPTED VALUES "{}"."{}" VALUES ({})'.format(table, constraint['field'], quoted_values_csv))
+            num_rows = self.execute_query(model, sql)
+            if num_rows == 0:
+                print("  OK")
+                yield True
+            else:
+                print("  FAILED ({})".format(num_rows))
+                #print(sql)
+                yield False
+
     def validate_schema_constraint(self, model, constraint_type, constraint_data):
         constraint_map = {
             'not_null': self.validate_not_null,
             'unique': self.validate_unique,
-            'relationships': self.validate_relationships
+            'relationships': self.validate_relationships,
+            'accepted-values': self.validate_accepted_values
         }
 
         if constraint_type in constraint_map:
