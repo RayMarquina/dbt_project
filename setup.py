@@ -27,5 +27,6 @@ setup(
     'psycopg2==2.6.1',
     'sqlparse==0.1.19',
     'networkx==1.11',
+    'csvkit==0.9.1',
   ],
 )

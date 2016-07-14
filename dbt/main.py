@@ -82,7 +82,6 @@ def main(args=None):
         parsed.cls(args=parsed, project=proj).run()
 
     else:
-        parsed.cls(args=parsed, project=proj).run()
         raise RuntimeError("dbt must be run from a project root directory with a dbt_project.yml file")
 
 
