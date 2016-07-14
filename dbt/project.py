@@ -16,6 +16,7 @@ default_project_cfg = {
         'enabled': True,
         'materialized': False
     },
+    'profile': None,
     'repositories': [],
     'modules-path': 'dbt_modules'
 }
@@ -39,6 +40,10 @@ class Project:
         self.profiles = default_profiles.copy()
         self.profiles.update(profiles)
         self.active_profile_names = active_profile_names
+
+        # load profile from dbt_config.yml
+        if self.cfg['profile'] is not None:
+            self.active_profile_names.append(self.cfg['profile'])
 
         for profile_name in active_profile_names:
             if profile_name in self.profiles:
