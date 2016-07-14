@@ -19,6 +19,7 @@ def main(args=None):
 
     base_subparser = argparse.ArgumentParser(add_help=False)
     base_subparser.add_argument('--profile', default=["user"], nargs='+', type=str, help='Which profile to load')
+    base_subparser.add_argument('--target', default=None, type=str, help='Which run-target to load for the given profile')
 
     sub = subs.add_parser('init', parents=[base_subparser])
     sub.add_argument('project_name', type=str, help='Name of the new project')
@@ -62,9 +63,21 @@ def main(args=None):
           profiles_string = "\n".join([" - " + key for key in all_profiles])
           print("Valid profiles:\n{}".format(profiles_string))
           return
+
+        if parsed.target is not None:
+          targets = proj.cfg.get('outputs', {}).keys()
+          if parsed.target in targets:
+            proj.cfg['run-target'] = parsed.target
+          else:
+            print("Encountered an error while reading the project:")
+            print("  ERROR Specified target {} is not a valid option for profile {}".format(parsed.target, parsed.profile))
+            print("Valid targets are: {}".format(targets))
+            return
+
         parsed.cls(args=parsed, project=proj).run()
 
     else:
+        parsed.cls(args=parsed, project=proj).run()
         raise RuntimeError("dbt must be run from a project root directory with a dbt_project.yml file")
 
 
