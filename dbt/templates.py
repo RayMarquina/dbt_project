@@ -18,7 +18,7 @@ class TestCreateTemplate(object):
     create view "{schema}"."{identifier}" {dist_qualifier} {sort_qualifier} as (
         SELECT * FROM (
             {query}
-        ) LIMIT 0
+        ) as tmp LIMIT 0
     );"""
 
     label = "test"
