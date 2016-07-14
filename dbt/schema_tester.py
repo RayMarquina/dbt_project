@@ -15,10 +15,11 @@ QUERY_VALIDATE_UNIQUE = """
 with validation as (
   select "{field}" as f
   from "{schema}"."{table}"
+),
+validation_errors as (
+    select f from validation group by f having count(*) > 1
 )
-select count(*) from (
-  select f from validation group by f having count(*) > 1
-)
+select count(*) from validation_errors
 """
 
 QUERY_VALIDATE_REFERENTIAL_INTEGRITY = """
