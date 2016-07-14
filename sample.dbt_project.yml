@@ -11,6 +11,8 @@ target-path: "target"      # path for compiled code
 clean-targets: ["target"]  # directories removed by the clean task
 test-paths: ["test"]       # where to store test results
 
+# profile: "org-1"         # use org-1 profile within this project. uncomment to enable
+
 # default paramaters that apply to _all_ models (unless overridden below)
 
 model-defaults:
