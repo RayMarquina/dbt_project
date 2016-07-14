@@ -41,7 +41,10 @@ class Project:
         self.active_profile_names = active_profile_names
 
         for profile_name in active_profile_names:
-            self.cfg.update(self.profiles[profile_name])
+            if profile_name in self.profiles:
+                self.cfg.update(self.profiles[profile_name])
+            else:
+                raise DbtProjectError("Could not find profile named '{}'".format(profile_name), self)
 
     def __str__(self):
         return pprint.pformat({'project': self.cfg, 'profiles': self.profiles})
@@ -105,12 +108,13 @@ def read_profiles():
 
     return profiles
 
-def read_project(filename):
+def read_project(filename, validate=True):
     with open(filename, 'r') as f:
         project_cfg = yaml.safe_load(f)
         project_cfg['project-root'] = os.path.dirname(os.path.abspath(filename))
         profiles = read_profiles()
         proj = Project(project_cfg, profiles, default_active_profiles)
 
-        proj.validate()
+        if validate:
+            proj.validate()
         return proj

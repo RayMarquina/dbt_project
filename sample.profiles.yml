@@ -14,3 +14,29 @@ user:                         # you can have multiple profiles for different pro
       dbname: dev
       schema: my_model_schema # the schema to create models in (eg. analyst_collective)
   run-target: my-redshift     # which target to run sql against
+
+# create a second profile. You can switch to this profile in the CLI with --profile my-org
+# Valid dbt options include:
+# dbt debug --profile my-org # use my-org profile with default "dev" run target
+# dbt debug --profile my-org --target dev # explicitly use "dev" run target
+# dbt debug --profile my-org --target prod # switch to the "prod" run target
+# these flags work with `dbt (debug|compile|run|test)` as you would expect!
+my-org:
+  outputs:
+    dev: # specify the dev connection
+      type: redshift
+      host: localhost
+      port: 5439
+      user: my_user
+      pass: password
+      dbname: warehouse
+      schema: ac_drew_dev # use the dev schema
+    prod: # specify the prod connection
+      type: redshift
+      host: localhost
+      port: 5439
+      user: my_user
+      pass: password
+      dbname: warehouse
+      schema: ac_drew_prod # use the prod schema instead
+  run-target: dev # default env is dev unless specified otherwise
