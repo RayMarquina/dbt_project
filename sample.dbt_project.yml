@@ -6,10 +6,11 @@ package:
   name: 'package_name'
   version: '1.0'
 
-source-paths: ["models"]   # paths with source code to compile
-target-path: "target"      # path for compiled code
-clean-targets: ["target"]  # directories removed by the clean task
-test-paths: ["test"]       # where to store test results
+source-paths: ["models"]     # paths with source code to compile
+analysis-paths: ["analysis"] # path with code to compile, but not execute
+target-path: "target"        # path for compiled code
+clean-targets: ["target"]    # directories removed by the clean task
+test-paths: ["test"]         # where to store test results
 
 # profile: "org-1"         # use org-1 profile within this project. uncomment to enable
 
