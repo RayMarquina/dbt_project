@@ -3,6 +3,7 @@
 #  - Not null
 #  - Unique 
 #  - Referential integrity
+#  - Field in list of accepted values
 #
 # This file (schema.yml) should go in the models/your-model/ directory
 # To run it, execute one of the following commands
@@ -28,8 +29,15 @@ people:
 
 accounts:
   constraints:
+    # count number of rows where a value is not in the given accepted values
+    accepted-values:
+      - {field: tier, values: ['paid', 'free']}
+
     not_null:
       - id
       - domain
+
     unique:
       - id
+
+
