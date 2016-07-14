@@ -6,6 +6,7 @@ import sys
 
 default_project_cfg = {
     'source-paths': ['models'],
+    'data-paths': ['data'],
     'test-paths': ['test'],
     'target-path': 'target',
     'clean-targets': ['target'],

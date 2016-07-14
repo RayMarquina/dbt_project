@@ -9,6 +9,7 @@ source-paths: ["models"]   # paths with source code to compile
 target-path: "target"      # path for compiled code
 clean-targets: ["target"]  # directories removed by the clean task
 test-paths: ["test"]       # where to store test results
+data-paths: ["data"]       # load CSVs from this directory with `dbt seed`
 
 # default paramaters that apply to _all_ models (unless overridden below)
 model-defaults:
@@ -57,7 +58,7 @@ class InitTask:
         self.__write(project_dir, 'dbt_project.yml', SAMPLE_CONFIG)
         self.__write(project_dir, '.gitignore', GIT_IGNORE)
 
-        dirs = ['models', 'analysis', 'tests']
+        dirs = ['models', 'analysis', 'tests', 'data']
         for dir_name in dirs:
             dir_path = os.path.join(project_dir, dir_name)
             os.mkdir(dir_path)

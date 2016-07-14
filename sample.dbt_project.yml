@@ -10,6 +10,7 @@ source-paths: ["models"]   # paths with source code to compile
 target-path: "target"      # path for compiled code
 clean-targets: ["target"]  # directories removed by the clean task
 test-paths: ["test"]       # where to store test results
+#data-paths: ["data"]       # uncomment to load CSVs from this directory
 
 # default paramaters that apply to _all_ models (unless overridden below)
 

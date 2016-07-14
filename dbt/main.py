@@ -8,6 +8,7 @@ import dbt.task.debug as debug_task
 import dbt.task.clean as clean_task
 import dbt.task.deps as deps_task
 import dbt.task.init as init_task
+import dbt.task.seed as seed_task
 import dbt.task.test as test_task
 
 def main(args=None):
@@ -39,6 +40,10 @@ def main(args=None):
 
     sub = subs.add_parser('run', parents=[base_subparser])
     sub.set_defaults(cls=run_task.RunTask, which='run')
+
+    sub = subs.add_parser('seed', parents=[base_subparser])
+    sub.add_argument('--drop-existing', action='store_true', help="Drop existing seed tables and recreate them")
+    sub.set_defaults(cls=seed_task.SeedTask, which='seed')
 
     sub = subs.add_parser('test', parents=[base_subparser])
     sub.add_argument('--skip-test-creates', action='store_true', help="Don't create temporary views to validate model SQL")
