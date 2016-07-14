@@ -1,0 +1,35 @@
+# This is a sample schema definition which can go in a model directory
+# There are three types of validations
+#  - Not null
+#  - Unique 
+#  - Referential integrity
+#
+# This file (schema.yml) should go in the models/your-model/ directory
+# To run it, execute one of the following commands
+#
+# $ dbt test --validate
+# $ dbt test --skip-test-creates --validate
+
+people:
+  constraints:
+    # check number of times these fields are null (should be 0)
+    not_null:
+      - id
+      - account_id
+      - name
+
+    # count number of non-unique `id` fields (should be 0)
+    unique:
+      - id
+
+    # count number of rows where `people.account_id` points to a nonexistent `accounts.id` (should be 0)
+    relationships:
+      - {from: account_id, to: accounts, field: id}
+
+accounts:
+  constraints:
+    not_null:
+      - id
+      - domain
+    unique:
+      - id
