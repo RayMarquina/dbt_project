@@ -24,7 +24,7 @@ class Seeder:
         return found
 
     def drop_table(self, cursor, schema, table):
-        sql = 'drop table if exists "{schema}"."{table}"'.format(schema=schema, table=table)
+        sql = 'drop table if exists "{schema}"."{table}" cascade'.format(schema=schema, table=table)
         print("Dropping table {}.{}".format(schema, table))
         cursor.execute(sql)
 
