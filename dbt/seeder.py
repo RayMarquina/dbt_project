@@ -1,7 +1,7 @@
 
 import os
 import fnmatch
-from runner import RedshiftTarget
+from dbt.runner import RedshiftTarget
 from csvkit import table as csv_table, sql as csv_sql
 from sqlalchemy.dialects import postgresql as postgresql_dialect
 import psycopg2
