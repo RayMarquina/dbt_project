@@ -6,6 +6,7 @@ name: 'package_name'
 version: '1.0'
 
 source-paths: ["models"]   # paths with source code to compile
+analysis-paths: ["analysis"] # path with analysis files which are compiled, but not run
 target-path: "target"      # path for compiled code
 clean-targets: ["target"]  # directories removed by the clean task
 test-paths: ["test"]       # where to store test results
