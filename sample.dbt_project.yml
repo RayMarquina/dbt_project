@@ -11,6 +11,7 @@ analysis-paths: ["analysis"] # path with code to compile, but not execute
 target-path: "target"        # path for compiled code
 clean-targets: ["target"]    # directories removed by the clean task
 test-paths: ["test"]         # where to store test results
+data-paths: ["data"]         # load csvs from this directory with `dbt seed`
 
 # profile: "org-1"         # use org-1 profile within this project. uncomment to enable
 
