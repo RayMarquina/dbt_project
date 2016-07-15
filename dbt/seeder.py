@@ -4,6 +4,7 @@ import fnmatch
 from runner import RedshiftTarget
 from csvkit import table as csv_table, sql as csv_sql
 from sqlalchemy.dialects import postgresql as postgresql_dialect
+import psycopg2
 
 class Seeder:
     def __init__(self, project):
@@ -81,7 +82,13 @@ class Seeder:
             else:
                 self.create_table(cursor, schema, table_name, virtual_table)
 
-            self.insert_into_table(cursor, schema, table_name, virtual_table)
+            try:
+                self.insert_into_table(cursor, schema, table_name, virtual_table)
+            except psycopg2.ProgrammingError as e:
+                print('Encountered an error while inserting into table "{}"."{}"'.format(schema, table_name))
+                print('Check for formatting errors in {}'.format(csv_path))
+                print('Try --drop-existing to delete and recreate the table instead')
+                print(e.message)
 
 
     def seed(self, drop_existing=False):
