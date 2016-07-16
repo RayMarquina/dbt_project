@@ -64,7 +64,7 @@ class Compiler(object):
                     abs_path = os.path.join(root, filename)
                     rel_path = os.path.relpath(abs_path, full_source_path)
 
-                    if fnmatch.fnmatch(filename, "*.sql"):
+                    if fnmatch.fnmatch(filename, "[!.#~]*.sql"):
                         indexed_files[full_source_path].append((project, rel_path))
 
         return indexed_files
