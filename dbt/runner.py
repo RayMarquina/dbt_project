@@ -6,7 +6,8 @@ import psycopg2
 import os, sys
 import fnmatch
 
-from dbt.compilation import Linker
+from dbt.compilation import Linker, Compiler
+from dbt.templates import BaseCreateTemplate
 
 class RedshiftTarget:
     def __init__(self, cfg):
@@ -139,6 +140,11 @@ class Runner:
                     yield model
 
     def run(self):
+        compiler = Compiler(self.project, BaseCreateTemplate)
+        compiler.initialize()
+        created_models, created_analyses = compiler.compile()
+        print("Created {} models and {} analyses".format(created_models, created_analyses))
+
         linker = Linker()
         self.__deserialize_graph(linker)
         self.__load_models()
@@ -151,4 +157,3 @@ class Runner:
             print("ERROR: Could not connect to the target database. Try `dbt debug` for more information")
             print(e.message)
             sys.exit(1)
-
