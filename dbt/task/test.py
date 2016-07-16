@@ -46,7 +46,7 @@ class TestTask:
             print("")
             print("Error encountered while trying to execute tests")
             print("Model: {}".format(".".join(e.model)))
-            print(e.message)
+            print(str(e))
         finally:
             if onFinally:
                 onFinally(executed_models)

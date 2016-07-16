@@ -155,5 +155,5 @@ class Runner:
                 yield model, True
         except psycopg2.OperationalError as e:
             print("ERROR: Could not connect to the target database. Try `dbt debug` for more information")
-            print(e.message)
+            print(str(e))
             sys.exit(1)

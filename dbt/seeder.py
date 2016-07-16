@@ -88,7 +88,7 @@ class Seeder:
                 print('Encountered an error while inserting into table "{}"."{}"'.format(schema, table_name))
                 print('Check for formatting errors in {}'.format(csv_path))
                 print('Try --drop-existing to delete and recreate the table instead')
-                print(e.message)
+                print(str(e))
 
 
     def seed(self, drop_existing=False):

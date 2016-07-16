@@ -209,7 +209,7 @@ class SchemaTester(object):
                         for test_passed in self.validate_schema_constraint(model, constraint_type, constraint_data):
                             yield model, test_passed
                     except RuntimeError as e:
-                        print("ERRROR: {}".format(e.message))
+                        print("ERRROR: {}".format(str(e)))
 
     def test(self, compiler):
         schemas = self.project_schemas()

@@ -64,7 +64,7 @@ def main(args=None):
           proj.validate()
         except project.DbtProjectError as e:
           print("Encountered an error while reading the project:")
-          print("  ERROR {}".format(e.message))
+          print("  ERROR {}".format(str(e)))
           print("Did you set the correct --profile? Using: {}".format(parsed.profile))
           all_profiles = project.read_profiles().keys()
           profiles_string = "\n".join([" - " + key for key in all_profiles])
