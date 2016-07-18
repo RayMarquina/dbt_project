@@ -39,6 +39,7 @@ def main(args=None):
     sub.set_defaults(cls=deps_task.DepsTask, which='deps')
 
     sub = subs.add_parser('run', parents=[base_subparser])
+    sub.add_argument('--models', required=False, nargs='+', help="Specify the models to run. All models depending on these models will also be run")
     sub.set_defaults(cls=run_task.RunTask, which='run')
 
     sub = subs.add_parser('seed', parents=[base_subparser])

@@ -114,13 +114,13 @@ class Runner:
                     model_name = model[-1]
                     self.__drop(cursor, target.schema, model_name, existing[model_name])
 
-    def __execute_models(self, linker):
+    def __execute_models(self, linker, limit_to=None):
         target = self.__get_target()
 
         with target.get_handle() as handle:
             with handle.cursor() as cursor:
                 existing = self.__query_for_existing(cursor, target.schema);
-                dependency_list = list(linker.as_dependency_list())
+                dependency_list = list(linker.as_dependency_list(limit_to))
 
                 num_models = len(dependency_list)
                 if num_models == 0:
@@ -133,25 +133,37 @@ class Runner:
                         self.__drop(cursor, target.schema, model_name, existing[model_name])
                         handle.commit()
 
-                    print("{} of {} -- Creating relation {}.{}".format(index + 1, num_models, target.schema, model_name))
+                    print("Running {} of {} -- Creating relation {}.{}".format(index + 1, num_models, target.schema, model_name))
                     sql = self.model_sql_map[model]
                     self.__do_execute(cursor, sql, model)
                     handle.commit()
                     yield model
 
-    def run(self):
+    def run(self, specified_models=None):
         compiler = Compiler(self.project, BaseCreateTemplate)
         compiler.initialize()
         created_models, created_analyses = compiler.compile()
-        print("Created {} models and {} analyses".format(created_models, created_analyses))
+        print("Compiled {} models and {} analyses".format(created_models, created_analyses))
 
         linker = Linker()
         self.__deserialize_graph(linker)
         self.__load_models()
 
+        limit_to = None
+        if specified_models is not None:
+            limit_to = []
+            for model_name in specified_models:
+                try:
+                    model = compiler.find_model_by_name(self.model_sql_map, model_name)
+                except RuntimeError as e:
+                    print("ERROR: {}".format(str(e)))
+                    print("Exiting")
+                    return
+                limit_to.append(model)
+
         try:
             self.__create_schema()
-            for model in self.__execute_models(linker):
+            for model in self.__execute_models(linker, limit_to):
                 yield model, True
         except psycopg2.OperationalError as e:
             print("ERROR: Could not connect to the target database. Try `dbt debug` for more information")

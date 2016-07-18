@@ -14,8 +14,8 @@ class Linker(object):
     def nodes(self):
         return self.graph.nodes()
 
-    def as_dependency_list(self):
-        return nx.topological_sort(self.graph, reverse=True)
+    def as_dependency_list(self, limit_to=None):
+        return nx.topological_sort(self.graph, nbunch=limit_to, reverse=True)
 
     def dependency(self, node1, node2):
         "indicate that node1 depends on node2"
@@ -178,7 +178,7 @@ class Compiler(object):
 
         return config
 
-    def __find_model_by_name(self, project_models, name, package_namespace=None):
+    def find_model_by_name(self, project_models, name, package_namespace=None):
         found = []
         for model in project_models:
             package, model_group, model_name = model
@@ -189,7 +189,8 @@ class Compiler(object):
                     found.append(model)
 
         if len(found) == 0:
-            raise RuntimeError("Can't find a model named '{}' in package '{}' -- does it exist?".format(name, package_namespace))
+            nice_package_name = 'ANY' if package_namespace is None else package_namespace
+            raise RuntimeError("Can't find a model named '{}' in package '{}' -- does it exist?".format(name, nice_package_name))
         elif len(found) == 1:
             return found[0]
         else:
@@ -204,10 +205,10 @@ class Compiler(object):
         def do_ref(*args):
             if len(args) == 1:
                 other_model_name = args[0]
-                other_model = self.__find_model_by_name(project_models, other_model_name)
+                other_model = self.find_model_by_name(project_models, other_model_name)
             elif len(args) == 2:
                 other_model_package, other_model_name = args
-                other_model = self.__find_model_by_name(project_models, other_model_name, package_namespace=other_model_package)
+                other_model = self.find_model_by_name(project_models, other_model_name, package_namespace=other_model_package)
 
             other_model_name = self.create_template.model_name(other_model_name)
             other_model = (other_model[0], other_model[1], self.create_template.model_name(other_model[2]))
@@ -217,7 +218,7 @@ class Compiler(object):
 
         return do_ref
 
-    def __do_compile(self, src_index, project_models, make_create=True):
+    def __do_compile(self, src_index, project_models, make_create=True, include=[]):
         linker = Linker()
 
         created = 0
@@ -228,7 +229,7 @@ class Compiler(object):
                 model_name = self.create_template.model_name(model_name)
                 model_config = self.get_model_config(model_group, model_name)
 
-                if not model_config.get('enabled'):
+                if not model_config.get('enabled') and model_name not in include:
                     continue
 
                 template = jinja.get_template(f)
