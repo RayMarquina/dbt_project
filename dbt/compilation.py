@@ -15,13 +15,13 @@ class Linker(object):
         return self.graph.nodes()
 
     def as_dependency_list(self, limit_to=None):
-        return nx.topological_sort(self.graph, nbunch=limit_to, reverse=True)
+        return nx.topological_sort(self.graph, nbunch=limit_to)
 
     def dependency(self, node1, node2):
         "indicate that node1 depends on node2"
         self.graph.add_node(node1)
         self.graph.add_node(node2)
-        self.graph.add_edge(node1, node2)
+        self.graph.add_edge(node2, node1)
 
     def add_node(self, node):
         self.graph.add_node(node)
