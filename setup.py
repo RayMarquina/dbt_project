@@ -13,6 +13,7 @@ setup(
   author_email="admin@analystcollective.org",
   url="https://github.com/analyst-collective/dbt",
   packages=find_packages(),
+  test_suite = 'tests',
   entry_points={
     'console_scripts': [
       'dbt = dbt.main:main',
