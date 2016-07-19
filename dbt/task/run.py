@@ -16,6 +16,7 @@ class RunTask:
         print("Compiled {} models and {} analyses".format(created_models, created_analyses))
 
     def run(self):
+        self.compile()
         runner = Runner(self.project, self.project['target-path'], BaseCreateTemplate.label)
         for (model, passed) in runner.run(self.args.models):
             pass

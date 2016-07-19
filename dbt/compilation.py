@@ -69,13 +69,13 @@ class Compiler(object):
         return Source(project).get_analyses(paths)
 
     def validate_models_unique(self, models):
-        model_names = set()
+        found_models = defaultdict(list)
         for model in models:
-            if model.name in model_names:
-                # TODO : Package?
-                raise RuntimeError("ERROR: Conflicting model found model={}".format(model.name))
-            else:
-                model_names.add(model.name)
+            found_models[model.name].append(model)
+        for model_name, model_list in found_models.items():
+            if len(model_list) > 1:
+                models_str = "\n  - ".join([str(model) for model in model_list])
+                raise RuntimeError("Found {} models with the same name! Can't create tables. Name='{}'\n  - {}".format(len(model_list), model_name, models_str))
 
     def __write(self, build_filepath, payload):
         target_path = os.path.join(self.project['target-path'], build_filepath)
