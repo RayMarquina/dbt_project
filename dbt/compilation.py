@@ -170,13 +170,14 @@ class Compiler(object):
 
         self.__write_graph_file(model_linker)
 
-        analysis_linker = Linker()
-        analyses = self.analysis_sources(self.project)
+        # don't compile analyses in test mode!
         compiled_analyses = []
-        for analysis in analyses:
-            compiled = self.compile_model(analysis_linker, analysis, models)
-            if compiled:
-                compiled_analyses.append(compiled)
-
+        if self.create_template.label != 'test':
+            analysis_linker = Linker()
+            analyses = self.analysis_sources(self.project)
+            for analysis in analyses:
+                compiled = self.compile_model(analysis_linker, analysis, models)
+                if compiled:
+                    compiled_analyses.append(compiled)
 
         return len(compiled_models), len(compiled_analyses)
