@@ -1,7 +1,7 @@
 import os
 import yaml
 
-from dbt.runner import RedshiftTarget
+from dbt.targets import RedshiftTarget
 
 QUERY_VALIDATE_NOT_NULL = """
 with validation as (

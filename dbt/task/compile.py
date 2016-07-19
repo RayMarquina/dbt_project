@@ -13,4 +13,4 @@ class CompileTask:
         compiler.initialize()
         created_models, created_analyses = compiler.compile()
 
-        print("Created {} models and {} analyses".format(created_models, created_analyses))
+        print("Compiled {} models and {} analyses".format(created_models, created_analyses))

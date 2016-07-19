@@ -1,10 +1,11 @@
 
 import os
 import fnmatch
-from dbt.runner import RedshiftTarget
 from csvkit import table as csv_table, sql as csv_sql
 from sqlalchemy.dialects import postgresql as postgresql_dialect
 import psycopg2
+
+from dbt.targets import RedshiftTarget
 
 class Seeder:
     def __init__(self, project):

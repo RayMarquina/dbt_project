@@ -10,7 +10,8 @@ class DBTSource(object):
         self.filedir = os.path.dirname(self.filepath)
         self.name = self.fqn[-1]
 
-    def get_contents(self):
+    @property
+    def contents(self):
         with open(self.filepath) as fh:
             return fh.read().strip()
 
@@ -121,6 +122,13 @@ class CompiledModel(DBTSource):
 
     def compile(self):
         raise RuntimeError("Not implemented!")
+
+    @property
+    def fqn(self):
+        "fully-qualified name for compiled model. Includes all subdirs below 'target/build-*' path and the filename"
+        parts = self.filepath.split("/")
+        name, _ = os.path.splitext(parts[-1])
+        return parts[2:-1] + [name]
 
     def __repr__(self):
         return "<CompiledModel {}: {}>".format(self.name, self.filepath)

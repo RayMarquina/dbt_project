@@ -5,6 +5,7 @@ import jinja2
 from collections import defaultdict
 import dbt.project
 from dbt.source import Source
+from dbt.utils import find_model_by_name
 
 import networkx as nx
 
@@ -77,27 +78,9 @@ class Compiler(object):
         if not os.path.exists(os.path.dirname(target_path)):
             os.makedirs(os.path.dirname(target_path))
 
-        print target_path
-
         with open(target_path, 'w') as f:
             f.write(payload)
 
-    def find_model_by_name(self, project_models, name, package_namespace=None):
-        found = []
-        for model in project_models:
-            if model.name == name:
-                if package_namespace is None:
-                    found.append(model)
-                elif package_namespace is not None and package_namespace == model.project['name']:
-                    found.append(model)
-
-        nice_package_name = 'ANY' if package_namespace is None else package_namespace
-        if len(found) == 0:
-            raise RuntimeError("Can't find a model named '{}' in package '{}' -- does it exist?".format(name, nice_package_name))
-        elif len(found) == 1:
-            return found[0]
-        else:
-            raise RuntimeError("Model specification is ambiguous: model='{}' package='{}' -- {} models match criteria: {}".format(name, nice_package_name, len(found), found))
 
     def __ref(self, linker, ctx, model, all_models):
         schema = ctx['env']['schema']
@@ -109,10 +92,10 @@ class Compiler(object):
         def do_ref(*args):
             if len(args) == 1:
                 other_model_name = args[0]
-                other_model = self.find_model_by_name(all_models, other_model_name)
+                other_model = find_model_by_name(all_models, other_model_name)
             elif len(args) == 2:
                 other_model_package, other_model_name = args
-                other_model = self.find_model_by_name(all_models, other_model_name, package_namespace=other_model_package)
+                other_model = find_model_by_name(all_models, other_model_name, package_namespace=other_model_package)
 
             other_model_name = self.create_template.model_name(other_model_name)
 
@@ -175,6 +158,7 @@ class Compiler(object):
             compiled = self.compile_model(analysis_linker, analysis, models)
             if compiled:
                 compiled_analyses.append(compiled)
+
 
         return len(compiled_models), len(compiled_analyses)
 
