@@ -115,7 +115,7 @@ class Compiler(object):
         return do_ref
 
     def compile_model(self, linker, model, models):
-        jinja = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath=model.top_dir))
+        jinja = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath=model.root_dir))
 
         model_config = model.get_config(self.project)
 

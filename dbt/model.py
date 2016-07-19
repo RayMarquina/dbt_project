@@ -13,6 +13,10 @@ class DBTSource(object):
         self.name = self.fqn[-1]
 
     @property
+    def root_dir(self):
+        return os.path.join(self.project['project-root'], self.top_dir)
+
+    @property
     def contents(self):
         with open(self.filepath) as fh:
             return fh.read().strip()
