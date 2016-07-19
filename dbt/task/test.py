@@ -21,9 +21,7 @@ class TestTask:
         self.args = args
         self.project = project
 
-    def get_target(self):
-        return os.path.join(self.project['target-path'], TestCreateTemplate.label)
-
+    # TODO : this doesn't compile right?
     def compile(self):
         compiler = Compiler(self.project, TestCreateTemplate)
         compiler.initialize()
@@ -61,8 +59,7 @@ class TestTask:
         print("")
 
     def run_test_creates(self):
-        target_path = self.get_target()
-        runner = Runner(self.project, target_path, TestCreateTemplate.label)
+        runner = Runner(self.project, self.project['target-path'], TestCreateTemplate.label)
         self.run_and_catch_errors(runner.run, runner.drop_models)
 
     def run_validations(self, compiler):

@@ -110,7 +110,7 @@ class SchemaTester(object):
         for field in constraint_data:
             params = self.get_query_params(table, field)
             sql = self.make_query(QUERY_VALIDATE_NOT_NULL, params)
-            print ('VALIDATE NOT NULL "{}"."{}"'.format(table, field))
+            print('VALIDATE NOT NULL "{}"."{}"'.format(table, field))
             num_rows = self.execute_query(model, sql)
             if num_rows == 0:
                 print("  OK")
@@ -124,7 +124,7 @@ class SchemaTester(object):
         for field in constraint_data:
             params = self.get_query_params(table, field)
             sql = self.make_query(QUERY_VALIDATE_UNIQUE, params)
-            print ('VALIDATE UNIQUE "{}"."{}"'.format(table, field))
+            print('VALIDATE UNIQUE "{}"."{}"'.format(table, field))
             num_rows = self.execute_query(model, sql)
             if num_rows == 0:
                 print("  OK")
@@ -145,7 +145,7 @@ class SchemaTester(object):
                 "parent_field": reference['field']
             }
             sql = self.make_query(QUERY_VALIDATE_REFERENTIAL_INTEGRITY, params)
-            print ('VALIDATE REFERENTIAL INTEGRITY "{}"."{}" to "{}"."{}"'.format(table, reference['from'], reference['to'], reference['field']))
+            print('VALIDATE REFERENTIAL INTEGRITY "{}"."{}" to "{}"."{}"'.format(table, reference['from'], reference['to'], reference['field']))
             num_rows = self.execute_query(model, sql)
             if num_rows == 0:
                 print("  OK")
@@ -167,7 +167,7 @@ class SchemaTester(object):
                 "values_csv": quoted_values_csv
             }
             sql = self.make_query(QUERY_VALIDATE_ACCEPTED_VALUES, params)
-            print ('VALIDATE ACCEPTED VALUES "{}"."{}" VALUES ({})'.format(table, constraint['field'], quoted_values_csv))
+            print('VALIDATE ACCEPTED VALUES "{}"."{}" VALUES ({})'.format(table, constraint['field'], quoted_values_csv))
             num_rows = self.execute_query(model, sql)
             if num_rows == 0:
                 print("  OK")

@@ -1,5 +1,6 @@
 
 import os.path
+from dbt.templates import TestCreateTemplate
 
 class DBTSource(object):
     def __init__(self, project, top_dir, rel_filepath):
@@ -17,6 +18,9 @@ class DBTSource(object):
 
     def get_config_keys(self):
         return ['enabled', 'materialized', 'dist', 'sort']
+
+    def compile(self):
+        raise RuntimeError("Not implemented!")
 
     def get_config(self, primary_project):
         config_keys = self.get_config_keys()
@@ -115,13 +119,31 @@ class Analysis(Model):
     def __repr__(self):
         return "<Analysis {}: {}>".format(self.name, self.filepath)
 
+class TestModel(Model):
+    def __init__(self, project, target_dir, rel_filepath):
+        return super(TestModel, self).__init__(project, target_dir, rel_filepath)
+
+    def build_path(self, create_template):
+        build_dir = create_template.label
+        filename = "{}.sql".format(self.name)
+        path_parts = [build_dir] + self.fqn[:-1] + [filename]
+        return os.path.join(*path_parts)
+
+    @property
+    def fqn(self):
+        "fully-qualified name for model. Includes all subdirs below 'models' path and the filename"
+        parts = self.filepath.split("/")
+        name, _ = os.path.splitext(parts[-1])
+        test_name = TestCreateTemplate.model_name(name)
+        return parts[1:-1] + [test_name]
+
+    def __repr__(self):
+        return "<TestModel {}: {}>".format(self.name, self.filepath)
+
 
 class CompiledModel(DBTSource):
     def __init__(self, project, target_dir, rel_filepath):
         return super(CompiledModel, self).__init__(project, target_dir, rel_filepath)
-
-    def compile(self):
-        raise RuntimeError("Not implemented!")
 
     @property
     def fqn(self):

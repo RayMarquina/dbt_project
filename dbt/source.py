@@ -1,7 +1,7 @@
 
 import os.path
 import fnmatch
-from dbt.model import Model, Analysis, CompiledModel, Schema
+from dbt.model import Model, Analysis, CompiledModel, TestModel, Schema
 
 class Source(object):
     def __init__(self, project):
@@ -26,6 +26,11 @@ class Source(object):
     def get_models(self, model_dirs):
         pattern = "[!.#~]*.sql"
         models = [Model(*model) for model in self.find(model_dirs, pattern)]
+        return models
+
+    def get_test_models(self, model_dirs):
+        pattern = "[!.#~]*.sql"
+        models = [TestModel(*model) for model in self.find(model_dirs, pattern)]
         return models
 
     def get_analyses(self, analysis_dirs):

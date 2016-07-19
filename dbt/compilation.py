@@ -56,7 +56,12 @@ class Compiler(object):
     def model_sources(self, project):
         "source_key is a dbt config key like source-paths or analysis-paths"
         paths = project.get('source-paths', [])
-        return Source(project).get_models(paths)
+        if self.create_template.label == 'build':
+            return Source(project).get_models(paths)
+        elif self.create_template.label == 'test':
+            return Source(project).get_test_models(paths)
+        else:
+            raise RuntimeError("unexpected create template type: '{}'".format(self.create_template.label))
 
     def analysis_sources(self, project):
         "source_key is a dbt config key like source-paths or analysis-paths"
@@ -91,15 +96,13 @@ class Compiler(object):
 
         def do_ref(*args):
             if len(args) == 1:
-                other_model_name = args[0]
+                other_model_name = self.create_template.model_name(args[0])
                 other_model = find_model_by_name(all_models, other_model_name)
             elif len(args) == 2:
                 other_model_package, other_model_name = args
+                other_model_name = self.create_template.model_name(other_model_name)
                 other_model = find_model_by_name(all_models, other_model_name, package_namespace=other_model_package)
 
-            other_model_name = self.create_template.model_name(other_model_name)
-
-            # TODO : wtf is up here?
             other_model_fqn = tuple(other_model.fqn[:-1] + [other_model_name])
 
             linker.dependency(source_model, other_model_fqn)

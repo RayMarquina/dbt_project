@@ -61,7 +61,7 @@ class Runner:
             e.model = model
             raise e
 
-    def drop_models(self, models, cursor):
+    def drop_models(self, models):
         target = self.get_target()
 
         with target.get_handle() as handle:
@@ -70,7 +70,7 @@ class Runner:
                 existing = self.query_for_existing(cursor, target.schema);
 
                 for model in models:
-                    model_name = model[-1]
+                    model_name = model.fqn[-1]
                     self.__drop(cursor, target.schema, model_name, existing[model_name])
 
     def get_model_by_fqn(self, models, fqn):
@@ -103,11 +103,6 @@ class Runner:
                     yield model
 
     def run(self, specified_models=None):
-        compiler = Compiler(self.project, BaseCreateTemplate)
-        compiler.initialize()
-        created_models, created_analyses = compiler.compile()
-        print("Compiled {} models and {} analyses".format(created_models, created_analyses))
-
         linker = self.deserialize_graph()
         compiled_models = self.get_compiled_models()
 
