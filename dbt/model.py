@@ -179,19 +179,3 @@ class Csv(DBTSource):
 
     def __repr__(self):
         return "<Csv {}.{}: {}>".format(self.project['name'], self.name, self.filepath)
-
-# compilation.py: map of abspath to model root --> (project, model_rel_path)
-# args: project, paths
-#['/Users/Drew/Desktop/analyst_collective/test-dbt/models'] --> 'idk/people.sql'
-
-# runner.py: list of rel paths to compiled files
-# args: none
-#['idk/accounts.sql', 'idk/people.sql', 'idk/people_accounts.sql'] 
-
-# schema_tester.py: map of model root --> parsed yaml file
-# args: none
-#{'idk': {'accounts': {'constraints': {'accepted-values': [{'field': 'type', 'values': ['paid', 'free']}]}}, 'people': {'constraints': {'relationships': [{'to': 'accounts', 'from': 'account_id', 'field': 'id'}], 'not_null': ['id', 'account_id', 'name'], 'unique': ['id'], 'accepted-values': [{'field': 'type', 'values': ['paid', 'free']}]}}}}
-
-# seeder.py: list of abs path to CSV files in specified dir
-# args: none
-#['/Users/Drew/Desktop/analyst_collective/test-dbt/data/iris3.csv']
