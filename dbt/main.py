@@ -15,6 +15,15 @@ def main(args=None):
     if args is None:
         args = sys.argv[1:]
 
+    try:
+        handle(args)
+    except RuntimeError as e:
+        print("Encountered an error:")
+        print(str(e))
+        sys.exit(1)
+
+def handle(args):
+
     p = argparse.ArgumentParser(prog='dbt: data build tool')
     subs = p.add_subparsers()
 

@@ -2,18 +2,21 @@
 import os
 from dbt.templates import BaseCreateTemplate
 from dbt.runner import Runner
+from dbt.compilation import Compiler
 
 class RunTask:
     def __init__(self, args, project):
         self.args = args
         self.project = project
 
-    def get_target(self):
-        return os.path.join(self.project['target-path'], BaseCreateTemplate.label)
+    def compile(self):
+        compiler = Compiler(self.project, BaseCreateTemplate)
+        compiler.initialize()
+        created_models, created_analyses = compiler.compile()
+        print("Compiled {} models and {} analyses".format(created_models, created_analyses))
 
     def run(self):
-        target_path = self.get_target()
-
-        runner = Runner(self.project, target_path, BaseCreateTemplate.label)
+        self.compile()
+        runner = Runner(self.project, self.project['target-path'], BaseCreateTemplate.label)
         for (model, passed) in runner.run(self.args.models):
             pass

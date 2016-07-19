@@ -25,7 +25,7 @@ class DepsTask:
 
         out, err = proc.communicate()
 
-        exists = re.match("fatal: destination path '(.+)' already exists", err)
+        exists = re.match("fatal: destination path '(.+)' already exists", err.decode('utf-8'))
         folder = None
         if exists:
             folder = exists.group(1)

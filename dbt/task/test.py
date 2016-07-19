@@ -16,13 +16,11 @@ class TestTask:
            a) not null
            b) uniquenss
            c) referential integrity
+           d) accepted value
     """
     def __init__(self, args, project):
         self.args = args
         self.project = project
-
-    def get_target(self):
-        return os.path.join(self.project['target-path'], TestCreateTemplate.label)
 
     def compile(self):
         compiler = Compiler(self.project, TestCreateTemplate)
@@ -45,7 +43,7 @@ class TestTask:
             errored = True
             print("")
             print("Error encountered while trying to execute tests")
-            print("Model: {}".format(".".join(e.model)))
+            print("Model: {}".format(e.model))
             print(str(e))
         finally:
             if onFinally:
@@ -61,15 +59,13 @@ class TestTask:
         print("")
 
     def run_test_creates(self):
-        target_path = self.get_target()
-        runner = Runner(self.project, target_path, TestCreateTemplate.label)
+        runner = Runner(self.project, self.project['target-path'], TestCreateTemplate.label)
         self.run_and_catch_errors(runner.run, runner.drop_models)
 
-    def run_validations(self, compiler):
+    def run_validations(self):
         print("Validating schemas")
         schema_tester = SchemaTester(self.project)
-        func = lambda: schema_tester.test(compiler)
-        self.run_and_catch_errors(func)
+        self.run_and_catch_errors(schema_tester.test)
 
     def run(self):
         compiler = self.compile()
@@ -80,7 +76,7 @@ class TestTask:
             self.run_test_creates()
 
         if self.args.validate:
-            self.run_validations(compiler)
+            self.run_validations()
         else:
             print("Skipping validations (--validate not provided)")
 
