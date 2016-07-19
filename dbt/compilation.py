@@ -52,7 +52,6 @@ class Compiler(object):
                 project = dbt.project.read_project(os.path.join(full_obj, 'dbt_project.yml'))
                 yield project
 
-
     def model_sources(self, project):
         "source_key is a dbt config key like source-paths or analysis-paths"
         paths = project.get('source-paths', [])
@@ -82,11 +81,6 @@ class Compiler(object):
 
         with open(target_path, 'w') as f:
             f.write(payload)
-
-    def __get_model_identifiers(self, model_filepath):
-        model_group = os.path.dirname(model_filepath)
-        model_name, _ = os.path.splitext(os.path.basename(model_filepath))
-        return model_group, model_name
 
     def find_model_by_name(self, project_models, name, package_namespace=None):
         found = []
