@@ -179,7 +179,6 @@ class SchemaTester(object):
                 model = schema.get_model(self.project, model_name)
                 config = model.get_config(self.project)
                 if not config['enabled']:
-                    print "skipping", model
                     continue
 
                 constraints = schema.schema[model_name]['constraints']

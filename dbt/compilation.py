@@ -146,11 +146,18 @@ class Compiler(object):
         graph_path = os.path.join(self.project['target-path'], filename)
         linker.write_graph(graph_path)
 
+    def is_enabled(self, model):
+        config = model.get_config(self.project)
+        enabled = config['enabled']
+        return enabled
+
     def compile(self):
-        models = self.model_sources(self.project)
+        all_models = self.model_sources(self.project)
 
         for project in self.dependency_projects():
-            models.extend(self.model_sources(project))
+            all_models.extend(self.model_sources(project))
+
+        models = [model for model in all_models if self.is_enabled(model)]
 
         self.validate_models_unique(models)
 
@@ -173,4 +180,3 @@ class Compiler(object):
 
 
         return len(compiled_models), len(compiled_analyses)
-

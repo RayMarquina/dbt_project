@@ -109,7 +109,7 @@ class Model(DBTSource):
         return create_template.wrap(opts)
 
     def __repr__(self):
-        return "<Model {}: {}>".format(self.name, self.filepath)
+        return "<Model {}.{}: {}>".format(self.project['name'], self.name, self.filepath)
 
 class Analysis(Model):
     def __init__(self, project, target_dir, rel_filepath):
@@ -140,10 +140,10 @@ class TestModel(Model):
         parts = self.filepath.split("/")
         name, _ = os.path.splitext(parts[-1])
         test_name = TestCreateTemplate.model_name(name)
-        return parts[1:-1] + [test_name]
+        return [self.project['name']] + parts[1:-1] + [test_name]
 
     def __repr__(self):
-        return "<TestModel {}: {}>".format(self.name, self.filepath)
+        return "<TestModel {}.{}: {}>".format(self.project['name'], self.name, self.filepath)
 
 
 class CompiledModel(DBTSource):
@@ -158,7 +158,7 @@ class CompiledModel(DBTSource):
         return parts[2:-1] + [name]
 
     def __repr__(self):
-        return "<CompiledModel {}: {}>".format(self.name, self.filepath)
+        return "<CompiledModel {}.{}: {}>".format(self.project['name'], self.name, self.filepath)
 
 class Schema(DBTSource):
     def __init__(self, project, target_dir, rel_filepath):
@@ -171,14 +171,14 @@ class Schema(DBTSource):
         return model
 
     def __repr__(self):
-        return "<Schema {}: {}>".format(self.name, self.filepath)
+        return "<Schema {}.{}: {}>".format(self.project['name'], self.name, self.filepath)
 
 class Csv(DBTSource):
     def __init__(self, project, target_dir, rel_filepath):
         super(Csv, self).__init__(project, target_dir, rel_filepath)
 
     def __repr__(self):
-        return "<Csv {}: {}>".format(self.name, self.filepath)
+        return "<Csv {}.{}: {}>".format(self.project['name'], self.name, self.filepath)
 
 # compilation.py: map of abspath to model root --> (project, model_rel_path)
 # args: project, paths
