@@ -7,7 +7,8 @@ class BaseCreateTemplate(object):
 
     label = "build"
 
-    def model_name(self, base_name):
+    @classmethod
+    def model_name(cls, base_name):
         return base_name
 
     def wrap(self, opts):
@@ -23,7 +24,8 @@ class TestCreateTemplate(object):
 
     label = "test"
 
-    def model_name(self, base_name):
+    @classmethod
+    def model_name(cls, base_name):
         return 'test_{}'.format(base_name)
 
     def wrap(self, opts):

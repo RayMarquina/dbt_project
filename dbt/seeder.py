@@ -1,10 +1,12 @@
 
 import os
 import fnmatch
-from dbt.runner import RedshiftTarget
 from csvkit import table as csv_table, sql as csv_sql
 from sqlalchemy.dialects import postgresql as postgresql_dialect
 import psycopg2
+
+from dbt.source import Source
+from dbt.targets import RedshiftTarget
 
 class Seeder:
     def __init__(self, project):
@@ -13,16 +15,7 @@ class Seeder:
         self.target = RedshiftTarget(run_environment)
 
     def find_csvs(self):
-        found = []
-        for source_path in self.project['data-paths']:
-            full_source_path = os.path.join(self.project['project-root'], source_path)
-            for root, dirs, files in os.walk(full_source_path):
-                for filename in files:
-                    abs_path = os.path.join(root, filename)
-
-                    if fnmatch.fnmatch(filename, "*.csv"):
-                        found.append(abs_path)
-        return found
+        return Source(self.project).get_csvs(self.project['data-paths'])
 
     def drop_table(self, cursor, schema, table):
         sql = 'drop table if exists "{schema}"."{table}" cascade'.format(schema=schema, table=table)
@@ -65,12 +58,10 @@ class Seeder:
         existing_tables = self.existing_tables(cursor, schema)
 
         csvs = self.find_csvs()
-        for csv_path in csvs:
+        for csv in csvs:
 
-            filename = os.path.basename(csv_path)
-            table_name, _ = os.path.splitext(filename)
-
-            fh = open(csv_path)
+            table_name = csv.name
+            fh = open(csv.filepath)
             virtual_table = csv_table.Table.from_csv(fh, table_name)
 
             if table_name in existing_tables:
