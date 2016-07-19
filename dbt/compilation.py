@@ -108,6 +108,11 @@ class Compiler(object):
                 other_model = find_model_by_name(all_models, other_model_name, package_namespace=other_model_package)
 
             other_model_fqn = tuple(other_model.fqn[:-1] + [other_model_name])
+            other_model_config = other_model.get_config(self.project)
+            if not other_model_config['enabled']:
+                src_fqn = ".".join(source_model)
+                ref_fqn = ".".join(other_model_fqn)
+                raise RuntimeError("Model '{}' depends on model '{}' which is disabled in the project config".format(src_fqn, ref_fqn))
 
             linker.dependency(source_model, other_model_fqn)
             return '"{}"."{}"'.format(schema, other_model_name)
