@@ -1,7 +1,7 @@
 
 import os.path
 import fnmatch
-from dbt.model import Model, Analysis, CompiledModel, TestModel, Schema
+from dbt.model import Model, Analysis, CompiledModel, TestModel, Schema, Csv
 
 class Source(object):
     def __init__(self, project):
@@ -53,5 +53,9 @@ class Source(object):
         schemas = [Schema(*schema) for schema in self.find(model_dirs, pattern)]
         return schemas
 
-
+    def get_csvs(self, csv_dirs):
+        "Get CSV files"
+        pattern = "[!.#~]*.csv"
+        csvs = [Csv(*csv) for csv in self.find(csv_dirs, pattern)]
+        return csvs
 

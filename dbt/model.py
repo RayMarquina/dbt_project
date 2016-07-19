@@ -169,6 +169,13 @@ class Schema(DBTSource):
     def __repr__(self):
         return "<Schema {}: {}>".format(self.name, self.filepath)
 
+class Csv(DBTSource):
+    def __init__(self, project, target_dir, rel_filepath):
+        super(Csv, self).__init__(project, target_dir, rel_filepath)
+
+    def __repr__(self):
+        return "<Csv {}: {}>".format(self.name, self.filepath)
+
 # compilation.py: map of abspath to model root --> (project, model_rel_path)
 # args: project, paths
 #['/Users/Drew/Desktop/analyst_collective/test-dbt/models'] --> 'idk/people.sql'
