@@ -28,3 +28,36 @@ class ImportTest(unittest.TestCase):
 
     def test_import_dbt_task_test(self):
         import dbt.task.test
+
+    def test_import_dbt_main(self):
+        import dbt.main
+
+    def test_import_dbt_project(self):
+        import dbt.project
+
+    def test_import_dbt_schema_tester(self):
+        import dbt.schema_tester
+
+    def test_import_dbt_source(self):
+        import dbt.source
+
+    def test_import_dbt_templates(self):
+        import dbt.templates
+
+    def test_import_dbt_compilation(self):
+        import dbt.compilation
+
+    def test_import_dbt_model(self):
+        import dbt.model
+
+    def test_import_dbt_runner(self):
+        import dbt.runner
+
+    def test_import_dbt_seeder(self):
+        import dbt.seeder
+
+    def test_import_dbt_targets(self):
+        import dbt.targets
+
+    def test_import_dbt_utils(self):
+        import dbt.utils
