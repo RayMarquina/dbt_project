@@ -1,5 +1,6 @@
 
 import os.path
+import yaml
 from dbt.templates import TestCreateTemplate
 
 class DBTSource(object):
@@ -157,7 +158,13 @@ class CompiledModel(DBTSource):
 
 class Schema(DBTSource):
     def __init__(self, project, target_dir, rel_filepath):
-        return super(Schema, self).__init__(project, target_dir, rel_filepath)
+        super(Schema, self).__init__(project, target_dir, rel_filepath)
+        self.schema = yaml.safe_load(self.contents)
+
+    def get_model(self, project, model_name):
+        rel_filepath = self.rel_filepath.replace('schema.yml', '{}.sql'.format(model_name))
+        model = Model(project, self.top_dir, rel_filepath)
+        return model
 
     def __repr__(self):
         return "<Schema {}: {}>".format(self.name, self.filepath)
