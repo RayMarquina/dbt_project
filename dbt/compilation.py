@@ -17,7 +17,11 @@ class Linker(object):
         return self.graph.nodes()
 
     def as_dependency_list(self, limit_to=None):
-        return nx.topological_sort(self.graph, nbunch=limit_to)
+        try:
+            return nx.topological_sort(self.graph, nbunch=limit_to)
+        except KeyError as e:
+            model_name = ".".join(e.message)
+            raise RuntimeError("Couldn't find model '{}' -- does it exist or is it diabled?".format(model_name))
 
     def dependency(self, node1, node2):
         "indicate that node1 depends on node2"

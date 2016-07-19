@@ -89,7 +89,7 @@ class Runner:
 
                 num_models = len(dependency_list)
                 if num_models == 0:
-                    print("WARNING: Target directory is empty: '{}'. Try running `dbt compile`.".format(self.target_path))
+                    print("WARNING: No models to run in '{}'. Try checking your model configs and running `dbt compile`".format(self.target_path))
                     return
 
                 for index, model in enumerate(dependency_list):
