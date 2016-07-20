@@ -20,8 +20,7 @@ class Linker(object):
         try:
             return nx.topological_sort(self.graph, nbunch=limit_to)
         except KeyError as e:
-            model_name = ".".join(e.message)
-            raise RuntimeError("Couldn't find model '{}' -- does it exist or is it diabled?".format(model_name))
+            raise RuntimeError("Couldn't find model '{}' -- does it exist or is it diabled?".format(e))
 
     def dependency(self, node1, node2):
         "indicate that node1 depends on node2"
