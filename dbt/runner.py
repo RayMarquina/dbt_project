@@ -136,8 +136,8 @@ class Runner:
                     except psycopg2.ProgrammingError as e:
                         if "permission denied for" in e.diag.message_primary:
                             raise RuntimeError(RELATION_PERMISSION_DENIED_MESSAGE.format(model=model.name, schema=target.schema, user=target.user))
-
-                        raise e
+                        else:
+                            raise e
                     handle.commit()
                     yield model
 
