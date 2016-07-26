@@ -10,6 +10,8 @@ from dbt.targets import RedshiftTarget
 from dbt.source import Source
 from dbt.utils import find_model_by_name
 
+from multiprocessing.dummy import Pool as ThreadPool
+
 SCHEMA_PERMISSION_DENIED_MESSAGE = """The user '{user}' does not have sufficient permissions to create the schema '{schema}'.
 Either create the schema  manually, or adjust the permissions of the '{user}' user."""
 
@@ -112,6 +114,26 @@ class Runner:
                 return model
         raise RuntimeError("Couldn't find a compiled model with fqn: '{}'".format(fqn))
 
+    def execute_model(self, cursor, handle, target, existing, model):
+        if model.name in existing:
+            self.__drop(cursor, target.schema, model.name, existing[model.name])
+            handle.commit()
+
+        #print("Running {} of {} -- Creating relation {}.{}".format(index + 1, num_models, target.schema, model.name))
+        print("Creating relation {}.{}".format(target.schema, model.name))
+        try:
+            self.__do_execute(cursor, model.contents, model)
+        except psycopg2.ProgrammingError as e:
+            if "permission denied for" in e.diag.message_primary:
+                raise RuntimeError(RELATION_PERMISSION_DENIED_MESSAGE.format(model=model.name, schema=target.schema, user=target.user))
+            else:
+                raise e
+        handle.commit()
+
+    def execute_disjoint_models(self, cursor, handle, target, existing, dependency_list):
+        for model in dependency_list:
+            self.execute_model(cursor, handle, target, existing, model)
+
     def execute_models(self, linker, models, limit_to=None):
         target = self.get_target()
 
@@ -120,26 +142,32 @@ class Runner:
                 dependency_list = [self.get_model_by_fqn(models, fqn) for fqn in linker.as_dependency_list(limit_to)]
                 existing = self.query_for_existing(cursor, target.schema);
 
-                num_models = len(dependency_list)
-                if num_models == 0:
-                    print("WARNING: No models to run in '{}'. Try checking your model configs and running `dbt compile`".format(self.target_path))
-                    return
+                disjoint_dependency_lists = [[self.get_model_by_fqn(models, fqn) for fqn in fqn_list] for fqn_list in linker.as_disjoint_dependency_lists()]
+                pool = ThreadPool(5)
+                results = pool.map(lambda x: self.execute_disjoint_models(cursor, handle, target, existing, x), disjoint_dependency_lists)
+                pool.close()
+                pool.join()
 
-                for index, model in enumerate(dependency_list):
-                    if model.name in existing:
-                        self.__drop(cursor, target.schema, model.name, existing[model.name])
-                        handle.commit()
+                #num_models = len(dependency_list)
+                #if num_models == 0:
+                #    print("WARNING: No models to run in '{}'. Try checking your model configs and running `dbt compile`".format(self.target_path))
+                #    return
 
-                    print("Running {} of {} -- Creating relation {}.{}".format(index + 1, num_models, target.schema, model.name))
-                    try:
-                        self.__do_execute(cursor, model.contents, model)
-                    except psycopg2.ProgrammingError as e:
-                        if "permission denied for" in e.diag.message_primary:
-                            raise RuntimeError(RELATION_PERMISSION_DENIED_MESSAGE.format(model=model.name, schema=target.schema, user=target.user))
-                        else:
-                            raise e
-                    handle.commit()
-                    yield model
+                #for index, model in enumerate(dependency_list):
+                #    if model.name in existing:
+                #        self.__drop(cursor, target.schema, model.name, existing[model.name])
+                #        handle.commit()
+
+                #    print("Running {} of {} -- Creating relation {}.{}".format(index + 1, num_models, target.schema, model.name))
+                #    try:
+                #        self.__do_execute(cursor, model.contents, model)
+                #    except psycopg2.ProgrammingError as e:
+                #        if "permission denied for" in e.diag.message_primary:
+                #            raise RuntimeError(RELATION_PERMISSION_DENIED_MESSAGE.format(model=model.name, schema=target.schema, user=target.user))
+                #        else:
+                #            raise e
+                #    handle.commit()
+                #    yield model
 
     def run(self, specified_models=None):
         linker = self.deserialize_graph()
@@ -166,8 +194,8 @@ class Runner:
             if schema_name not in schemas:
                 self.create_schema_or_exit(schema_name)
 
-            for model in self.execute_models(linker, compiled_models, limit_to):
-                yield model, True
+            self.execute_models(linker, compiled_models, limit_to)
+            return []
         except psycopg2.OperationalError as e:
             print("ERROR: Could not connect to the target database. Try `dbt debug` for more information")
             print(str(e))

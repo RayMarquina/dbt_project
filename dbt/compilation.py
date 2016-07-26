@@ -16,11 +16,19 @@ class Linker(object):
     def nodes(self):
         return self.graph.nodes()
 
-    def as_dependency_list(self, limit_to=None):
+    def graph_to_dependency_list(self, the_graph, limit_to=None):
         try:
-            return nx.topological_sort(self.graph, nbunch=limit_to)
+            return nx.topological_sort(the_graph, nbunch=limit_to)
         except KeyError as e:
             raise RuntimeError("Couldn't find model '{}' -- does it exist or is it diabled?".format(e))
+
+    def as_dependency_list(self, limit_to=None):
+        return self.graph_to_dependency_list(self.graph, limit_to)
+
+    def as_disjoint_dependency_lists(self, limit_to=None):
+        subgraphs = list(nx.weakly_connected_component_subgraphs(self.graph))
+        all_dep_lists = [self.graph_to_dependency_list(g, limit_to) for g in subgraphs]
+        return [dep_list for dep_list in all_dep_lists if len(dep_list) > 0]
 
     def dependency(self, node1, node2):
         "indicate that node1 depends on node2"
