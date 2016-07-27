@@ -138,9 +138,6 @@ class Runner:
                             raise e
                     handle.commit()
 
-                #print("Running {} of {} -- Creating relation {}.{}".format(index + 1, num_models, target.schema, model.name))
-                print("Creating relation {}.{}".format(target.schema, model.name))
-
                 try:
                     self.__do_execute(cursor, model.contents, model)
                 except psycopg2.ProgrammingError as e:
@@ -179,11 +176,15 @@ class Runner:
             sequential_model_list.append(model_list)
 
         # TODO : make this an arg
+        completed = 0
+        num_models = sum([len(model_list) for model_list in sequential_model_list])
+
         pool = ThreadPool(4)
         for model_list in sequential_model_list:
             results = pool.map(self.execute_model, model_list)
             for model in results:
-                print("Created model {}".format(model.name)) # TODO : better logging
+                completed += 1
+                print("{} of {} -- Created relation {}.{}".format(completed, num_models, target.schema, model.name))
         pool.close()
         pool.join()
 
