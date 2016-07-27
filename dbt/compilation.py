@@ -16,13 +16,13 @@ class Linker(object):
     def nodes(self):
         return self.graph.nodes()
 
-    def as_dependency_list(self, limit_to=None):
+    def as_topological_ordering(self, limit_to=None):
         try:
             return nx.topological_sort(the_graph, nbunch=limit_to)
         except KeyError as e:
             raise RuntimeError("Couldn't find model '{}' -- does it exist or is it diabled?".format(e))
 
-    def as_sequential_dependency_lists(self, limit_to=None):
+    def as_dependency_list(self, limit_to=None):
         """returns a list of list of nodes, eg. [[0,1], [2], [4,5,6]]. Each element contains nodes whose
         dependenices are subsumed by the union of all lists before it. In this way, all nodes in list `i`
         can be run simultaneously assuming that all lists before list `i` have been completed"""
@@ -43,11 +43,11 @@ class Linker(object):
             num_ancestors = len(nx.ancestors(self.graph, node))
             depth_nodes[num_ancestors].append(node)
 
-        sequential_node_lists = []
+        dependency_list = []
         for depth in sorted(depth_nodes.keys()):
-            sequential_node_lists.append(depth_nodes[depth])
+            dependency_list.append(depth_nodes[depth])
 
-        return sequential_node_lists
+        return dependency_list
 
     def dependency(self, node1, node2):
         "indicate that node1 depends on node2"

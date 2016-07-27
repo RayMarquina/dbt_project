@@ -149,44 +149,38 @@ class Runner:
 
         return model
 
-    def execute_models(self, linker, models, limit_to=None):
+    def execute_models(self, linker, models, limit_to=None, num_threads=4):
         target = self.get_target()
 
-        sequential_node_lists = linker.as_sequential_dependency_lists(limit_to)
+        dependency_list = linker.as_dependency_list(limit_to)
+        num_models = sum([len(node_list) for node_list in dependency_list])
 
-        if len(sequential_node_lists) == 0:
+        if num_models == 0:
             print("WARNING: No models to run in '{}'. Try checking your model configs and running `dbt compile`".format(self.target_path))
             return
 
         existing = self.query_for_existing(target, target.schema);
 
-        # TODO : better names and clean this up!
-        sequential_model_list = []
-        for node_list in sequential_node_lists:
-            model_list = []
-            for node in node_list:
-                model = self.get_model_by_fqn(models, node)
-                drop_type = existing.get(model.name, None) # False, 'view', or 'table'
-                data = {
-                    "model" : model,
-                    "target": target,
-                    "drop_type": drop_type
-                }
-                model_list.append(data)
-            sequential_model_list.append(model_list)
+        def wrap_fqn(target, models, existing, fqn):
+            model = self.get_model_by_fqn(models, fqn)
+            drop_type = existing.get(model.name, None) # False, 'view', or 'table'
+            return {"model" : model, "target": target, "drop_type": drop_type}
 
-        # TODO : make this an arg
-        completed = 0
-        num_models = sum([len(model_list) for model_list in sequential_model_list])
+        # we can only pass one arg to the self.execute_model method below. Pass a dict w/ all the data we need
+        model_dependency_list = [[wrap_fqn(target, models, existing, fqn) for fqn in node_list] for node_list in dependency_list]
 
-        pool = ThreadPool(4)
-        for model_list in sequential_model_list:
-            results = pool.map(self.execute_model, model_list)
-            for model in results:
-                completed += 1
-                print("{} of {} -- Created relation {}.{}".format(completed, num_models, target.schema, model.name))
+        pool = ThreadPool(num_threads)
+
+        completed_models = []
+        for model_list in model_dependency_list:
+            executed_models = pool.map(self.execute_model, model_list)
+            for model in executed_models:
+                completed_models.append(model)
+                print("{} of {} -- Created relation {}.{}".format(len(completed_models), num_models, target.schema, model.name))
         pool.close()
         pool.join()
+
+        return completed_models
 
     def run(self, specified_models=None):
         linker = self.deserialize_graph()
@@ -213,8 +207,7 @@ class Runner:
             if schema_name not in schemas:
                 self.create_schema_or_exit(schema_name)
 
-            self.execute_models(linker, compiled_models, limit_to)
-            return []
+            return self.execute_models(linker, compiled_models, limit_to)
         except psycopg2.OperationalError as e:
             print("ERROR: Could not connect to the target database. Try `dbt debug` for more information")
             print(str(e))
