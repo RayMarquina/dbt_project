@@ -25,7 +25,7 @@ To create your first dbt project, run:
 › dbt init [project]
 ```
 This will do two things:
-- create a [project] directory with everything you need to get started.
+- create a directory at `./[project]` with everything you need to get started.
 - create a directory at `~/.dbt/` for environment configuration.
 
 Finally, configure your environment:

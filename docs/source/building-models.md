@@ -2,10 +2,10 @@
 
 ### Everything is a `SELECT` ###
 
-The core concept of dbt data models is that everything is a `SELECT` statement. The SQL code within a given model, therefore, defines the dataset, while dbt configuration defines what to do with it.
+The core concept of dbt data models is that everything is a `SELECT` statement. Using this approach, the SQL code within a given model defines the dataset, while dbt configuration defines what to do with it.
 
-The advantages of this may not be incredibly clear at first, but here are some things that can be done when thinking about modeling in this way:
-- With a single config change, one data model or an entire hierarchy of models can be flipped from views to materialized tables. dbt takes care of wrapping the model's `SELECT` statement in the appropriate `CREATE TABLE` or `CREATE VIEW` syntax.
+The advantages of this may not be incredibly clear at first, but here are some things that can be done when thinking about specifying data models this way:
+- With a single config change, one data model or an entire hierarchy of models can be flipped from views to materialized tables. dbt takes care of wrapping a model's `SELECT` statement in the appropriate `CREATE TABLE` or `CREATE VIEW` syntax.
 - With two configuration changes, a model can be flipped from a materialized table that is rebuilt with every `dbt run` to a table that is built incrementally, inserting the most recent rows since the most recent `dbt run`. dbt will wrap the select into an `INSERT` statement and automatically generate the appropriate `WHERE` clause.
 - With one config change, a model can be made ephemeral. Instead of being deployed into the database, ephemeral models are pulled into dependent models as common table expressions.
 
