@@ -35,10 +35,13 @@ class TestTask:
 
         errored = False
         try:
-            for (model, test_passed) in func():
+            #for (model, test_passed) in func():
+            #    executed_models.append(model)
+            #    if test_passed:
+            #        passed += 1
+            for model in func():
                 executed_models.append(model)
-                if test_passed:
-                    passed += 1
+                passed += 1
         except psycopg2.ProgrammingError as e:
             errored = True
             print("")

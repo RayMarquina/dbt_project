@@ -92,28 +92,31 @@ class Runner:
 
         return dict(existing)
 
-    def __drop(self, cursor, schema, relation, relation_type):
-        sql = 'drop {relation_type} if exists "{schema}"."{relation}" cascade'.format(schema=schema, relation_type=relation_type, relation=relation)
-        cursor.execute(sql)
+    def __drop(self, target, model, relation_type):
+        schema = target.schema
+        relation = model.name
 
-    def __do_execute(self, cursor, sql, model):
-        try:
-            cursor.execute(sql)
-        except Exception as e:
-            e.model = model
-            raise e
+        sql = 'drop {relation_type} if exists "{schema}"."{relation}" cascade'.format(schema=schema, relation_type=relation_type, relation=relation)
+        self.__do_execute(target, sql, model)
+
+    def __do_execute(self, target, sql, model):
+        with target.get_handle() as handle:
+            with handle.cursor() as cursor:
+                try:
+                    cursor.execute(sql)
+                    handle.commit()
+                except Exception as e:
+                    e.model = model
+                    raise e
 
     def drop_models(self, models):
         target = self.get_target()
 
-        with target.get_handle() as handle:
-            with handle.cursor() as cursor:
+        existing = self.query_for_existing(target, target.schema);
 
-                existing = self.query_for_existing(cursor, target.schema);
-
-                for model in models:
-                    model_name = model.fqn[-1]
-                    self.__drop(cursor, target.schema, model_name, existing[model_name])
+        for model in models:
+            model_name = model.fqn[-1]
+            self.__drop(target, model, existing[model_name])
 
     def get_model_by_fqn(self, models, fqn):
         for model in models:
@@ -126,26 +129,22 @@ class Runner:
         model = data['model']
         drop_type = data['drop_type']
 
-        with target.get_handle() as handle:
-            with handle.cursor() as cursor:
-                if drop_type is not None:
-                    try:
-                        self.__drop(cursor, target.schema, model.name, drop_type)
-                    except psycopg2.ProgrammingError as e:
-                        if "must be owner of relation" in e.diag.message_primary:
-                            raise RuntimeError(RELATION_NOT_OWNER_MESSAGE.format(model=model.name, schema=target.schema, user=target.user))
-                        else:
-                            raise e
-                    handle.commit()
+        if drop_type is not None:
+            try:
+                self.__drop(target, model, drop_type)
+            except psycopg2.ProgrammingError as e:
+                if "must be owner of relation" in e.diag.message_primary:
+                    raise RuntimeError(RELATION_NOT_OWNER_MESSAGE.format(model=model.name, schema=target.schema, user=target.user))
+                else:
+                    raise e
 
-                try:
-                    self.__do_execute(cursor, model.contents, model)
-                except psycopg2.ProgrammingError as e:
-                    if "permission denied for" in e.diag.message_primary:
-                        raise RuntimeError(RELATION_PERMISSION_DENIED_MESSAGE.format(model=model.name, schema=target.schema, user=target.user))
-                    else:
-                        raise e
-                handle.commit()
+        try:
+            self.__do_execute(target, model.contents, model)
+        except psycopg2.ProgrammingError as e:
+            if "permission denied for" in e.diag.message_primary:
+                raise RuntimeError(RELATION_PERMISSION_DENIED_MESSAGE.format(model=model.name, schema=target.schema, user=target.user))
+            else:
+                raise e
 
         return model
 
