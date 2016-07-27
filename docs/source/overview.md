@@ -30,13 +30,14 @@ Once your data models have been materialized into your database, you can write a
 Conceptually, this is very simple. Practically, dbt solves some big headaches in exactly *how* it accomplishes these tasks:
 - dbt interpolates schema and table names in your data models. This allows you to do things like deploy models to test and production environments seamlessly.
 - dbt automatically infers a directed acyclic graph of the dependencies between your data models and uses this graph to manage the deployment to your schema. This graph is powerful, and allows for features like partial deployment and safe multi-threading.
-- dbt's opinionated design lets you focus on writing your business logic instead of writing configuration boilerplate code.
+- dbt's opinionated design lets you focus on writing your business logic instead of writing configuration and boilerplate code.
 
 ### Why model data in SQL? ###
 
 Historically, most analytical data modeling has been done prior to loading data into a SQL-based analytic database. Today, however, it's often preferable to model data within an analytic database using SQL. There are two primary reasons for this:
+
 1. SQL is a very widely-known language for working with data. Providing SQL-based modeling tools gives the largest-possible group of users access.
-1. Modern analytic databases are extremely performant, and have sophisticated optimizers. Writing data transformations in SQL allows users to describe the transformations on their data but leave the optimization to the underlying technology. In practice, this provides excellent results with far less work on the part of the author.
+1. Modern analytic databases are extremely performant, and have sophisticated optimizers. Writing data transformations in SQL allows users to describe transformations on their data but leave the execution plan to the underlying technology. In practice, this provides excellent results with far less work on the part of the author.
 
 Of course, SQL is not a Turing-complete language (to say the least!) and so, will inevitably not be suitable for 100% of potential use cases. dbt may be extended in the future to take advantage of support for non-SQL languages in platforms like Redshift and BigQuery. We have found, though, that modern SQL has a higher degree of coverage than we had originally expected. To users of languages like Python, solving a challenging problem in SQL often requires a different type of thinking, but the advantages of staying "in-database" and allowing the optimizer to work for you are very significant.
 
