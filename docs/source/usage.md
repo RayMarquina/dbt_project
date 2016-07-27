@@ -1,0 +1,38 @@
+# dbt usage #
+
+### core dbt commands ###
+
+##### compile #####
+
+`dbt compile` generates runnable SQL from model files. All templating is completed, and the dependency graph is built. Resulting SQL files are stored in the `target` directory.
+
+##### run #####
+
+`dbt run` first compiles, and then runs, model files against the current `run-target` database. dbt connects to the run target and runs the relevant DDL and SQL required to materialize all data models. Models are run in the order defined by the dependency graph generated during compilation.
+
+Deploying new models frequently involves destroying prior versions of these models. In these cases, `dbt run` attempts to minimize the amount of time in which a model is unavailable by first building each model with a temporary name, then dropping the existing model, then renaming the model to its correct name.
+
+##### test #####
+
+`dbt test` checks the validity of data models. rather than running all models in-place (and potentially dropping existing models), this command deploys all models within a temporary namespace and reports back if there are any errors in deployment. Clean deployment signals that a subsequent `dbt run` in the same environment should be successful.
+
+##### validate #####
+
+`dbt validate` runs validations on top of deployed models. there are two types of validations:
+- schema validations, declared in a `schema.yml` file.
+- custom validations, written as SQL `SELECT` statements.
+
+`dbt validate` runs both types of validations and reports the results to the log. Model validation is discussed in more detail here().
+
+##### clean #####
+
+`dbt clean` is a utility function that deletes all compiled files in the `target` directory.
+
+##### debug #####
+
+`dbt debug` is a utility function to show debug information.
+
+### experimental commands ###
+These features should be considered experimental. They will only be included in future versions of dbt to the extent that they are found to be useful.
+
+`dbt deps` to pull most recent version of dependencies
