@@ -3,6 +3,7 @@ from __future__ import print_function
 
 import psycopg2
 import os, sys
+import functools
 
 from dbt.compilation import Linker, Compiler
 from dbt.templates import BaseCreateTemplate
@@ -15,13 +16,16 @@ from multiprocessing.dummy import Pool as ThreadPool
 SCHEMA_PERMISSION_DENIED_MESSAGE = """The user '{user}' does not have sufficient permissions to create the schema '{schema}'.
 Either create the schema  manually, or adjust the permissions of the '{user}' user."""
 
-RELATION_PERMISSION_DENIED_MESSAGE = """The user '{user}' does not have sufficient permissions to create the model '{model}' \
-in the schema '{schema}'.\nPlease adjust the permissions of the '{user}' user on the '{schema}' schema.
+RELATION_PERMISSION_DENIED_MESSAGE = """The user '{user}' does not have sufficient permissions to create the model '{model}'  in the schema '{schema}'.
+Please adjust the permissions of the '{user}' user on the '{schema}' schema.
 With a superuser account, execute the following commands, then re-run dbt.
 
 grant usage, create on schema "{schema}" to "{user}";
-grant select on all tables in schema "{schema}" to "{user}";
-"""
+grant select on all tables in schema "{schema}" to "{user}";"""
+
+RELATION_NOT_OWNER_MESSAGE = """The user '{user}' does not have sufficient permissions to drop the model '{model}' in the schema '{schema}'.
+This is likely because the relation was created by a different user. Either delete the model "{schema}"."{model}" manually,
+or adjust the permissions of the '{user}' user in the '{schema}' schema."""
 
 class Runner:
     def __init__(self, project, target_path, run_mode):
@@ -74,14 +78,17 @@ class Runner:
             else:
                 raise e
 
-    def query_for_existing(self, cursor, schema):
+    def query_for_existing(self, target, schema):
         sql = """
             select tablename as name, 'table' as type from pg_tables where schemaname = '{schema}'
                 union all
             select viewname as name, 'view' as type from pg_views where schemaname = '{schema}' """.format(schema=schema)
 
-        cursor.execute(sql)
-        existing = [(name, relation_type) for (name, relation_type) in cursor.fetchall()]
+
+        with target.get_handle() as handle:
+            with handle.cursor() as cursor:
+                cursor.execute(sql)
+                existing = [(name, relation_type) for (name, relation_type) in cursor.fetchall()]
 
         return dict(existing)
 
@@ -114,60 +121,71 @@ class Runner:
                 return model
         raise RuntimeError("Couldn't find a compiled model with fqn: '{}'".format(fqn))
 
-    def execute_model(self, cursor, handle, target, existing, model):
-        if model.name in existing:
-            self.__drop(cursor, target.schema, model.name, existing[model.name])
-            handle.commit()
+    def execute_model(self, data):
+        target = data['target']
+        model = data['model']
+        drop_type = data['drop_type']
 
-        #print("Running {} of {} -- Creating relation {}.{}".format(index + 1, num_models, target.schema, model.name))
-        print("Creating relation {}.{}".format(target.schema, model.name))
-        try:
-            self.__do_execute(cursor, model.contents, model)
-        except psycopg2.ProgrammingError as e:
-            if "permission denied for" in e.diag.message_primary:
-                raise RuntimeError(RELATION_PERMISSION_DENIED_MESSAGE.format(model=model.name, schema=target.schema, user=target.user))
-            else:
-                raise e
-        handle.commit()
+        with target.get_handle() as handle:
+            with handle.cursor() as cursor:
+                if drop_type is not None:
+                    try:
+                        self.__drop(cursor, target.schema, model.name, drop_type)
+                    except psycopg2.ProgrammingError as e:
+                        if "must be owner of relation" in e.diag.message_primary:
+                            raise RuntimeError(RELATION_NOT_OWNER_MESSAGE.format(model=model.name, schema=target.schema, user=target.user))
+                        else:
+                            raise e
+                    handle.commit()
 
-    def execute_disjoint_models(self, cursor, handle, target, existing, dependency_list):
-        for model in dependency_list:
-            self.execute_model(cursor, handle, target, existing, model)
+                #print("Running {} of {} -- Creating relation {}.{}".format(index + 1, num_models, target.schema, model.name))
+                print("Creating relation {}.{}".format(target.schema, model.name))
+
+                try:
+                    self.__do_execute(cursor, model.contents, model)
+                except psycopg2.ProgrammingError as e:
+                    if "permission denied for" in e.diag.message_primary:
+                        raise RuntimeError(RELATION_PERMISSION_DENIED_MESSAGE.format(model=model.name, schema=target.schema, user=target.user))
+                    else:
+                        raise e
+                handle.commit()
+
+        return model
 
     def execute_models(self, linker, models, limit_to=None):
         target = self.get_target()
 
-        with target.get_handle() as handle:
-            with handle.cursor() as cursor:
-                dependency_list = [self.get_model_by_fqn(models, fqn) for fqn in linker.as_dependency_list(limit_to)]
-                existing = self.query_for_existing(cursor, target.schema);
+        sequential_node_lists = linker.as_sequential_dependency_lists(limit_to)
 
-                disjoint_dependency_lists = [[self.get_model_by_fqn(models, fqn) for fqn in fqn_list] for fqn_list in linker.as_disjoint_dependency_lists()]
-                pool = ThreadPool(5)
-                results = pool.map(lambda x: self.execute_disjoint_models(cursor, handle, target, existing, x), disjoint_dependency_lists)
-                pool.close()
-                pool.join()
+        if len(sequential_node_lists) == 0:
+            print("WARNING: No models to run in '{}'. Try checking your model configs and running `dbt compile`".format(self.target_path))
+            return
 
-                #num_models = len(dependency_list)
-                #if num_models == 0:
-                #    print("WARNING: No models to run in '{}'. Try checking your model configs and running `dbt compile`".format(self.target_path))
-                #    return
+        existing = self.query_for_existing(target, target.schema);
 
-                #for index, model in enumerate(dependency_list):
-                #    if model.name in existing:
-                #        self.__drop(cursor, target.schema, model.name, existing[model.name])
-                #        handle.commit()
+        # TODO : better names and clean this up!
+        sequential_model_list = []
+        for node_list in sequential_node_lists:
+            model_list = []
+            for node in node_list:
+                model = self.get_model_by_fqn(models, node)
+                drop_type = existing.get(model.name, None) # False, 'view', or 'table'
+                data = {
+                    "model" : model,
+                    "target": target,
+                    "drop_type": drop_type
+                }
+                model_list.append(data)
+            sequential_model_list.append(model_list)
 
-                #    print("Running {} of {} -- Creating relation {}.{}".format(index + 1, num_models, target.schema, model.name))
-                #    try:
-                #        self.__do_execute(cursor, model.contents, model)
-                #    except psycopg2.ProgrammingError as e:
-                #        if "permission denied for" in e.diag.message_primary:
-                #            raise RuntimeError(RELATION_PERMISSION_DENIED_MESSAGE.format(model=model.name, schema=target.schema, user=target.user))
-                #        else:
-                #            raise e
-                #    handle.commit()
-                #    yield model
+        # TODO : make this an arg
+        pool = ThreadPool(4)
+        for model_list in sequential_model_list:
+            results = pool.map(self.execute_model, model_list)
+            for model in results:
+                print("Created model {}".format(model.name)) # TODO : better logging
+        pool.close()
+        pool.join()
 
     def run(self, specified_models=None):
         linker = self.deserialize_graph()

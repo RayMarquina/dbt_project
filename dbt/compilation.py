@@ -16,19 +16,38 @@ class Linker(object):
     def nodes(self):
         return self.graph.nodes()
 
-    def graph_to_dependency_list(self, the_graph, limit_to=None):
+    def as_dependency_list(self, limit_to=None):
         try:
             return nx.topological_sort(the_graph, nbunch=limit_to)
         except KeyError as e:
             raise RuntimeError("Couldn't find model '{}' -- does it exist or is it diabled?".format(e))
 
-    def as_dependency_list(self, limit_to=None):
-        return self.graph_to_dependency_list(self.graph, limit_to)
+    def as_sequential_dependency_lists(self, limit_to=None):
+        """returns a list of list of nodes, eg. [[0,1], [2], [4,5,6]]. Each element contains nodes whose
+        dependenices are subsumed by the union of all lists before it. In this way, all nodes in list `i`
+        can be run simultaneously assuming that all lists before list `i` have been completed"""
 
-    def as_disjoint_dependency_lists(self, limit_to=None):
-        subgraphs = list(nx.weakly_connected_component_subgraphs(self.graph))
-        all_dep_lists = [self.graph_to_dependency_list(g, limit_to) for g in subgraphs]
-        return [dep_list for dep_list in all_dep_lists if len(dep_list) > 0]
+        # only populate `nodes` with nodes at or below nodes in the limit_to list. If limit_to
+        # is None, then use all of the nodes in the graph
+        if limit_to is None:
+            graph_nodes = set(self.graph.nodes())
+        else:
+            graph_nodes = set()
+            for node in limit_to:
+                reachable_nodes = nx.depth_first_search.dfs_postorder_nodes(self.graph, node)
+                graph_nodes.update(set(reachable_nodes))
+
+        depth_nodes = defaultdict(list)
+
+        for node in graph_nodes:
+            num_ancestors = len(nx.ancestors(self.graph, node))
+            depth_nodes[num_ancestors].append(node)
+
+        sequential_node_lists = []
+        for depth in sorted(depth_nodes.keys()):
+            sequential_node_lists.append(depth_nodes[depth])
+
+        return sequential_node_lists
 
     def dependency(self, node1, node2):
         "indicate that node1 depends on node2"
