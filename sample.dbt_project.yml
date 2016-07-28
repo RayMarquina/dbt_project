@@ -2,9 +2,9 @@
 
 # the package config is _required_. If other packages import this package,
 # the name given below is used to reference this package
-package:
-  name: 'package_name'
-  version: '1.0'
+
+name: 'Your_Package_Name_Here'
+version: '1.0'
 
 source-paths: ["models"]     # paths with source code to compile
 analysis-paths: ["analysis"] # path with code to compile, but not execute
@@ -24,23 +24,24 @@ model-defaults:
 # custom configurations for each model. Unspecified models will use the model-defaults information above.
 
 models:
-  pardot:                 # assuming pardot is listed in the models/ directory
-    enabled: true         # enable all pardot models except where overriden (same as default)
-    pardot_emails:        # override the configs for the pardot_emails model
-      enabled: true       # enable this specific model (false to disable)
-      materialized: true  # create a table instead of a view
-
-      # You can choose sort keys, a dist key, or both to improve query efficiency. By default, materialized
-      # tables are created with no sort or dist keys.
-      #
-      sort: ['@timestamp', '@userid'] # optionally set one or more sort keys on the materialized table
-      dist: '@userid'                 # optionally set a distribution key on the materialized table
-
-    pardot_visitoractivity:
-      materialized: false
-      sort: ['@timestamp']  # this has no effect, as sort and dist keys only apply to materialized tables
+  'Your_Package_Name_Here': # the following configs pertain to _this_ dbt project
+    pardot:                 # assuming pardot is listed in the models/ directory
+      enabled: true         # enable all pardot models except where overriden (same as default)
+      pardot_emails:        # override the configs for the pardot_emails model
+        enabled: true       # enable this specific model (false to disable)
+        materialized: true  # create a table instead of a view
+  
+        # You can choose sort keys, a dist key, or both to improve query efficiency. By default, materialized
+        # tables are created with no sort or dist keys.
+        #
+        sort: ['@timestamp', '@userid'] # optionally set one or more sort keys on the materialized table
+        dist: '@userid'                 # optionally set a distribution key on the materialized table
+  
+      pardot_visitoractivity:
+        materialized: false
+        sort: ['@timestamp']  # this has no effect, as sort and dist keys only apply to materialized tables
 
 # add dependencies. these will get pulled during the `dbt deps` process.
 
-repositories:
-  - "git@github.com:analyst-collective/analytics"
+#repositories:
+#  - "git@github.com:analyst-collective/analytics"

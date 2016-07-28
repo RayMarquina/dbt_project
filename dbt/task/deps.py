@@ -44,7 +44,7 @@ class DepsTask:
                 stderr=subprocess.PIPE)
             out, err = proc.communicate()
         else:
-            matches = re.match("Cloning into '(.+)'", err)
+            matches = re.match("Cloning into '(.+)'", err.decode('utf-8'))
             folder = matches.group(1)
             print("pulled new dependency {}".format(folder))
 
