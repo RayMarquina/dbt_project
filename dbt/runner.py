@@ -185,17 +185,24 @@ class Runner:
 
         pool = ThreadPool(num_threads)
 
+        failed_models = set()
+
         model_results = []
         for model_list in model_dependency_list:
-            run_model_results = pool.map(self.execute_wrapped_model, model_list)
+            failed_nodes = [tuple(model.fqn) for model in failed_models]
+            models_to_execute = [data for data in model_list if not linker.is_child_of(failed_nodes, tuple(data['model'].fqn))]
+            run_model_results = pool.map(self.execute_wrapped_model, models_to_execute)
             for run_model_result in run_model_results:
                 model_results.append(run_model_result)
 
                 if run_model_result.errored:
+                    failed_models.add(run_model_result.model)
                     print("{} of {} -- ERROR creating relation {}.{}".format(len(model_results), num_models, target.schema, run_model_result.model.name))
                     print(run_model_result.error.rjust(10))
                 else:
                     print("{} of {} -- OK Created relation {}.{}".format(len(model_results), num_models, target.schema, run_model_result.model.name))
+        for i, model in enumerate(failed_models):
+            print("{} of {} -- SKIP relation {}.{} because parent failed".format(len(model_results) + i + 1, num_models, target.schema, run_model_result.model.name))
 
         pool.close()
         pool.join()

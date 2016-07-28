@@ -49,6 +49,16 @@ class Linker(object):
 
         return dependency_list
 
+    def is_child_of(self, nodes, target_node):
+        "returns True if node is a child of a node in nodes. Otherwise, False"
+        node_span = set()
+        for node in nodes:
+            node_span.add(node)
+            for child in nx.descendants(self.graph, node):
+                node_span.add(child)
+
+        return target_node in node_span
+
     def dependency(self, node1, node2):
         "indicate that node1 depends on node2"
         self.graph.add_node(node1)
