@@ -64,7 +64,7 @@ class TestTask:
     def run_test_creates(self):
         runner = Runner(self.project, self.project['target-path'], TestCreateTemplate.label)
         def on_complete(query_results):
-            models = [query_result.model for query_result in query_results]
+            models = [query_result.model for query_result in query_results if not query_result.errored]
             runner.drop_models(models)
 
         self.run_and_catch_errors(runner.run, on_complete)
