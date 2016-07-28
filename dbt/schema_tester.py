@@ -2,6 +2,9 @@ import os
 
 from dbt.targets import RedshiftTarget
 from dbt.source import Source
+from dbt.runner import RunModelResult
+
+import psycopg2
 
 QUERY_VALIDATE_NOT_NULL = """
 with validation as (
@@ -76,6 +79,8 @@ class SchemaTester(object):
             with handle.cursor() as cursor:
                 try:
                     cursor.execute(sql)
+                except psycopg2.ProgrammingError as e:
+                    return e.diag.message_primary
                 except Exception as e:
                     e.model = model
                     raise e
@@ -183,13 +188,11 @@ class SchemaTester(object):
 
                 constraints = schema.schema[model_name]['constraints']
                 for constraint_type, constraint_data in constraints.items():
-                    try:
-                        for test_passed in self.validate_schema_constraint(model, constraint_type, constraint_data):
-                            yield model, test_passed
-                    except RuntimeError as e:
-                        print("ERRROR: {}".format(str(e)))
+                    for test_passed in self.validate_schema_constraint(model, constraint_type, constraint_data):
+                        yield model, test_passed
 
     def test(self):
         schemas = self.project_schemas()
         for (model, test_passed) in self.validate_schema(schemas):
-            yield model, test_passed
+            error = None if test_passed else "ERROR"
+            yield RunModelResult(model, error)
