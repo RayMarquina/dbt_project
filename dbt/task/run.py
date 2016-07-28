@@ -1,4 +1,6 @@
 
+from __future__ import print_function
+
 import os
 from dbt.templates import BaseCreateTemplate
 from dbt.runner import Runner
@@ -18,4 +20,10 @@ class RunTask:
     def run(self):
         self.compile()
         runner = Runner(self.project, self.project['target-path'], BaseCreateTemplate.label)
-        runner.run(self.args.models)
+        results = runner.run(self.args.models)
+
+        successes = [r for r in results if not r.errored]
+        errors = [r for r in results if r.errored]
+
+        print()
+        print("Done. Executed {} models executed with {} failures".format(len(successes) + len(errors), len(errors)))

@@ -27,6 +27,15 @@ RELATION_NOT_OWNER_MESSAGE = """The user '{user}' does not have sufficient permi
 This is likely because the relation was created by a different user. Either delete the model "{schema}"."{model}" manually,
 or adjust the permissions of the '{user}' user in the '{schema}' schema."""
 
+class RunModelResult(object):
+    def __init__(self, model, error=None):
+        self.model = model
+        self.error = error
+
+    @property
+    def errored(self):
+        return self.error is not None
+
 class Runner:
     def __init__(self, project, target_path, run_mode):
         self.project = project
@@ -113,7 +122,6 @@ class Runner:
         target = self.get_target()
 
         existing = self.query_for_existing(target, target.schema);
-
         for model in models:
             model_name = model.fqn[-1]
             self.__drop(target, model, existing[model_name])
@@ -124,11 +132,20 @@ class Runner:
                 return model
         raise RuntimeError("Couldn't find a compiled model with fqn: '{}'".format(fqn))
 
-    def execute_model(self, data):
+    def execute_wrapped_model(self, data):
         target = data['target']
         model = data['model']
         drop_type = data['drop_type']
 
+        error = None
+        try:
+            self.execute_model(target, model, drop_type)
+        except (RuntimeError, psycopg2.ProgrammingError) as e:
+            error = "Error executing {filepath}\n{error}".format(filepath=model.filepath, error=str(e).strip())
+
+        return RunModelResult(model, error)
+
+    def execute_model(self, target, model, drop_type):
         if drop_type is not None:
             try:
                 self.__drop(target, model, drop_type)
@@ -145,8 +162,6 @@ class Runner:
                 raise RuntimeError(RELATION_PERMISSION_DENIED_MESSAGE.format(model=model.name, schema=target.schema, user=target.user))
             else:
                 raise e
-
-        return model
 
     def execute_models(self, linker, models, limit_to=None, num_threads=4):
         target = self.get_target()
@@ -170,16 +185,22 @@ class Runner:
 
         pool = ThreadPool(num_threads)
 
-        completed_models = []
+        model_results = []
         for model_list in model_dependency_list:
-            executed_models = pool.map(self.execute_model, model_list)
-            for model in executed_models:
-                completed_models.append(model)
-                print("{} of {} -- Created relation {}.{}".format(len(completed_models), num_models, target.schema, model.name))
+            run_model_results = pool.map(self.execute_wrapped_model, model_list)
+            for run_model_result in run_model_results:
+                model_results.append(run_model_result)
+
+                if run_model_result.errored:
+                    print("{} of {} -- ERROR creating relation {}.{}".format(len(model_results), num_models, target.schema, run_model_result.model.name))
+                    print(run_model_result.error.rjust(10))
+                else:
+                    print("{} of {} -- OK Created relation {}.{}".format(len(model_results), num_models, target.schema, run_model_result.model.name))
+
         pool.close()
         pool.join()
 
-        return completed_models
+        return model_results
 
     def run(self, specified_models=None):
         linker = self.deserialize_graph()
