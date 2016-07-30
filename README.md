@@ -1,13 +1,11 @@
-### dbt
+# dbt
 
 dbt [data build tool] is a tool that makes it possible to produce reliable, modular analytic code as an individual or in teams using a workflow that closely mirrors software development.
 
 ---
 
-[gittr badge]
-
-- View the documentation.
-- Project [release notes][release-notes].
+- View the [documentation][documentation-url].
+- Project [release notes][release-notes-url].
 - Join the [chat][gittr-url] on Gittr.
 
 
@@ -25,3 +23,5 @@ For more information on the thinking that led to dbt, see [this article](https:/
 
 [PyPA Code of Conduct]: https://www.pypa.io/en/latest/code-of-conduct/
 [gittr-url]: https://gitter.im/analyst-collective/dbt
+[documentation-url]: http://dbt.readthedocs.io/en/readthedocs/
+[release-notes-url]: http://dbt.readthedocs.io/en/readthedocs/about/release-notes/
