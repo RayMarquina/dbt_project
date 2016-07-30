@@ -43,5 +43,3 @@ Of course, SQL is not a Turing-complete language (to say the least!) and so, wil
 
 ### What databases does dbt currently support? ###
 Currently, dbt supports PostgreSQL and Amazon Redshift. We anticipate building support for additional databases in the future.
-
-Next: get set up.

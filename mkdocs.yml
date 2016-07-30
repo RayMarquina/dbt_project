@@ -1,0 +1,15 @@
+site_name: dbt documentation
+docs_dir: docs
+
+pages:
+- Home: index.md
+- Overview: overview.md
+- Setup: setup.md
+- Usage: usage.md
+- Building Models: building-models.md
+- Configuring Models: configuring-models.md
+- Model Validation: model-validation.md
+- Best Practices: best-practices.md
+- Managing Multiple Projects: managing-multiple-projects.md
+
+theme: readthedocs
