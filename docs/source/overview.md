@@ -1,4 +1,4 @@
-# dbt overview #
+# Overview #
 
 ### What is dbt? ###
 dbt [data build tool] is a tool for creating analytical data models. dbt facilitates an analytical workflow that closely mirrors software development, including source control, testing, and deployment. dbt makes it possible to produce reliable, modular analytic code as an individual or in teams.

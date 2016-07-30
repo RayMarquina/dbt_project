@@ -1,4 +1,4 @@
-# managing multiple projects #
+# Managing multiple projects #
 
 It is common in software engineering to separate useful chunks of code into packages, where the package is responsible for providing some logical unit of functionality. Packages can then be imported into other packages. This modularity is critical to the maintenance of large-scale software engineering efforts.
 
@@ -11,11 +11,11 @@ Package management is at the heart of the open source community. Open source pac
 dbt package management functionality enables the same relationship to exist within analytics. We hope to see particular analytic packages
 
 
-### using package management internally ###
+### Using package management internally ###
 
 (talk about how this is useful internally for multiple discrete projects that may have different authors...)
 
 
-### always specify versions ###
+### Always specify versions ###
 
 (talk about why it's very important to always specify version numbers when pulling in dependencies.)

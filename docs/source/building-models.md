@@ -1,4 +1,4 @@
-# building models #
+# Building models #
 
 ### Everything is a `SELECT` ###
 

@@ -1,3 +1,3 @@
-# model validation #
+# Model validation
 
 (coming soon...)

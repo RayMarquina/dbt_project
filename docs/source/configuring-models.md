@@ -1,4 +1,4 @@
-# configuring models #
+# Configuring models #
 
 There are a number of configuration options provided to control how dbt interacts with your models. Understanding these configuration options is core to controlling dbt's behavior and optimizing its usage.
 

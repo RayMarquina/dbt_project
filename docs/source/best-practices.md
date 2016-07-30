@@ -1,4 +1,4 @@
-# best practices #
+# Best practices #
 
 ### Limit dependencies on raw data ###
 

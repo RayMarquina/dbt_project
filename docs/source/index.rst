@@ -1,22 +1,24 @@
-.. dbt documentation master file, created by
-   sphinx-quickstart on Tue Jul 26 16:35:19 2016.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+dbt documentation
+=================
 
-Welcome to dbt's documentation!
-===============================
+dbt [data build tool] is a tool for creating analytical data models. dbt facilitates an analytical workflow that closely mirrors software development, including source control, testing, and deployment. dbt makes it possible to produce reliable, modular analytic code as an individual or in teams.
 
-Contents:
+For more information on the thinking that led to dbt, see this article: https://medium.com/analyst-collective/building-a-mature-analytics-workflow-the-analyst-collective-viewpoint-7653473ef05b
+
+These docs provide information on getting started and using dbt.
+
+
+Guide
+^^^^^
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
-
+   overview
+   setup
+   usage
+   building-models
+   configuring-models
+   model-validation
+   best-practices
+   managing-multiple-projects
