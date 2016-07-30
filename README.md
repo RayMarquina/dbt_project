@@ -11,7 +11,7 @@ dbt [data build tool] helps you write reliable, modular analytic code as an indi
 
 ## Code of Conduct
 
-Everyone interacting in the MkDocs project's codebases, issue trackers, chat rooms, and mailing lists is expected to follow the [PyPA Code of Conduct].
+Everyone interacting in the dbt project's codebases, issue trackers, chat rooms, and mailing lists is expected to follow the [PyPA Code of Conduct].
 
 
 ## Project background
