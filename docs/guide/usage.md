@@ -22,7 +22,7 @@ Deploying new models frequently involves destroying prior versions of these mode
 - schema validations, declared in a `schema.yml` file.
 - custom validations, written as SQL `SELECT` statements.
 
-`dbt validate` runs both types of validations and reports the results to the log. Model validation is discussed in more detail here().
+`dbt validate` runs both types of validations and reports the results to the log. Model validation is discussed in more detail [here](model-validation/).
 
 ## Clean
 
