@@ -1,6 +1,6 @@
-# Setup #
+# Setup
 
-### Installation ###
+## Installation
 
 First, make sure you have postgres installed:
 
@@ -18,7 +18,7 @@ Then, install using `pip`:
 › pip install dbt
 ```
 
-### Configuration ###
+## Configuration
 
 To create your first dbt project, run:
 ```bash

@@ -1,6 +1,8 @@
 # Building models #
 
-### Everything is a `SELECT` ###
+Building data models is the core of using dbt. This section provides guidance on how to think about data models in dbt and how to go about building them.
+
+## Everything is a `SELECT`
 
 The core concept of dbt data models is that everything is a `SELECT` statement. Using this approach, the SQL code within a given model defines the dataset, while dbt configuration defines what to do with it.
 
@@ -11,7 +13,7 @@ The advantages of this may not be incredibly clear at first, but here are some t
 
 Because every model is a `SELECT`, these behaviors can all be configured very simply, allowing for flexibility in development workflow and production deployment.
 
-### Using `ref()` ###
+## Using `ref()`
 
 dbt models support interpolation via the Jinja2 templating language. This presents many powerful options for building data models, many of which are only now beginning to be explored! The most important function in dbt is `ref()`; it's impossible to build even moderately complex models without it.
 

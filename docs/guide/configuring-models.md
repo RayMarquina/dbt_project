@@ -2,7 +2,7 @@
 
 There are a number of configuration options provided to control how dbt interacts with your models. Understanding these configuration options is core to controlling dbt's behavior and optimizing its usage.
 
-#### Supplying configuration values ####
+## Supplying configuration values
 
 There are multiple ways to supply model configuration values:
 
@@ -28,7 +28,7 @@ models:
 
 (Specify model configuration within models, but need to wait until this code is updated to document it.)
 
-#### Using `materialized` ####
+## Using `materialized`
 
 The `materialized` option is provided like so:
 
@@ -43,19 +43,19 @@ Each of the four values passed to `materialized` significantly changes how dbt b
 - `incremental` performs two functions: 1) if the model does not exist in the database, dbt will create it and populate it with the results of the `SELECT`. If the model already exists, dbt will wrap the `SELECT` within an `INSERT` statement and apply a where clause as defined by the `incremental-id` parameter. This is a powerful option for large, immutable tables like log files and clickstream data. For more information, read the section on incremental models below.
 - `ephemeral` prevents dbt from materializing the model directly into the database. Instead, dbt will interpolate the code from this model into dependent models as one or more common table expressions. This is useful if you want to write reusable logic but don't feel that data consumers should be selecting directly from this model.
 
-#### Using `enabled` ####
+## Using `enabled`
 
 This parameter does exactly what you might think. Setting `enabled` to `false` tells dbt not to compile and run the associated models. Be careful disabling large swaths of your project: if you disable models that are upstream of enabled models in the dependency chain, compilation will fail. Instead, use `enabled` to turn off sections of your project that are unrelated to the models you want to deploy.
 
 Note that dbt does not actively delete models in your database that have been disabled. Instead, it simply leaves them out of future rounds of compilation and deployment. If you want to delete models from your schema, you will have to perform this by hand.
 
-#### Using `sortkey` and `distkey` ####
+## Using `sortkey` and `distkey`
 
 Tables in Amazon Redshift have two powerful optimizations to improve query performance: distkeys and sortkeys. Supplying these values as model-level configurations apply the corresponding settings in the generated `CREATE TABLE` DDL. Note that these settings will have no effect for models set to `view` or `ephemeral`.
 
 For more information on distkeys and sortkeys, view Amazon's docs.
 
-### Incremental models ###
+## Incremental models
 
 Incremental models are a powerful feature in production dbt deployments. Frequently, certain raw data tables can have billions (or more) rows, which makes performing frequent rebuilds of models dependent on these tables impractical. Incremental tables provide another option. The first time a model is deployed, data is populated in a `CREATE TABLE AS SELECT...` statement, but in subsequent runs this model will have incremental rows populated via an `INSERT` statement wrapped around the underlying `SELECT`.
 
