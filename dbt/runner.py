@@ -176,7 +176,7 @@ class Runner:
 
         if num_models == 0:
             print("WARNING: No models to run in '{}'. Try checking your model configs and running `dbt compile`".format(self.target_path))
-            return
+            return []
 
         existing = self.query_for_existing(target, target.schema);
 
@@ -236,7 +236,7 @@ class Runner:
                 except RuntimeError as e:
                     print("ERROR: {}".format(str(e)))
                     print("Exiting")
-                    return
+                    return[]
 
         target_cfg = self.project.run_environment()
         schema_name = target_cfg['schema']

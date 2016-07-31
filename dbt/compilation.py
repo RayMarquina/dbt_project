@@ -32,6 +32,7 @@ class Linker(object):
         else:
             graph_nodes = set()
             for node in limit_to:
+                graph_nodes.add(node)
                 graph_nodes.update(nx.descendants(self.graph, node))
 
         depth_nodes = defaultdict(list)
