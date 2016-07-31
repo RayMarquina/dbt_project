@@ -27,15 +27,12 @@ class Linker(object):
         dependenices are subsumed by the union of all lists before it. In this way, all nodes in list `i`
         can be run simultaneously assuming that all lists before list `i` have been completed"""
 
-        # only populate `nodes` with nodes at or below nodes in the limit_to list. If limit_to
-        # is None, then use all of the nodes in the graph
         if limit_to is None:
             graph_nodes = set(self.graph.nodes())
         else:
             graph_nodes = set()
             for node in limit_to:
-                reachable_nodes = nx.depth_first_search.dfs_postorder_nodes(self.graph, node)
-                graph_nodes.update(set(reachable_nodes))
+                graph_nodes.update(nx.descendants(self.graph, node))
 
         depth_nodes = defaultdict(list)
 

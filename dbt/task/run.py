@@ -19,6 +19,7 @@ class RunTask:
 
     def run(self):
         self.compile()
+
         runner = Runner(self.project, self.project['target-path'], BaseCreateTemplate.label)
         results = runner.run(self.args.models)
 
