@@ -28,13 +28,18 @@ This is likely because the relation was created by a different user. Either dele
 or adjust the permissions of the '{user}' user in the '{schema}' schema."""
 
 class RunModelResult(object):
-    def __init__(self, model, error=None):
+    def __init__(self, model, error=None, skip=False):
         self.model = model
         self.error = error
+        self.skip  = skip
 
     @property
     def errored(self):
         return self.error is not None
+
+    @property
+    def skipped(self):
+        return self.skip
 
 class Runner:
     def __init__(self, project, target_path, run_mode):
@@ -143,7 +148,7 @@ class Runner:
         except (RuntimeError, psycopg2.ProgrammingError) as e:
             error = "Error executing {filepath}\n{error}".format(filepath=model.filepath, error=str(e).strip())
 
-        return RunModelResult(model, error)
+        return RunModelResult(model, error=error)
 
     def execute_model(self, target, model, drop_type):
         if drop_type is not None:
@@ -190,19 +195,27 @@ class Runner:
         model_results = []
         for model_list in model_dependency_list:
             failed_nodes = [tuple(model.fqn) for model in failed_models]
+
             models_to_execute = [data for data in model_list if not linker.is_child_of(failed_nodes, tuple(data['model'].fqn))]
+            models_to_skip = [data for data in model_list if linker.is_child_of(failed_nodes, tuple(data['model'].fqn))]
+
+            for i, data in enumerate(models_to_skip):
+                model = data['model']
+                model_result = RunModelResult(model, skip=True)
+                model_results.append(model_result)
+                print("{} of {} -- SKIP relation {}.{} because parent failed".format(len(model_results), num_models, target.schema, model_result.model.name))
+
             run_model_results = pool.map(self.execute_wrapped_model, models_to_execute)
+
             for run_model_result in run_model_results:
                 model_results.append(run_model_result)
 
                 if run_model_result.errored:
                     failed_models.add(run_model_result.model)
                     print("{} of {} -- ERROR creating relation {}.{}".format(len(model_results), num_models, target.schema, run_model_result.model.name))
-                    print(run_model_result.error.rjust(10))
+                    print(run_model_result.error)
                 else:
                     print("{} of {} -- OK Created relation {}.{}".format(len(model_results), num_models, target.schema, run_model_result.model.name))
-        for i, model in enumerate(failed_models):
-            print("{} of {} -- SKIP relation {}.{} because parent failed".format(len(model_results) + i + 1, num_models, target.schema, run_model_result.model.name))
 
         pool.close()
         pool.join()
