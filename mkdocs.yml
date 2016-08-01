@@ -1,0 +1,22 @@
+site_name: dbt documentation
+docs_dir: docs
+
+pages:
+- Home: index.md
+- About:
+  - Overview: about/overview.md
+  - License: about/license.md
+  - Release Notes: about/release-notes.md
+  - Contributing: about/contributing.md
+- Guide:
+  - Setup: guide/setup.md
+  - Usage: guide/usage.md
+  - Building Models: guide/building-models.md
+  - Configuring Models: guide/configuring-models.md
+  - Model Validation: guide/model-validation.md
+  - Best Practices: guide/best-practices.md
+  - Managing Multiple Projects: guide/managing-multiple-projects.md
+
+
+
+theme: readthedocs
