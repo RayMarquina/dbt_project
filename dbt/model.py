@@ -114,8 +114,6 @@ class Model(DBTSource):
         dist_qualifier = self.dist_qualifier(model_config) if 'dist' in model_config and is_table else ''
         sort_qualifier = self.sort_qualifier(model_config) if 'sort' in model_config and is_table else ''
 
-        # build to tmp target, delete original, and then rename this to the desired name
-
         opts = {
             "table_or_view": table_or_view,
             "schema": schema,
