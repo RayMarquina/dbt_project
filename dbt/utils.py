@@ -10,9 +10,6 @@ def find_model_by_name(models, name, package_namespace=None):
 
     nice_package_name = 'ANY' if package_namespace is None else package_namespace
     if len(found) == 0:
-        print("Enabled models:")
-        for model in models:
-            print(" - {}".format(".".join(model.fqn)))
         raise RuntimeError("Can't find a model named '{}' in package '{}' -- does it exist?".format(name, nice_package_name))
     elif len(found) == 1:
         return found[0]

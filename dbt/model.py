@@ -33,7 +33,7 @@ class DBTSource(object):
         def load_from_project(model, the_project):
             config = the_project['model-defaults'].copy()
             model_configs = the_project['models']
-            fqn = model.fqn[:]
+            fqn = model.original_fqn[:]
             while len(fqn) > 0:
                 model_group = fqn.pop(0)
                 if model_group in model_configs:
@@ -58,6 +58,10 @@ class DBTSource(object):
         parts = self.filepath.split("/")
         name, _ = os.path.splitext(parts[-1])
         return [self.project['name']] + parts[1:-1] + [name]
+
+    @property
+    def original_fqn(self):
+        return self.fqn
 
 class Model(DBTSource):
     def __init__(self, project, model_dir, rel_filepath):
@@ -141,6 +145,12 @@ class TestModel(Model):
         name, _ = os.path.splitext(parts[-1])
         test_name = TestCreateTemplate.model_name(name)
         return [self.project['name']] + parts[1:-1] + [test_name]
+
+    @property
+    def original_fqn(self):
+        parts = self.filepath.split("/")
+        name, _ = os.path.splitext(parts[-1])
+        return [self.project['name']] + parts[1:-1] + [name]
 
     def __repr__(self):
         return "<TestModel {}.{}: {}>".format(self.project['name'], self.name, self.filepath)

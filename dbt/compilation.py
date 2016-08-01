@@ -151,7 +151,17 @@ class Compiler(object):
             linker.dependency(source_model, other_model_fqn)
             return '"{}"."{}"'.format(schema, other_model_name)
 
-        return do_ref
+        def wrapped_do_ref(*args):
+            try:
+                return do_ref(*args)
+            except RuntimeError as e:
+                print("Compiler error in {}".format(model.filepath))
+                print("Enabled models:")
+                for m in all_models:
+                    print(" - {}".format(".".join(m.fqn)))
+                raise e
+
+        return wrapped_do_ref
 
     def compile_model(self, linker, model, models):
         jinja = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath=model.root_dir))
