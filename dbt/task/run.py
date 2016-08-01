@@ -6,6 +6,8 @@ from dbt.templates import BaseCreateTemplate
 from dbt.runner import Runner
 from dbt.compilation import Compiler
 
+THREAD_LIMIT = 9
+
 class RunTask:
     def __init__(self, args, project):
         self.args = args
@@ -21,10 +23,13 @@ class RunTask:
         self.compile()
 
         runner = Runner(self.project, self.project['target-path'], BaseCreateTemplate.label)
-        results = runner.run(self.args.models)
+        results = runner.run(self.args.models, threads=self.args.threads)
 
-        successes = [r for r in results if not r.errored]
-        errors = [r for r in results if r.errored]
+        total   = len(results)
+        passed  = len([r for r in results if not r.errored and not r.skipped])
+        errored = len([r for r in results if r.errored])
+        skipped = len([r for r in results if r.skipped])
+
 
         print()
-        print("Done. Executed {} models executed with {} failures".format(len(successes) + len(errors), len(errors)))
+        print("Done. PASS={passed} ERROR={errored} SKIP={skipped} TOTAL={total}".format(total=total, passed=passed, errored=errored, skipped=skipped))

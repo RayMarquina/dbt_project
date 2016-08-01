@@ -69,7 +69,8 @@ class TestTask:
             models = [query_result.model for query_result in query_results if not query_result.errored and not query_result.skipped]
             runner.drop_models(models)
 
-        self.run_and_catch_errors(runner.run, on_complete)
+        run_func = lambda: runner.run(threads=self.args.threads)
+        self.run_and_catch_errors(run_func, on_complete)
 
     def run_validations(self):
         print("Validating schemas")
