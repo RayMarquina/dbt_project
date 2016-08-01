@@ -168,8 +168,10 @@ class Runner:
             else:
                 raise e
 
-    def execute_models(self, linker, models, limit_to=None, num_threads=4):
+    def execute_models(self, linker, models, num_threads, limit_to=None):
         target = self.get_target()
+
+        print("Concurrency: {} threads".format(num_threads))
 
         dependency_list = linker.as_dependency_list(limit_to)
         num_models = sum([len(node_list) for node_list in dependency_list])
@@ -222,7 +224,7 @@ class Runner:
 
         return model_results
 
-    def run(self, specified_models=None):
+    def run(self, specified_models=None, threads=1):
         linker = self.deserialize_graph()
         compiled_models = self.get_compiled_models()
 
@@ -247,7 +249,7 @@ class Runner:
             if schema_name not in schemas:
                 self.create_schema_or_exit(schema_name)
 
-            return self.execute_models(linker, compiled_models, limit_to)
+            return self.execute_models(linker, compiled_models, threads, limit_to)
         except psycopg2.OperationalError as e:
             print("ERROR: Could not connect to the target database. Try `dbt debug` for more information")
             print(str(e))
