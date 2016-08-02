@@ -16,11 +16,49 @@ class Linker(object):
     def nodes(self):
         return self.graph.nodes()
 
-    def as_dependency_list(self, limit_to=None):
+    def as_topological_ordering(self, limit_to=None):
         try:
-            return nx.topological_sort(self.graph, nbunch=limit_to)
+            return nx.topological_sort(the_graph, nbunch=limit_to)
         except KeyError as e:
             raise RuntimeError("Couldn't find model '{}' -- does it exist or is it diabled?".format(e))
+
+    def as_dependency_list(self, limit_to=None):
+        """returns a list of list of nodes, eg. [[0,1], [2], [4,5,6]]. Each element contains nodes whose
+        dependenices are subsumed by the union of all lists before it. In this way, all nodes in list `i`
+        can be run simultaneously assuming that all lists before list `i` have been completed"""
+
+        if limit_to is None:
+            graph_nodes = set(self.graph.nodes())
+        else:
+            graph_nodes = set()
+            for node in limit_to:
+                graph_nodes.add(node)
+                if node in self.graph:
+                    graph_nodes.update(nx.descendants(self.graph, node))
+                else:
+                    raise RuntimeError("Couldn't find model '{}' -- does it exist or is it diabled?".format(node))
+
+        depth_nodes = defaultdict(list)
+
+        for node in graph_nodes:
+            num_ancestors = len(nx.ancestors(self.graph, node))
+            depth_nodes[num_ancestors].append(node)
+
+        dependency_list = []
+        for depth in sorted(depth_nodes.keys()):
+            dependency_list.append(depth_nodes[depth])
+
+        return dependency_list
+
+    def is_child_of(self, nodes, target_node):
+        "returns True if node is a child of a node in nodes. Otherwise, False"
+        node_span = set()
+        for node in nodes:
+            node_span.add(node)
+            for child in nx.descendants(self.graph, node):
+                node_span.add(child)
+
+        return target_node in node_span
 
     def dependency(self, node1, node2):
         "indicate that node1 depends on node2"
@@ -116,7 +154,17 @@ class Compiler(object):
             linker.dependency(source_model, other_model_fqn)
             return '"{}"."{}"'.format(schema, other_model_name)
 
-        return do_ref
+        def wrapped_do_ref(*args):
+            try:
+                return do_ref(*args)
+            except RuntimeError as e:
+                print("Compiler error in {}".format(model.filepath))
+                print("Enabled models:")
+                for m in all_models:
+                    print(" - {}".format(".".join(m.fqn)))
+                raise e
+
+        return wrapped_do_ref
 
     def compile_model(self, linker, model, models):
         jinja = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath=model.root_dir))

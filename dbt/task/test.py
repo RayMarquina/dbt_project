@@ -35,10 +35,8 @@ class TestTask:
 
         errored = False
         try:
-            for (model, test_passed) in func():
-                executed_models.append(model)
-                if test_passed:
-                    passed += 1
+            for res in func():
+                executed_models.append(res)
         except psycopg2.ProgrammingError as e:
             errored = True
             print("")
@@ -54,13 +52,24 @@ class TestTask:
             sys.exit(1)
         print("")
 
-        num_passed = len(executed_models)
-        print("{passed}/{num_executed} tests passed!".format(passed=passed, num_executed=num_passed))
+        total = len(executed_models)
+        passed  = len([model for model in executed_models if not model.errored and not model.skipped])
+        errored = len([model for model in executed_models if model.errored])
+        skipped = len([model for model in executed_models if model.skipped])
+        print("PASS={passed} ERROR={errored} SKIP={skipped} TOTAL={total}".format(total=total, passed=passed, errored=errored, skipped=skipped))
+        if errored > 0:
+            print("Tests completed with errors")
+        else:
+            print("All tests passed")
         print("")
 
     def run_test_creates(self):
         runner = Runner(self.project, self.project['target-path'], TestCreateTemplate.label)
-        self.run_and_catch_errors(runner.run, runner.drop_models)
+        def on_complete(query_results):
+            models = [query_result.model for query_result in query_results if not query_result.errored and not query_result.skipped]
+            runner.drop_models(models)
+
+        self.run_and_catch_errors(runner.run, on_complete)
 
     def run_validations(self):
         print("Validating schemas")

@@ -1,8 +1,12 @@
 
+from __future__ import print_function
+
 import os
 from dbt.templates import BaseCreateTemplate
 from dbt.runner import Runner
 from dbt.compilation import Compiler
+
+THREAD_LIMIT = 9
 
 class RunTask:
     def __init__(self, args, project):
@@ -17,6 +21,15 @@ class RunTask:
 
     def run(self):
         self.compile()
+
         runner = Runner(self.project, self.project['target-path'], BaseCreateTemplate.label)
-        for (model, passed) in runner.run(self.args.models):
-            pass
+        results = runner.run(self.args.models)
+
+        total   = len(results)
+        passed  = len([r for r in results if not r.errored and not r.skipped])
+        errored = len([r for r in results if r.errored])
+        skipped = len([r for r in results if r.skipped])
+
+
+        print()
+        print("Done. PASS={passed} ERROR={errored} SKIP={skipped} TOTAL={total}".format(total=total, passed=passed, errored=errored, skipped=skipped))
