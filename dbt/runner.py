@@ -190,10 +190,8 @@ class Runner:
 
         self.rename(target, model)
 
-    def execute_models(self, linker, models, num_threads, limit_to=None):
+    def execute_models(self, linker, models, limit_to=None):
         target = self.get_target()
-
-        print("Concurrency: {} threads".format(num_threads))
 
         dependency_list = linker.as_dependency_list(limit_to)
         num_models = sum([len(node_list) for node_list in dependency_list])
@@ -214,6 +212,10 @@ class Runner:
 
         # we can only pass one arg to the self.execute_model method below. Pass a dict w/ all the data we need
         model_dependency_list = [[wrap_fqn(target, models, existing, fqn) for fqn in node_list] for node_list in dependency_list]
+
+        num_threads = target.threads
+        print("Concurrency: {} threads (target='{}')".format(num_threads, self.project['run-target']))
+        print("Running!")
 
         pool = ThreadPool(num_threads)
 
@@ -249,7 +251,7 @@ class Runner:
 
         return model_results
 
-    def run(self, specified_models=None, threads=1):
+    def run(self, specified_models=None):
         linker = self.deserialize_graph()
         compiled_models = self.get_compiled_models()
 
@@ -274,7 +276,7 @@ class Runner:
             if schema_name not in schemas:
                 self.create_schema_or_exit(schema_name)
 
-            return self.execute_models(linker, compiled_models, threads, limit_to)
+            return self.execute_models(linker, compiled_models, limit_to)
         except psycopg2.OperationalError as e:
             print("ERROR: Could not connect to the target database. Try `dbt debug` for more information")
             print(str(e))
