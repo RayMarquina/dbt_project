@@ -5,6 +5,8 @@ from dbt.source import Source
 from dbt.runner import RunModelResult
 
 import psycopg2
+import logging
+import time
 
 QUERY_VALIDATE_NOT_NULL = """
 with validation as (
@@ -50,6 +52,7 @@ where id not in (select id from parent) and id is not null
 
 class SchemaTester(object):
     def __init__(self, project):
+        self.logger = logging.getLogger(__name__)
         self.project = project
 
     def project_schemas(self):
@@ -78,17 +81,23 @@ class SchemaTester(object):
         with target.get_handle() as handle:
             with handle.cursor() as cursor:
                 try:
+                    self.logger.debug("SQL: %s", sql)
+                    pre = time.time()
                     cursor.execute(sql)
+                    post = time.time()
+                    self.logger.debug("SQL status: %s in %d seconds", cursor.statusmessage, post-pre)
                 except psycopg2.ProgrammingError as e:
+                    self.logger.exception('programming error: %s', sql)
                     return e.diag.message_primary
                 except Exception as e:
+                    self.logger.exception('encountered exception while running: %s', sql)
                     e.model = model
                     raise e
 
                 result = cursor.fetchone()
                 if len(result) != 1:
-                    print("SQL: {}".format(sql))
-                    print("RESULT:".format(result))
+                    self.logger.error("SQL: %s", sql)
+                    self.logger.error("RESULT: %s", result)
                     raise RuntimeError("Unexpected validation result. Expected 1 record, got {}".format(len(result)))
                 else:
                     return result[0]

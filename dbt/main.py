@@ -1,3 +1,6 @@
+
+from dbt.logger import getLogger
+
 import argparse
 import os.path
 import sys
@@ -90,6 +93,11 @@ def handle(args):
             print("  ERROR Specified target {} is not a valid option for profile {}".format(parsed.target, parsed.profile))
             print("Valid targets are: {}".format(targets))
             return
+
+        log_dir = proj.get('log-path', 'logs')
+        logger = getLogger(log_dir, __name__)
+
+        logger.info("running dbt with arguments %s", parsed)
 
         parsed.cls(args=parsed, project=proj).run()
 
