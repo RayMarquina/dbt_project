@@ -3,7 +3,8 @@ from __future__ import print_function
 
 import psycopg2
 import os, sys
-import functools
+import logging
+import time
 
 from dbt.compilation import Linker, Compiler
 from dbt.templates import BaseCreateTemplate
@@ -43,6 +44,7 @@ class RunModelResult(object):
 
 class Runner:
     def __init__(self, project, target_path, run_mode):
+        self.logger = logging.getLogger(__name__)
         self.project = project
         self.target_path = target_path
         self.run_mode = run_mode
@@ -106,17 +108,24 @@ class Runner:
 
         return dict(existing)
 
-    def __drop(self, target, model, relation, relation_type):
-        schema = target.schema
+    def get_drop_statement(self, schema, relation, relation_type):
+        return 'drop {relation_type} if exists "{schema}"."{relation}" cascade'.format(schema=schema, relation_type=relation_type, relation=relation)
 
-        sql = 'drop {relation_type} if exists "{schema}"."{relation}" cascade'.format(schema=schema, relation_type=relation_type, relation=relation)
-        self.__do_execute(target, sql, model)
+    def drop(self, target, model, relation, relation_type):
+        sql = self.get_drop_statement(target.schema, relation, relation_type)
+        self.logger.info("dropping %s %s.%s", relation_type, target.schema, relation)
+        self.execute_and_handle_permissions(target, sql, model, relation)
+        self.logger.info("dropped %s %s.%s", relation_type, target.schema, relation)
 
     def __do_execute(self, target, sql, model):
         with target.get_handle() as handle:
             with handle.cursor() as cursor:
                 try:
+                    self.logger.debug("SQL: %s", sql)
+                    pre = time.time()
                     cursor.execute(sql)
+                    post = time.time()
+                    self.logger.debug("SQL status: %s in %d seconds", cursor.statusmessage, post-pre)
                     handle.commit()
                 except Exception as e:
                     e.model = model
@@ -128,7 +137,7 @@ class Runner:
         existing = self.query_for_existing(target, target.schema);
         for model in models:
             model_name = model.fqn[-1]
-            self.__drop(target, model, model.name, existing[model_name])
+            self.drop(target, model, model.name, existing[model_name])
 
     def get_model_by_fqn(self, models, fqn):
         for model in models:
@@ -150,39 +159,36 @@ class Runner:
 
         return RunModelResult(model, error=error)
 
-    def execute_model(self, target, model, tmp_drop_type, final_drop_type):
-        # drop tmp if it exists
-        if tmp_drop_type is not None:
-            try:
-                self.__drop(target, model, model.tmp_name(), tmp_drop_type)
-            except psycopg2.ProgrammingError as e:
-                if "must be owner of relation" in e.diag.message_primary:
-                    raise RuntimeError(RELATION_NOT_OWNER_MESSAGE.format(model=model.tmp_name(), schema=target.schema, user=target.user))
-                else:
-                    raise e
-
-        # create model (w/ temp name)
+    def execute_and_handle_permissions(self, target, query, model, model_name):
         try:
-            self.__do_execute(target, model.contents, model)
+            self.__do_execute(target, query, model)
         except psycopg2.ProgrammingError as e:
-            if "permission denied for" in e.diag.message_primary:
-                raise RuntimeError(RELATION_PERMISSION_DENIED_MESSAGE.format(model=model.name, schema=target.schema, user=target.user))
+            error_data = {"model": model_name, "schema": target.schema, "user": target.user}
+            if 'must be owner of relation' in e.diag.message_primary:
+                raise RuntimeError(RELATION_NOT_OWNER_MESSAGE.format(**error_data))
+            elif "permission denied for" in e.diag.message_primary:
+                raise RuntimeError(RELATION_PERMISSION_DENIED_MESSAGE.format(**error_data))
             else:
                 raise e
 
-        # drop final model if it exists
-        if final_drop_type is not None:
-            try:
-                self.__drop(target, model, model.name, final_drop_type)
-            except psycopg2.ProgrammingError as e:
-                if "must be owner of relation" in e.diag.message_primary:
-                    raise RuntimeError(RELATION_NOT_OWNER_MESSAGE.format(model=model.name, schema=target.schema, user=target.user))
-                else:
-                    raise e
-
-        # rename this to the actual desired model name
+    def rename(self, target, model):
         rename_query = model.rename_query(target.schema)
-        self.__do_execute(target, rename_query, model)
+        self.logger.info("renaming model %s.%s --> %s.%s", target.schema, model.tmp_name(), target.schema, model.name)
+        self.execute_and_handle_permissions(target, rename_query, model, model.name)
+        self.logger.info("renamed model %s.%s --> %s.%s", target.schema, model.tmp_name(), target.schema, model.name)
+
+    def execute_model(self, target, model, tmp_drop_type, final_drop_type):
+        self.logger.info("executing model %s", model)
+
+        if tmp_drop_type is not None:
+            self.drop(target, model, model.tmp_name(), tmp_drop_type)
+
+        self.execute_and_handle_permissions(target, model.contents, model, model.tmp_name())
+
+        if final_drop_type is not None:
+            self.drop(target, model, model.name, final_drop_type)
+
+        self.rename(target, model)
 
     def execute_models(self, linker, models, num_threads, limit_to=None):
         target = self.get_target()

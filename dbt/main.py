@@ -1,3 +1,6 @@
+
+from dbt.logger import getLogger
+
 import argparse
 import os.path
 import sys
@@ -15,9 +18,14 @@ def main(args=None):
     if args is None:
         args = sys.argv[1:]
 
+    logger = getLogger(__name__)
+    logger.info("running dbt with arguments %s", args)
+
     try:
         handle(args)
+        logger.info("dbt exiting without error!")
     except RuntimeError as e:
+        logger.exception("dbt exiting with error")
         print("Encountered an error:")
         print(str(e))
         sys.exit(1)
