@@ -129,6 +129,7 @@ class Runner:
                     handle.commit()
                 except Exception as e:
                     e.model = model
+                    self.logger.exception("Error running SQL: %s", sql)
                     raise e
 
     def drop_models(self, models):
