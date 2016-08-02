@@ -2,7 +2,7 @@
 import psycopg2
 
 THREAD_MIN = 1
-THREAD_MAX = 8
+THREAD_MAX = 10
 
 BAD_THREADS_ERROR = """Invalid value given for "threads" in active run-target.
 Value given was {supplied} but it should be an int between {min_val} and {max_val}"""
@@ -26,7 +26,7 @@ class RedshiftTarget:
         if type(supplied) != int:
             raise bad_threads_error
 
-        if supplied >= 1 and supplied <= 8:
+        if supplied >= THREAD_MIN and supplied <= THREAD_MAX:
             return supplied
         else:
             raise bad_threads_error
