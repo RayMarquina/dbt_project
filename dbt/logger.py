@@ -19,6 +19,7 @@ def getLogger(log_dir, name):
                 "formatter":"fileFormatter",
                 "when": "d",  # rotate daily
                 "interval": 1,
+                "backupCount": 7,
                 "filename": base_log_path
             },
         },
