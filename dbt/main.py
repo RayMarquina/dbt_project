@@ -18,14 +18,9 @@ def main(args=None):
     if args is None:
         args = sys.argv[1:]
 
-    logger = getLogger(__name__)
-    logger.info("running dbt with arguments %s", args)
-
     try:
         handle(args)
-        logger.info("dbt exiting without error!")
     except RuntimeError as e:
-        logger.exception("dbt exiting with error")
         print("Encountered an error:")
         print(str(e))
         sys.exit(1)
@@ -101,6 +96,11 @@ def handle(args):
             print("  ERROR Specified target {} is not a valid option for profile {}".format(parsed.target, parsed.profile))
             print("Valid targets are: {}".format(targets))
             return
+
+        log_dir = proj.get('log-path', 'logs')
+        logger = getLogger(log_dir, __name__)
+
+        logger.info("running dbt with arguments %s", parsed)
 
         parsed.cls(args=parsed, project=proj).run()
 

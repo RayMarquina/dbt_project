@@ -1,14 +1,25 @@
 import logging
 import logging.config
+import os
 
-def getLogger(name):
+def make_log_dir_if_missing(log_dir):
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+
+def getLogger(log_dir, name):
+    make_log_dir_if_missing(log_dir)
+    filename = "dbt.log"
+    base_log_path = os.path.join(log_dir, filename)
+
     dictLogConfig = {
         "version":1,
         "handlers": {
             "fileHandler":{
-                "class":"logging.FileHandler",
+                "class":"logging.handlers.TimedRotatingFileHandler",
                 "formatter":"fileFormatter",
-                "filename":"dbt_output.log"
+                "when": "d",  # rotate daily
+                "interval": 1,
+                "filename": base_log_path
             },
         },
         "loggers":{
