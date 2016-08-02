@@ -33,7 +33,10 @@ class Linker(object):
             graph_nodes = set()
             for node in limit_to:
                 graph_nodes.add(node)
-                graph_nodes.update(nx.descendants(self.graph, node))
+                if node in self.graph:
+                    graph_nodes.update(nx.descendants(self.graph, node))
+                else:
+                    raise RuntimeError("Couldn't find model '{}' -- does it exist or is it diabled?".format(node))
 
         depth_nodes = defaultdict(list)
 

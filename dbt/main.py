@@ -47,10 +47,7 @@ def handle(args):
     sub = subs.add_parser('deps', parents=[base_subparser])
     sub.set_defaults(cls=deps_task.DepsTask, which='deps')
 
-    concurrent_sub = argparse.ArgumentParser(add_help=False)
-    concurrent_sub.add_argument('-t', '--threads', type=int, default=1, choices=range(1, run_task.THREAD_LIMIT), help='Number of queries to execute concurrently')
-
-    sub = subs.add_parser('run', parents=[base_subparser, concurrent_sub])
+    sub = subs.add_parser('run', parents=[base_subparser])
     sub.add_argument('--models', required=False, nargs='+', help="Specify the models to run. All models depending on these models will also be run")
     sub.set_defaults(cls=run_task.RunTask, which='run')
 
@@ -58,7 +55,7 @@ def handle(args):
     sub.add_argument('--drop-existing', action='store_true', help="Drop existing seed tables and recreate them")
     sub.set_defaults(cls=seed_task.SeedTask, which='seed')
 
-    sub = subs.add_parser('test', parents=[base_subparser, concurrent_sub])
+    sub = subs.add_parser('test', parents=[base_subparser])
     sub.add_argument('--skip-test-creates', action='store_true', help="Don't create temporary views to validate model SQL")
     sub.add_argument('--validate', action='store_true', help='Run constraint validations from schema.yml files')
     sub.set_defaults(cls=test_task.TestTask, which='test')

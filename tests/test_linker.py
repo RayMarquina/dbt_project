@@ -24,7 +24,7 @@ class LinkerTest(unittest.TestCase):
         for (l, r) in actual_deps:
             self.linker.dependency(l, r)
 
-        expected_dep_list = ['C', 'B', 'A']
+        expected_dep_list = [['C'], ['B'], ['A']]
         actual_dep_list = self.linker.as_dependency_list()
         self.assertEqual(expected_dep_list, actual_dep_list)
 
@@ -36,11 +36,10 @@ class LinkerTest(unittest.TestCase):
             self.linker.dependency(l, r)
         self.linker.add_node(additional_node)
 
-        # has to be one of these three
+        # has to be one of these two
         possible = [
-                ['Z', 'B', 'A'],
-                ['B', 'A', 'Z'],
-                ['B', 'Z', 'A'],
+                [['Z', 'B'], ['A']],
+                [['B', 'Z'], ['A']],
         ]
 
         actual = self.linker.as_dependency_list()
@@ -57,7 +56,7 @@ class LinkerTest(unittest.TestCase):
             self.linker.dependency(l, r)
 
         actual_limit = self.linker.as_dependency_list(['B'])
-        expected_limit = ['B', 'A']
+        expected_limit = [['B'], ['A']]
         self.assertEqual(expected_limit, actual_limit)
 
     def test_linker_bad_limit_throws_runtime_error(self):

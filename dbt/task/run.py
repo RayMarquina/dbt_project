@@ -23,7 +23,7 @@ class RunTask:
         self.compile()
 
         runner = Runner(self.project, self.project['target-path'], BaseCreateTemplate.label)
-        results = runner.run(self.args.models, threads=self.args.threads)
+        results = runner.run(self.args.models)
 
         total   = len(results)
         passed  = len([r for r in results if not r.errored and not r.skipped])
