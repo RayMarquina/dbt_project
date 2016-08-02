@@ -7,7 +7,6 @@ dbt (data build tool) helps analysts write reliable, modular code using a workfl
 - [What is dbt]?
 - Read the [dbt viewpoint]
 - [Installation]
-- Project [release notes][release-notes-url].
 - Join the [chat][gittr-url] on Gittr.
 
 
@@ -19,7 +18,6 @@ Everyone interacting in the dbt project's codebases, issue trackers, chat rooms,
 
 [PyPA Code of Conduct]: https://www.pypa.io/en/latest/code-of-conduct/
 [gittr-url]: https://gitter.im/analyst-collective/dbt
-[documentation-url]: http://dbt.readthedocs.io/en/readthedocs/
-[Installation]: http://dbt.readthedocs.io/en/master/about/overview/
+[Installation]: http://dbt.readthedocs.io/en/master/guide/setup/
 [What is dbt]: http://dbt.readthedocs.io/en/master/about/overview/
 [dbt viewpoint]: http://dbt.readthedocs.io/en/master/about/viewpoint/
