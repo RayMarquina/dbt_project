@@ -43,6 +43,8 @@ class RedshiftTarget:
         )
 
     def get_handle(self):
+        # this is important -- if we use different handles, then redshift
+        # fails with a message about concurrent transactions
         if self.handle is None:
             self.handle = psycopg2.connect(self.__get_spec())
         return self.handle
