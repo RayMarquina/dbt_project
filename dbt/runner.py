@@ -126,7 +126,6 @@ class Runner:
                     cursor.execute(sql)
                     post = time.time()
                     self.logger.debug("SQL status: %s in %d seconds", cursor.statusmessage, post-pre)
-                    handle.commit()
                 except Exception as e:
                     e.model = model
                     self.logger.exception("Error running SQL: %s", sql)

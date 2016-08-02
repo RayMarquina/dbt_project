@@ -18,6 +18,8 @@ class RedshiftTarget:
         self.schema = cfg['schema']
         self.threads = self.__get_threads(cfg)
 
+        self.handle = None
+
     def __get_threads(self, cfg):
         supplied = cfg.get('threads', 1)
 
@@ -41,5 +43,7 @@ class RedshiftTarget:
         )
 
     def get_handle(self):
-        return psycopg2.connect(self.__get_spec())
+        if self.handle is None:
+            self.handle = psycopg2.connect(self.__get_spec())
+        return self.handle
 
