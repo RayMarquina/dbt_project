@@ -12,8 +12,9 @@ target-path: "target"        # path for compiled code
 clean-targets: ["target"]    # directories removed by the clean task
 test-paths: ["test"]         # where to store test results
 data-paths: ["data"]         # load csvs from this directory with `dbt seed`
+log-path: "logs"             # where to save log files (rotated daily)
 
-# profile: "org-1"         # use org-1 profile within this project. uncomment to enable
+# profile: my-org            # use my-org profile within this project. uncomment to enable
 
 # default paramaters that apply to _all_ models (unless overridden below)
 
@@ -21,7 +22,10 @@ model-defaults:
   enabled: true           # enable all models by default
   materialized: false     # If true, create tables. If false, create views
 
-# custom configurations for each model. Unspecified models will use the model-defaults information above.
+# Custom configurations for each model. Unspecified models will use the model-defaults information above.
+# The structure of this config object should mirror the project files in the "source-paths" directories.
+# Here, we specify "Your_Package_Name_Here" to denote that we're referencing models in _this_ project.
+# Below it, we specify configs for the "Analyst_Collective" project, imported from the "analytics" dependency
 
 models:
   'Your_Package_Name_Here': # the following configs pertain to _this_ dbt project
@@ -40,6 +44,10 @@ models:
       pardot_visitoractivity:
         materialized: false
         sort: ['@timestamp']  # this has no effect, as sort and dist keys only apply to materialized tables
+
+  'Analytics':              # This is a different DBT repo included in the "repositories" dict below
+    trello:
+        materialized: true
 
 # add dependencies. these will get pulled during the `dbt deps` process.
 
