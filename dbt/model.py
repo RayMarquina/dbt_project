@@ -30,8 +30,11 @@ class DBTSource(object):
     def get_config(self, primary_project):
         config_keys = self.get_config_keys()
 
-        def load_from_project(model, the_project):
-            config = the_project['model-defaults'].copy()
+        def load_from_project(model, the_project, skip_default=False):
+            if skip_default:
+                config = {}
+            else:
+                config = the_project['model-defaults'].copy()
             model_configs = the_project['models']
             fqn = model.original_fqn[:]
             while len(fqn) > 0:
@@ -44,11 +47,11 @@ class DBTSource(object):
                     break
             return config
 
-        config = load_from_project(self, self.project)
+        config = load_from_project(self, self.project, skip_default=False)
 
         # overwrite dep config w/ primary config if different
         if self.project['name'] != primary_project['name']:
-            primary_config = load_from_project(self, primary_project)
+            primary_config = load_from_project(self, primary_project, skip_default=True)
             config.update(primary_config)
         return config
 
