@@ -16,13 +16,13 @@ class BaseCreateTemplate(object):
 
     insert into "{schema}"."{identifier}" (
         with dbt_inc_sbq as (
-            select max("{incremental_field}") as dbt_max from "{schema}"."{identifier}"
+            select max({sql_field}) as __dbt_max from "{schema}"."{identifier}"
         ), dbt_raw_sbq as (
             {query}
         )
         select dbt_raw_sbq.* from dbt_raw_sbq
-        join dbt_inc_sbq on dbt_raw_sbq."{incremental_field}" > dbt_inc_sbq.dbt_max or dbt_inc_sbq.dbt_max is null
-        order by dbt_raw_sbq."{incremental_field}"
+        join dbt_inc_sbq on {sql_field} > dbt_inc_sbq.__dbt_max or dbt_inc_sbq.__dbt_max is null
+        order by {sql_field}
     );
     """
 

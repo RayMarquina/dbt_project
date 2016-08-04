@@ -22,7 +22,7 @@ class DBTSource(object):
             return fh.read().strip()
 
     def get_config_keys(self):
-        return ['enabled', 'materialized', 'dist', 'sort', 'incremental_field']
+        return ['enabled', 'materialized', 'dist', 'sort', 'sql_field']
 
     def compile(self):
         raise RuntimeError("Not implemented!")
@@ -123,12 +123,12 @@ class Model(DBTSource):
 
         if materialization in ('table', 'view'):
             identifier = self.tmp_name()
-            incremental_field = None
+            sql_field = None
         else:
             identifier = self.name
-            if 'incremental_field' not in model_config:
-                raise RuntimeError("incremental_field not specified in model materialized as incremental: {}".format(self))
-            incremental_field = model_config['incremental_field']
+            if 'sql_field' not in model_config:
+                raise RuntimeError("sql_field not specified in model materialized as incremental: {}".format(self))
+            sql_field = model_config['sql_field']
 
         opts = {
             "materialization": materialization,
@@ -137,7 +137,7 @@ class Model(DBTSource):
             "query": rendered_query,
             "dist_qualifier": dist_qualifier,
             "sort_qualifier": sort_qualifier,
-            "incremental_field": incremental_field
+            "sql_field": sql_field
         }
 
         return create_template.wrap(opts)
