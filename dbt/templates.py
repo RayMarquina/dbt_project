@@ -1,9 +1,22 @@
 
 class BaseCreateTemplate(object):
     template = """
-    create {table_or_view} "{schema}"."{identifier}" {dist_qualifier} {sort_qualifier} as (
+    create {materialization} "{schema}"."{identifier}" {dist_qualifier} {sort_qualifier} as (
         {query}
     );"""
+
+    incremental_template = """
+    insert into "{schema}"."{identifier}" (
+        with dbt_inc_sbq as (
+            select max("{incremental_field}") as dbt_max from "{schema}"."{identifier}"
+        ), dbt_raw_sbq as (
+            {query}
+        )
+        select dbt_raw_sbq.* from dbt_raw_sbq
+        join dbt_inc_sbq on dbt_raw_sbq."{incremental_field}" > dbt_inc_sbq.dbt_max or dbt_inc_sbq.dbt_max is null
+        order by dbt_raw_sbq."{incremental_field}"
+    );
+    """
 
     label = "build"
 
@@ -12,7 +25,12 @@ class BaseCreateTemplate(object):
         return base_name
 
     def wrap(self, opts):
-        return self.template.format(**opts)
+        if opts['materialization'] in ('table', 'view'):
+            return self.template.format(**opts)
+        elif opts['materialization'] == 'incremental':
+            return self.incremental_template.format(**opts)
+        else:
+            raise RuntimeError("Invalid materialization parameter ({})".format(opts['materialization']))
 
 class TestCreateTemplate(object):
     template = """

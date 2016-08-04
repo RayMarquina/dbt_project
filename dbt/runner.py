@@ -150,10 +150,11 @@ class Runner:
         model = data['model']
         tmp_drop_type = data['tmp_drop_type']
         final_drop_type = data['final_drop_type']
+        exists = data['exists']
 
         error = None
         try:
-            self.execute_model(target, model, tmp_drop_type, final_drop_type)
+            self.execute_model(target, model, tmp_drop_type, final_drop_type, exists)
         except (RuntimeError, psycopg2.ProgrammingError) as e:
             error = "Error executing {filepath}\n{error}".format(filepath=model.filepath, error=str(e).strip())
 
@@ -177,7 +178,7 @@ class Runner:
         self.execute_and_handle_permissions(target, rename_query, model, model.name)
         self.logger.info("renamed model %s.%s --> %s.%s", target.schema, model.tmp_name(), target.schema, model.name)
 
-    def execute_model(self, target, model, tmp_drop_type, final_drop_type):
+    def execute_model(self, target, model, tmp_drop_type, final_drop_type, exists):
         self.logger.info("executing model %s", model)
 
         if tmp_drop_type is not None:
@@ -188,7 +189,9 @@ class Runner:
         if final_drop_type is not None:
             self.drop(target, model, model.name, final_drop_type)
 
-        self.rename(target, model)
+        model_config = model.get_config(model.project)
+        if model_config['materialized'] != 'incremental':
+            self.rename(target, model)
 
     def execute_models(self, linker, models, limit_to=None):
         target = self.get_target()
@@ -205,10 +208,15 @@ class Runner:
         def wrap_fqn(target, models, existing, fqn):
             model = self.get_model_by_fqn(models, fqn)
 
-            # False, 'view', or 'table'
-            tmp_drop_type = existing.get(model.tmp_name(), None) 
-            final_drop_type = existing.get(model.name, None)
-            return {"model" : model, "target": target, "tmp_drop_type": tmp_drop_type, 'final_drop_type': final_drop_type}
+            model_config = model.get_config(model.project)
+            exists = model.name in existing
+            if model_config.get('materialized') == 'incremental':
+                tmp_drop_type = None
+                final_drop_type = None
+            else:
+                tmp_drop_type = existing.get(model.tmp_name(), None) 
+                final_drop_type = existing.get(model.name, None)
+            return {"model" : model, "target": target, "tmp_drop_type": tmp_drop_type, 'final_drop_type': final_drop_type, "exists": exists}
 
         # we can only pass one arg to the self.execute_model method below. Pass a dict w/ all the data we need
         model_dependency_list = [[wrap_fqn(target, models, existing, fqn) for fqn in node_list] for node_list in dependency_list]
