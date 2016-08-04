@@ -6,7 +6,7 @@ class BaseCreateTemplate(object):
     );"""
 
     incremental_template = """
-    create temporary table "{identifier}__dbt_incremental_tmp" as (
+    create temporary table "{identifier}__dbt_incremental_tmp" {dist_qualifier} {sort_qualifier} as (
         SELECT * FROM (
             {query}
         ) as tmp LIMIT 0

@@ -84,6 +84,8 @@ class Model(DBTSource):
         super(Model, self).__init__(project, model_dir, rel_filepath)
 
     def sort_qualifier(self, model_config):
+        if 'sort' not in model_config:
+            return ''
         sort_keys = model_config['sort']
         if type(sort_keys) == str:
             sort_keys = [sort_keys]
@@ -93,6 +95,9 @@ class Model(DBTSource):
         return "sortkey ({})".format(', '.join(formatted_sort_keys))
 
     def dist_qualifier(self, model_config):
+        if 'dist' not in model_config:
+            return ''
+
         dist_key = model_config['dist']
 
         if type(dist_key) != str:
@@ -117,9 +122,9 @@ class Model(DBTSource):
         ctx = project.context()
         schema = ctx['env'].get('schema', 'public')
 
-        is_table = materialization == 'table'
-        dist_qualifier = self.dist_qualifier(model_config) if 'dist' in model_config and is_table else ''
-        sort_qualifier = self.sort_qualifier(model_config) if 'sort' in model_config and is_table else ''
+        # these are empty strings if configs aren't provided
+        dist_qualifier = self.dist_qualifier(model_config)
+        sort_qualifier = self.sort_qualifier(model_config)
 
         if materialization in ('table', 'view'):
             identifier = self.tmp_name()
