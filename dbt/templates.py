@@ -6,6 +6,14 @@ class BaseCreateTemplate(object):
     );"""
 
     incremental_template = """
+    create temporary table "{identifier}__dbt_incremental_tmp" as (
+        SELECT * FROM (
+            {query}
+        ) as tmp LIMIT 0
+    );
+
+    create table if not exists "{schema}"."{identifier}" (like "{identifier}__dbt_incremental_tmp");
+
     insert into "{schema}"."{identifier}" (
         with dbt_inc_sbq as (
             select max("{incremental_field}") as dbt_max from "{schema}"."{identifier}"
