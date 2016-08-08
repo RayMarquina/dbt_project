@@ -188,8 +188,7 @@ class Runner:
         if final_drop_type is not None:
             self.drop(target, model, model.name, final_drop_type)
 
-        model_config = model.get_config(model.project)
-        if model_config['materialized'] != 'incremental':
+        if not model.is_incremental:
             self.rename(target, model)
 
     def execute_models(self, linker, models, limit_to=None):
@@ -207,8 +206,7 @@ class Runner:
         def wrap_fqn(target, models, existing, fqn):
             model = self.get_model_by_fqn(models, fqn)
 
-            model_config = model.get_config(model.project)
-            if model_config.get('materialized') == 'incremental':
+            if model.is_incremental:
                 tmp_drop_type = None
                 final_drop_type = None
             else:

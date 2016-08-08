@@ -4,31 +4,33 @@ import yaml
 from dbt.templates import TestCreateTemplate
 
 class DBTSource(object):
-    def __init__(self, project, top_dir, rel_filepath):
+    Materializations = ['view', 'table', 'incremental', 'ephemeral']
+    ConfigKeys = ['enabled', 'materialized', 'dist', 'sort', 'sql_field']
+
+    def __init__(self, project, top_dir, rel_filepath, own_project):
         self.project = project
+        self.own_project = own_project
         self.top_dir = top_dir
         self.rel_filepath = rel_filepath
         self.filepath = os.path.join(top_dir, rel_filepath)
         self.filedir = os.path.dirname(self.filepath)
         self.name = self.fqn[-1]
+        self.config = self.load_config()
 
     @property
     def root_dir(self):
         return os.path.join(self.project['project-root'], self.top_dir)
+
+    def compile(self):
+        raise RuntimeError("Not implemented!")
 
     @property
     def contents(self):
         with open(self.filepath) as fh:
             return fh.read().strip()
 
-    def get_config_keys(self):
-        return ['enabled', 'materialized', 'dist', 'sort', 'sql_field']
-
-    def compile(self):
-        raise RuntimeError("Not implemented!")
-
-    def get_config(self, primary_project):
-        config_keys = self.get_config_keys()
+    def load_config(self):
+        config_keys = self.ConfigKeys
 
         def load_from_project(model, the_project, skip_default=False):
             if skip_default:
@@ -50,10 +52,35 @@ class DBTSource(object):
         config = load_from_project(self, self.project, skip_default=False)
 
         # overwrite dep config w/ primary config if different
-        if self.project['name'] != primary_project['name']:
-            primary_config = load_from_project(self, primary_project, skip_default=True)
+        if self.project['name'] != self.own_project['name']:
+            primary_config = load_from_project(self, self.own_project, skip_default=True)
             config.update(primary_config)
         return config
+
+    @property
+    def materialization(self):
+        return self.config['materialized']
+
+    @property
+    def is_incremental(self):
+        return self.materialization == 'incremental'
+
+    @property
+    def is_ephemeral(self):
+        return self.materialization == 'ephemeral'
+
+    @property
+    def is_table(self):
+        return self.materialization == 'table'
+
+    @property
+    def is_view(self):
+        return self.materialization == 'view'
+
+    @property
+    def is_enabled(self):
+        return self.config.get('enabled')
+
 
     @property
     def fqn(self):
@@ -80,8 +107,8 @@ class DBTSource(object):
 
 
 class Model(DBTSource):
-    def __init__(self, project, model_dir, rel_filepath):
-        super(Model, self).__init__(project, model_dir, rel_filepath)
+    def __init__(self, project, model_dir, rel_filepath, own_project):
+        super(Model, self).__init__(project, model_dir, rel_filepath, own_project)
 
     def sort_qualifier(self, model_config):
         if 'sort' not in model_config:
@@ -112,12 +139,10 @@ class Model(DBTSource):
         return os.path.join(*path_parts)
 
     def compile(self, rendered_query, project, create_template):
-        model_config = self.get_config(project)
+        model_config = self.config
 
-        valid_materializations = ['view', 'table', 'incremental', 'ephemeral']
-        materialization = model_config['materialized']
-        if materialization not in valid_materializations:
-            raise RuntimeError("Invalid materialize option given: '{}'. Must be one of {}".format(materialization, valid_materializations))
+        if self.materialization not in DBTSource.Materializations:
+            raise RuntimeError("Invalid materialize option given: '{}'. Must be one of {}".format(self.materialization, DBTSource.Materializations))
 
         ctx = project.context()
         schema = ctx['env'].get('schema', 'public')
@@ -126,7 +151,7 @@ class Model(DBTSource):
         dist_qualifier = self.dist_qualifier(model_config)
         sort_qualifier = self.sort_qualifier(model_config)
 
-        if materialization == 'incremental':
+        if self.materialization == 'incremental':
             identifier = self.name
             if 'sql_field' not in model_config:
                 raise RuntimeError("sql_field not specified in model materialized as incremental: {}".format(self))
@@ -136,7 +161,7 @@ class Model(DBTSource):
             sql_field = None
 
         opts = {
-            "materialization": materialization,
+            "materialization": self.materialization,
             "schema": schema,
             "identifier": identifier,
             "query": rendered_query,
@@ -155,8 +180,8 @@ class Model(DBTSource):
         return "<Model {}.{}: {}>".format(self.project['name'], self.name, self.filepath)
 
 class Analysis(Model):
-    def __init__(self, project, target_dir, rel_filepath):
-        return super(Analysis, self).__init__(project, target_dir, rel_filepath)
+    def __init__(self, project, target_dir, rel_filepath, own_project):
+        return super(Analysis, self).__init__(project, target_dir, rel_filepath, own_project)
 
     def build_path(self, create_template):
         build_dir = '{}-analysis'.format(create_template.label)
@@ -168,8 +193,8 @@ class Analysis(Model):
         return "<Analysis {}: {}>".format(self.name, self.filepath)
 
 class TestModel(Model):
-    def __init__(self, project, target_dir, rel_filepath):
-        return super(TestModel, self).__init__(project, target_dir, rel_filepath)
+    def __init__(self, project, target_dir, rel_filepath, own_project):
+        return super(TestModel, self).__init__(project, target_dir, rel_filepath, own_project)
 
     def build_path(self, create_template):
         build_dir = create_template.label
@@ -196,8 +221,8 @@ class TestModel(Model):
 
 
 class CompiledModel(DBTSource):
-    def __init__(self, project, target_dir, rel_filepath):
-        return super(CompiledModel, self).__init__(project, target_dir, rel_filepath)
+    def __init__(self, project, target_dir, rel_filepath, own_project):
+        return super(CompiledModel, self).__init__(project, target_dir, rel_filepath, own_project)
 
     @property
     def fqn(self):
@@ -210,8 +235,8 @@ class CompiledModel(DBTSource):
         return "<CompiledModel {}.{}: {}>".format(self.project['name'], self.name, self.filepath)
 
 class Schema(DBTSource):
-    def __init__(self, project, target_dir, rel_filepath):
-        super(Schema, self).__init__(project, target_dir, rel_filepath)
+    def __init__(self, project, target_dir, rel_filepath, own_project):
+        super(Schema, self).__init__(project, target_dir, rel_filepath, own_project)
         self.schema = yaml.safe_load(self.contents)
 
     def get_model(self, project, model_name):
@@ -223,8 +248,8 @@ class Schema(DBTSource):
         return "<Schema {}.{}: {}>".format(self.project['name'], self.name, self.filepath)
 
 class Csv(DBTSource):
-    def __init__(self, project, target_dir, rel_filepath):
-        super(Csv, self).__init__(project, target_dir, rel_filepath)
+    def __init__(self, project, target_dir, rel_filepath, own_project):
+        super(Csv, self).__init__(project, target_dir, rel_filepath, own_project)
 
     def __repr__(self):
         return "<Csv {}.{}: {}>".format(self.project['name'], self.name, self.filepath)

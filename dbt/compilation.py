@@ -99,13 +99,17 @@ class Compiler(object):
                 project = dbt.project.read_project(os.path.join(full_obj, 'dbt_project.yml'))
                 yield project
 
-    def model_sources(self, project):
+    def model_sources(self, this_project, own_project=None):
         "source_key is a dbt config key like source-paths or analysis-paths"
-        paths = project.get('source-paths', [])
+
+        if own_project is None:
+            own_project = this_project
+
+        paths = this_project.get('source-paths', [])
         if self.create_template.label == 'build':
-            return Source(project).get_models(paths)
+            return Source(this_project, own_project=own_project).get_models(paths)
         elif self.create_template.label == 'test':
-            return Source(project).get_test_models(paths)
+            return Source(this_project, own_project=own_project).get_test_models(paths)
         else:
             raise RuntimeError("unexpected create template type: '{}'".format(self.create_template.label))
 
@@ -136,12 +140,8 @@ class Compiler(object):
     def __ref(self, linker, ctx, model, all_models):
         schema = ctx['env']['schema']
 
-        source_config = model.get_config(self.project)
         source_model = tuple(model.fqn)
-
-        # if this node doesn't have any deps, still make sure it's a part of the graph
-        is_ephemeral = source_config['materialized'] == 'ephemeral'
-        if not is_ephemeral:
+        if not model.is_ephemeral:
             linker.add_node(source_model)
 
         def do_ref(*args):
@@ -154,19 +154,16 @@ class Compiler(object):
                 other_model = find_model_by_name(all_models, other_model_name, package_namespace=other_model_package)
 
             other_model_fqn = tuple(other_model.fqn[:-1] + [other_model_name])
-            other_model_config = other_model.get_config(self.project)
-            if not other_model_config['enabled']:
+            if not other_model.is_enabled:
                 src_fqn = ".".join(source_model)
                 ref_fqn = ".".join(other_model_fqn)
                 raise RuntimeError("Model '{}' depends on model '{}' which is disabled in the project config".format(src_fqn, ref_fqn))
 
-            other_config = other_model.get_config(self.project)
-            other_is_ephemeral = other_config['materialized'] == 'ephemeral'
-
-            if not is_ephemeral and not other_is_ephemeral:
+            # don't add a dep if both are ephemeral... TODO that doesn't seem right
+            if not (model.is_ephemeral or other_model.is_ephemeral):
                 linker.dependency(source_model, other_model_fqn)
 
-            if other_config['materialized'] == 'ephemeral':
+            if other_model.is_ephemeral:
                 linker.inject_cte(model, other_model)
                 return other_model.cte_name
             else:
@@ -187,9 +184,7 @@ class Compiler(object):
     def compile_model(self, linker, model, models):
         jinja = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath=model.root_dir))
 
-        model_config = model.get_config(self.project)
-
-        if not model_config.get('enabled'):
+        if not model.is_enabled:
             return None
 
         template = jinja.get_template(model.rel_filepath)
@@ -204,11 +199,6 @@ class Compiler(object):
         filename = 'graph-{}.yml'.format(self.create_template.label)
         graph_path = os.path.join(self.project['target-path'], filename)
         linker.write_graph(graph_path)
-
-    def is_enabled(self, model):
-        config = model.get_config(self.project)
-        enabled = config['enabled']
-        return enabled
 
     def combine_query_with_ctes(self, model, query, ctes, compiled_models):
         parsed_stmts = sqlparse.parse(query)
@@ -268,12 +258,12 @@ class Compiler(object):
             return compiled_query
 
     def compile(self):
-        all_models = self.model_sources(self.project)
+        all_models = self.model_sources(this_project=self.project)
 
         for project in self.dependency_projects():
-            all_models.extend(self.model_sources(project))
+            all_models.extend(self.model_sources(this_project=self.project, own_project=project))
 
-        models = [model for model in all_models if self.is_enabled(model)]
+        models = [model for model in all_models if model.is_enabled]
 
         self.validate_models_unique(models)
 
@@ -290,8 +280,7 @@ class Compiler(object):
 
             build_path = model.build_path(self.create_template)
 
-            config = model.get_config(self.project)
-            if wrapped_stmt and config['materialized'] != 'ephemeral':
+            if wrapped_stmt and not model.is_ephemeral:
                 written_models += 1
                 self.__write(build_path, wrapped_stmt)
 
