@@ -1,11 +1,12 @@
 
 import os.path
 import yaml
+import jinja2
 from dbt.templates import TestCreateTemplate
 
 class DBTSource(object):
     Materializations = ['view', 'table', 'incremental', 'ephemeral']
-    ConfigKeys = ['enabled', 'materialized', 'dist', 'sort', 'sql_field']
+    ConfigKeys = ['enabled', 'materialized', 'dist', 'sort', 'sql_where']
 
     def __init__(self, project, top_dir, rel_filepath, own_project):
         self.project = project
@@ -144,7 +145,7 @@ class Model(DBTSource):
         if self.materialization not in DBTSource.Materializations:
             raise RuntimeError("Invalid materialize option given: '{}'. Must be one of {}".format(self.materialization, DBTSource.Materializations))
 
-        ctx = project.context()
+        ctx = project.context().copy()
         schema = ctx['env'].get('schema', 'public')
 
         # these are empty strings if configs aren't provided
@@ -153,12 +154,16 @@ class Model(DBTSource):
 
         if self.materialization == 'incremental':
             identifier = self.name
-            if 'sql_field' not in model_config:
-                raise RuntimeError("sql_field not specified in model materialized as incremental: {}".format(self))
-            sql_field = model_config['sql_field']
+            ctx['this'] =  '"{}"."{}"'.format(schema, identifier)
+            if 'sql_where' not in model_config:
+                raise RuntimeError("sql_where not specified in model materialized as incremental: {}".format(self))
+            raw_sql_where = model_config['sql_where']
+            env = jinja2.Environment()
+            sql_where = env.from_string(raw_sql_where).render(ctx)
         else:
             identifier = self.tmp_name()
-            sql_field = None
+            ctx['this'] =  '"{}"."{}"'.format(schema, identifier)
+            sql_where = None
 
         opts = {
             "materialization": self.materialization,
@@ -167,7 +172,7 @@ class Model(DBTSource):
             "query": rendered_query,
             "dist_qualifier": dist_qualifier,
             "sort_qualifier": sort_qualifier,
-            "sql_field": sql_field
+            "sql_where": sql_where
         }
 
         return create_template.wrap(opts)
