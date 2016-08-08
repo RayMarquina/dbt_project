@@ -29,10 +29,11 @@ This is likely because the relation was created by a different user. Either dele
 or adjust the permissions of the '{user}' user in the '{schema}' schema."""
 
 class RunModelResult(object):
-    def __init__(self, model, error=None, skip=False):
+    def __init__(self, model, error=None, skip=False, status=None):
         self.model = model
         self.error = error
         self.skip  = skip
+        self.status = status
 
     @property
     def errored(self):
@@ -126,6 +127,7 @@ class Runner:
                     cursor.execute(sql)
                     post = time.time()
                     self.logger.debug("SQL status: %s in %d seconds", cursor.statusmessage, post-pre)
+                    return cursor.statusmessage
                 except Exception as e:
                     e.model = model
                     self.logger.exception("Error running SQL: %s", sql)
@@ -153,15 +155,16 @@ class Runner:
 
         error = None
         try:
-            self.execute_model(target, model, tmp_drop_type, final_drop_type)
+            status = self.execute_model(target, model, tmp_drop_type, final_drop_type)
         except (RuntimeError, psycopg2.ProgrammingError) as e:
             error = "Error executing {filepath}\n{error}".format(filepath=model.filepath, error=str(e).strip())
+            status = "ERROR"
 
-        return RunModelResult(model, error=error)
+        return RunModelResult(model, error=error, status=status)
 
     def execute_and_handle_permissions(self, target, query, model, model_name):
         try:
-            self.__do_execute(target, query, model)
+            return self.__do_execute(target, query, model)
         except psycopg2.ProgrammingError as e:
             error_data = {"model": model_name, "schema": target.schema, "user": target.user}
             if 'must be owner of relation' in e.diag.message_primary:
@@ -183,13 +186,15 @@ class Runner:
         if tmp_drop_type is not None:
             self.drop(target, model, model.tmp_name(), tmp_drop_type)
 
-        self.execute_and_handle_permissions(target, model.contents, model, model.tmp_name())
+        status = self.execute_and_handle_permissions(target, model.contents, model, model.tmp_name())
 
         if final_drop_type is not None:
             self.drop(target, model, model.name, final_drop_type)
 
         if not model.is_incremental:
             self.rename(target, model)
+
+        return status
 
     def execute_models(self, linker, models, limit_to=None):
         target = self.get_target()
@@ -258,15 +263,16 @@ class Runner:
                     "total" : num_models,
                     "schema": target.schema,
                     "model_name": run_model_result.model.name,
-                    "model_type": run_model_result.model.materialization
-
+                    "model_type": run_model_result.model.materialization,
+                    "info": "ERROR creating" if run_model_result.errored else "OK created"
                 }
+
+                output = "{progress} of {total} -- {info} {model_type} model {schema}.{model_name} ".format(**print_vars)
+                print("{} [{}]".format(output.ljust(80, "."), run_model_result.status))
+
                 if run_model_result.errored:
                     failed_models.add(run_model_result.model)
-                    print("{progress} of {total} -- ERROR creating {model_type} model {schema}.{model_name}".format(**print_vars))
                     print(run_model_result.error)
-                else:
-                    print("{progress} of {total} -- OK Created {model_type} model {schema}.{model_name}".format(**print_vars))
 
         pool.close()
         pool.join()
