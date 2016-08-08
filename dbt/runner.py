@@ -215,7 +215,17 @@ class Runner:
             return {"model" : model, "target": target, "tmp_drop_type": tmp_drop_type, 'final_drop_type': final_drop_type}
 
         # we can only pass one arg to the self.execute_model method below. Pass a dict w/ all the data we need
-        model_dependency_list = [[wrap_fqn(target, models, existing, fqn) for fqn in node_list] for node_list in dependency_list]
+        model_dependency_list = []
+        for node_list in dependency_list:
+            level = []
+            for fqn in node_list:
+                node = linker.get_node(fqn)
+                if node.get('materialized') == 'ephemeral':
+                    continue
+                else:
+                    wrapped = wrap_fqn(target, models, existing, fqn)
+                    level.append(wrapped)
+            model_dependency_list.append(level)
 
         num_threads = target.threads
         print("Concurrency: {} threads (target='{}')".format(num_threads, self.project['run-target']))

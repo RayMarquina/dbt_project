@@ -18,6 +18,9 @@ class Linker(object):
     def nodes(self):
         return self.graph.nodes()
 
+    def get_node(self, node):
+        return self.graph.node[node]
+
     def as_topological_ordering(self, limit_to=None):
         try:
             return nx.topological_sort(self.graph, nbunch=limit_to)
@@ -71,8 +74,8 @@ class Linker(object):
         self.graph.add_node(node2)
         self.graph.add_edge(node2, node1)
 
-    def add_node(self, node):
-        self.graph.add_node(node)
+    def add_node(self, node, data):
+        self.graph.add_node(node, data)
 
     def write_graph(self, outfile):
         nx.write_yaml(self.graph, outfile)
@@ -141,8 +144,7 @@ class Compiler(object):
         schema = ctx['env']['schema']
 
         source_model = tuple(model.fqn)
-        if not model.is_ephemeral:
-            linker.add_node(source_model)
+        linker.add_node(source_model, {"materialized": model.materialization})
 
         def do_ref(*args):
             if len(args) == 1:
@@ -159,9 +161,7 @@ class Compiler(object):
                 ref_fqn = ".".join(other_model_fqn)
                 raise RuntimeError("Model '{}' depends on model '{}' which is disabled in the project config".format(src_fqn, ref_fqn))
 
-            # don't add a dep if both are ephemeral... TODO that doesn't seem right
-            if not (model.is_ephemeral or other_model.is_ephemeral):
-                linker.dependency(source_model, other_model_fqn)
+            linker.dependency(source_model, other_model_fqn)
 
             if other_model.is_ephemeral:
                 linker.inject_cte(model, other_model)

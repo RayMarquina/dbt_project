@@ -5,8 +5,6 @@ class BaseCreateTemplate(object):
         {query}
     );"""
 
-    # sql_where should be something like:
-    #    collector_tstamp > (select max(collector_tstamp) from {{self}})
     incremental_template = """
     create temporary table "{identifier}__dbt_incremental_tmp" {dist_qualifier} {sort_qualifier} as (
         SELECT * FROM (
@@ -21,7 +19,7 @@ class BaseCreateTemplate(object):
             {query}
         )
         select * from dbt_incr_sbq
-        where {sql_where}
+        where ({sql_where}) or ({sql_where}) is null
     );
     """
 
