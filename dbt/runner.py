@@ -243,12 +243,20 @@ class Runner:
             for run_model_result in run_model_results:
                 model_results.append(run_model_result)
 
+                print_vars = {
+                    "progress": len(model_results),
+                    "total" : num_models,
+                    "schema": target.schema,
+                    "model_name": run_model_result.model.name,
+                    "model_type": run_model_result.model.materialization
+
+                }
                 if run_model_result.errored:
                     failed_models.add(run_model_result.model)
-                    print("{} of {} -- ERROR creating relation {}.{}".format(len(model_results), num_models, target.schema, run_model_result.model.name))
+                    print("{progress} of {total} -- ERROR creating {model_type} model {schema}.{model_name}".format(**print_vars))
                     print(run_model_result.error)
                 else:
-                    print("{} of {} -- OK Created relation {}.{}".format(len(model_results), num_models, target.schema, run_model_result.model.name))
+                    print("{progress} of {total} -- OK Created {model_type} model {schema}.{model_name}".format(**print_vars))
 
         pool.close()
         pool.join()

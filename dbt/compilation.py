@@ -242,10 +242,9 @@ class Compiler(object):
             new_ctes = []
             for other_model in linker.cte_map[model]:
                 if other_model not in required_ctes:
-                    required_ctes.insert(0, other_model)
                     new_ctes.append(other_model)
 
-            # do this breadth-first!
+            required_ctes.extend(new_ctes)
             for model in new_ctes: 
                 add_ctes_recursive(model)
         add_ctes_recursive(primary_model)
