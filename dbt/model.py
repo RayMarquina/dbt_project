@@ -22,7 +22,7 @@ class DBTSource(object):
 
     @property
     def root_dir(self):
-        return os.path.join(self.project['project-root'], self.top_dir)
+        return os.path.join(self.own_project['project-root'], self.top_dir)
 
     def compile(self):
         raise RuntimeError("Not implemented!")

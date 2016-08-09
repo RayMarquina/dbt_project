@@ -108,7 +108,7 @@ class Compiler(object):
         if own_project is None:
             own_project = this_project
 
-        paths = this_project.get('source-paths', [])
+        paths = own_project.get('source-paths', [])
         if self.create_template.label == 'build':
             return Source(this_project, own_project=own_project).get_models(paths)
         elif self.create_template.label == 'test':
