@@ -141,9 +141,24 @@ class Compiler(object):
 
 
     def __model_config(self, model):
-        def do_config(**kwargs):
-            model.update_in_model_config(kwargs)
-            model.add_to_prologue("Config specified in model: {}".format(kwargs))
+        def do_config(*args, **kwargs):
+            if len(args) == 1 and len(kwargs) == 0:
+                opts = args[0]
+            elif len(args) == 0 and len(kwargs) > 0:
+                opts = kwargs
+            else:
+                raise RuntimeError("Invalid model config given inline in {}".format(model))
+
+            if type(opts) != dict:
+                raise RuntimeError("Invalid model config given inline in {}".format(model))
+
+            already_called = len(model.in_model_config) > 0
+
+            if already_called:
+                raise RuntimeError("config() called more than once in {}".format(model))
+
+            model.update_in_model_config(opts)
+            model.add_to_prologue("Config specified in model: {}".format(opts))
         return do_config
 
     def __ref(self, linker, ctx, model, all_models):
