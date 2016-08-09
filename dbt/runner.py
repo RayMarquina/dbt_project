@@ -255,6 +255,19 @@ class Runner:
 
             run_model_results = pool.map(self.execute_wrapped_model, models_to_execute)
 
+            for i, model in enumerate(models_to_execute):
+                print_vars = {
+                    "progress": 1 + i + len(model_results),
+                    "total" : num_models,
+                    "schema": target.schema,
+                    "model_name": model['model'].name,
+                    "model_type": model['model'].materialization,
+                    "info": "START"
+                }
+
+                output = "{progress} of {total} -- {info} {model_type} model {schema}.{model_name} ".format(**print_vars)
+                print("{} [Running]".format(output.ljust(80, ".")))
+
             for run_model_result in run_model_results:
                 model_results.append(run_model_result)
 
