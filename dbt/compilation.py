@@ -247,30 +247,23 @@ class Compiler(object):
             parsed.insert_after(with_stmt, trailing_comma)
 
         cte_mapping = [(model.cte_name, compiled_models[model]) for model in ctes]
-        cte_stmts = [" {} as ( {} )".format(name, contents) for (name, contents) in cte_mapping]
+
+        # these newlines are important -- comments could otherwise interfere w/ query
+        cte_stmts = [" {} as (\n{}\n)".format(name, contents) for (name, contents) in cte_mapping]
+
         cte_text = ", ".join(cte_stmts)
         parsed.insert_after(with_stmt, cte_text)
 
         return sqlparse.format(str(parsed), keyword_case='lower', reindent=True)
 
     def add_cte_to_rendered_query(self, linker, primary_model, compiled_models):
-        # this could be a set, but we're interested in maintaining the invocation order
-        # psql CTEs need to be declared in-order and have to reference "upwards" in the CTE list
-
+        fqn_to_model = {tuple(model.fqn): model for model in compiled_models}
+        sorted_nodes = linker.as_topological_ordering()
         required_ctes = []
-        def add_ctes_recursive(model):
-            if model not in linker.cte_map:
-                return
-
-            new_ctes = []
-            for other_model in linker.cte_map[model]:
-                if other_model not in required_ctes:
-                    new_ctes.append(other_model)
-
-            required_ctes.extend(new_ctes)
-            for model in new_ctes: 
-                add_ctes_recursive(model)
-        add_ctes_recursive(primary_model)
+        for node in sorted_nodes:
+            model = fqn_to_model[node]
+            if model.is_ephemeral and model in linker.cte_map[primary_model]:
+                required_ctes.append(model)
 
         query = compiled_models[primary_model]
         if len(required_ctes) == 0:
