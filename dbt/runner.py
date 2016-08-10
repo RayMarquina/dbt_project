@@ -253,8 +253,6 @@ class Runner:
                 model_results.append(model_result)
                 print("{} of {} -- SKIP relation {}.{} because parent failed".format(len(model_results), num_models, target.schema, model_result.model.name))
 
-            run_model_results = pool.map(self.execute_wrapped_model, models_to_execute)
-
             for i, model in enumerate(models_to_execute):
                 print_vars = {
                     "progress": 1 + i + len(model_results),
@@ -267,6 +265,8 @@ class Runner:
 
                 output = "{progress} of {total} -- {info} {model_type} model {schema}.{model_name} ".format(**print_vars)
                 print("{} [Running]".format(output.ljust(80, ".")))
+
+            run_model_results = pool.map(self.execute_wrapped_model, models_to_execute)
 
             for run_model_result in run_model_results:
                 model_results.append(run_model_result)

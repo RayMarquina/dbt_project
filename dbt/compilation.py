@@ -159,6 +159,7 @@ class Compiler(object):
 
             model.update_in_model_config(opts)
             model.add_to_prologue("Config specified in model: {}".format(opts))
+            return ""
         return do_config
 
     def __ref(self, linker, ctx, model, all_models):
