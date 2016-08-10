@@ -200,12 +200,6 @@ class Runner:
         target = self.get_target()
 
         dependency_list = linker.as_dependency_list(limit_to)
-        num_models = sum([len(node_list) for node_list in dependency_list])
-
-        if num_models == 0:
-            print("WARNING: No models to run in '{}'. Try checking your model configs and running `dbt compile`".format(self.target_path))
-            return []
-
         existing = self.query_for_existing(target, target.schema);
 
         def wrap_fqn(target, models, existing, fqn):
@@ -231,6 +225,12 @@ class Runner:
                     wrapped = wrap_fqn(target, models, existing, fqn)
                     level.append(wrapped)
             model_dependency_list.append(level)
+
+        num_models = sum([len(node_list) for node_list in model_dependency_list])
+
+        if num_models == 0:
+            print("WARNING: No models to run in '{}'. Try checking your model configs and running `dbt compile`".format(self.target_path))
+            return []
 
         num_threads = target.threads
         print("Concurrency: {} threads (target='{}')".format(num_threads, self.project['run-target']))
