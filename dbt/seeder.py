@@ -39,8 +39,15 @@ class Seeder:
         header_csv = ", ".join(['"{}"'.format(h) for h in headers])
         base_insert = 'INSERT INTO "{schema}"."{table}" ({header_csv}) VALUES '.format(schema=schema, table=table, header_csv=header_csv)
         records = []
+
+        def quote_or_null(s):
+            if s is None:
+                return 'null'
+            else:
+                return "'{}'".format(s)
+
         for row in virtual_table.to_rows():
-          record_csv = ', '.join(["'{}'".format(val) for val in row])
+          record_csv = ', '.join([quote_or_null(val) for val in row])
           record_csv_wrapped = "({})".format(record_csv)
           records.append(record_csv_wrapped)
         insert_sql = "{} {}".format(base_insert, ",\n".join(records))
