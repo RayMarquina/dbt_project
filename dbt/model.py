@@ -19,7 +19,8 @@ class DBTSource(object):
         self.own_project_name = self.fqn[0]
         self.in_model_config = {}
 
-        self.config = self.load_config()
+        self.config = self.load_config_from_own_project()
+        self.config.update(self.load_config_from_active_project())
 
     @property
     def root_dir(self):
@@ -35,36 +36,36 @@ class DBTSource(object):
 
     def update_in_model_config(self, config):
         self.in_model_config.update(config)
-        self.config = self.load_config()
 
-    def load_config(self):
-        config_keys = self.ConfigKeys
+        self.config = self.load_config_from_own_project()
+        self.config.update(self.in_model_config)
+        self.config.update(self.load_config_from_active_project())
 
-        def load_from_project(model, the_project, skip_default=False):
-            if skip_default:
-                config = {}
+    def __load_config_from_project(self, the_project, skip_default=False):
+        if skip_default:
+            config = {}
+        else:
+            config = the_project['model-defaults'].copy()
+        model_configs = the_project['models']
+        fqn = self.original_fqn[:]
+        while len(fqn) > 0:
+            model_group = fqn.pop(0)
+            if model_group in model_configs:
+                model_configs = model_configs[model_group]
+                relevant_configs = {key: model_configs[key] for key in self.ConfigKeys if key in model_configs}
+                config.update(relevant_configs)
             else:
-                config = the_project['model-defaults'].copy()
-            model_configs = the_project['models']
-            fqn = model.original_fqn[:]
-            while len(fqn) > 0:
-                model_group = fqn.pop(0)
-                if model_group in model_configs:
-                    model_configs = model_configs[model_group]
-                    relevant_configs = {key: model_configs[key] for key in config_keys if key in model_configs}
-                    config.update(relevant_configs)
-                else:
-                    break
-            return config
+                break
+        return config
 
-        config = load_from_project(self, self.own_project, skip_default=False)
-        config.update(self.in_model_config)
+    def load_config_from_own_project(self):
+        return self.__load_config_from_project(self.own_project, skip_default=False)
 
+    def load_config_from_active_project(self):
         # overwrite dep config w/ primary config if different
         if self.project['name'] != self.own_project['name']:
-            primary_config = load_from_project(self, self.project, skip_default=True)
-            config.update(primary_config)
-        return config
+            return self.__load_config_from_project(self.project, skip_default=True)
+        return {}
 
     @property
     def materialization(self):

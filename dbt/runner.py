@@ -256,13 +256,15 @@ class Runner:
                 model_results.append(model_result)
                 print("{} of {} -- SKIP relation {}.{} because parent failed".format(len(model_results), num_models, target.schema, model_result.model.name))
 
-            for i, model in enumerate(models_to_execute):
+
+            for i, wrapped_model in enumerate(models_to_execute):
+                model = wrapped_model['model']
                 print_vars = {
                     "progress": 1 + i + len(model_results),
                     "total" : num_models,
                     "schema": target.schema,
-                    "model_name": model['model'].name,
-                    "model_type": model['model'].materialization,
+                    "model_name": model.name,
+                    "model_type": linker.get_node(tuple(model.fqn)).get('materialized', model.materialization),
                     "info": "START"
                 }
 
@@ -279,7 +281,7 @@ class Runner:
                     "total" : num_models,
                     "schema": target.schema,
                     "model_name": run_model_result.model.name,
-                    "model_type": run_model_result.model.materialization,
+                    "model_type": linker.get_node(tuple(model.fqn)).get('materialized', model.materialization),
                     "info": "ERROR creating" if run_model_result.errored else "OK created"
                 }
 

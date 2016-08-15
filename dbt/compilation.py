@@ -135,7 +135,7 @@ class Compiler(object):
             f.write(payload)
 
 
-    def __model_config(self, model):
+    def __model_config(self, model, linker):
         def do_config(*args, **kwargs):
             if len(args) == 1 and len(kwargs) == 0:
                 opts = args[0]
@@ -152,6 +152,8 @@ class Compiler(object):
             if already_called:
                 raise RuntimeError("config() called more than once in {}".format(model))
 
+            # update linker graph w/ options
+            linker.add_node(tuple(model.fqn), opts)
             model.update_in_model_config(opts)
             model.add_to_prologue("Config specified in model: {}".format(opts))
             return ""
@@ -208,7 +210,7 @@ class Compiler(object):
 
         context = self.project.context()
         context['ref'] = self.__ref(linker, context, model, models)
-        context['config'] = self.__model_config(model)
+        context['config'] = self.__model_config(model, linker)
 
         rendered = template.render(context)
         return rendered
