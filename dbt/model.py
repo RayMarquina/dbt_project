@@ -16,6 +16,7 @@ class DBTSource(object):
         self.filepath = os.path.join(top_dir, rel_filepath)
         self.filedir = os.path.dirname(self.filepath)
         self.name = self.fqn[-1]
+        self.own_project_name = self.fqn[0]
         self.in_model_config = {}
 
         self.config = self.load_config()
@@ -229,7 +230,7 @@ class TestModel(Model):
         parts = self.filepath.split("/")
         name, _ = os.path.splitext(parts[-1])
         test_name = TestCreateTemplate.model_name(name)
-        return [self.project['name']] + parts[1:-1] + [test_name]
+        return [self.own_project['name']] + parts[1:-1] + [test_name]
 
     @property
     def original_fqn(self):

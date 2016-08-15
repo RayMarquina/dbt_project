@@ -10,7 +10,7 @@ from dbt.compilation import Linker, Compiler
 from dbt.templates import BaseCreateTemplate
 from dbt.targets import RedshiftTarget
 from dbt.source import Source
-from dbt.utils import find_model_by_name
+from dbt.utils import find_model_by_name, dependency_projects
 
 from multiprocessing.dummy import Pool as ThreadPool
 
@@ -22,7 +22,7 @@ Please adjust the permissions of the '{user}' user on the '{schema}' schema.
 With a superuser account, execute the following commands, then re-run dbt.
 
 grant usage, create on schema "{schema}" to "{user}";
-grant select on all tables in schema "{schema}" to "{user}";"""
+grant select, insert, delete on all tables in schema "{schema}" to "{user}";"""
 
 RELATION_NOT_OWNER_MESSAGE = """The user '{user}' does not have sufficient permissions to drop the model '{model}' in the schema '{schema}'.
 This is likely because the relation was created by a different user. Either delete the model "{schema}"."{model}" manually,
@@ -51,7 +51,10 @@ class Runner:
         self.run_mode = run_mode
 
     def get_compiled_models(self):
-        return Source(self.project).get_compiled(self.target_path, self.run_mode)
+        project_mapping = {project['name'] : project for project in dependency_projects(self.project)}
+        project_mapping[self.project['name']] = self.project
+
+        return Source(self.project).get_compiled(self.target_path, self.run_mode, project_mapping)
 
     def get_target(self):
         target_cfg = self.project.run_environment()

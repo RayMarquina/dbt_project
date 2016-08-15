@@ -5,7 +5,7 @@ import jinja2
 from collections import defaultdict
 import dbt.project
 from dbt.source import Source
-from dbt.utils import find_model_by_name
+from dbt.utils import find_model_by_name, dependency_projects
 import sqlparse
 
 import networkx as nx
@@ -96,12 +96,6 @@ class Compiler(object):
         if not os.path.exists(self.project['modules-path']):
             os.makedirs(self.project['modules-path'])
 
-    def dependency_projects(self):
-        for obj in os.listdir(self.project['modules-path']):
-            full_obj = os.path.join(self.project['modules-path'], obj)
-            if os.path.isdir(full_obj):
-                project = dbt.project.read_project(os.path.join(full_obj, 'dbt_project.yml'))
-                yield project
 
     def model_sources(self, this_project, own_project=None):
         "source_key is a dbt config key like source-paths or analysis-paths"
@@ -276,7 +270,7 @@ class Compiler(object):
     def compile(self):
         all_models = self.model_sources(this_project=self.project)
 
-        for project in self.dependency_projects():
+        for project in dependency_projects(self.project):
             all_models.extend(self.model_sources(this_project=self.project, own_project=project))
 
         models = [model for model in all_models if model.is_enabled]
