@@ -44,7 +44,7 @@ insert into "{schema}"."{identifier}" (
 
 class TestCreateTemplate(object):
     template = """
-create view "{schema}"."{identifier}" {dist_qualifier} {sort_qualifier} as (
+create view "{schema}"."{identifier}" as (
     SELECT * FROM (
         {query}
     ) as tmp LIMIT 0
