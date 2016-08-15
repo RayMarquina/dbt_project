@@ -6,7 +6,8 @@ import os, sys
 import logging
 import time
 
-from dbt.compilation import Linker, Compiler
+from dbt.compilation import Compiler
+from dbt.linker import Linker
 from dbt.templates import BaseCreateTemplate
 from dbt.targets import RedshiftTarget
 from dbt.source import Source

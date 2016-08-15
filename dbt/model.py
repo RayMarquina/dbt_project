@@ -4,23 +4,67 @@ import yaml
 import jinja2
 from dbt.templates import TestCreateTemplate
 
-class DBTSource(object):
+class SourceConfig(object):
     Materializations = ['view', 'table', 'incremental', 'ephemeral']
     ConfigKeys = ['enabled', 'materialized', 'dist', 'sort', 'sql_where']
+
+    def __init__(self, active_project, own_project, fqn):
+        self.active_project = active_project
+        self.own_project = own_project
+        self.fqn = fqn
+
+        self.in_model_config   = {} # the config options defined within the model
+
+    def _merge(self, *configs):
+        merged_config = {}
+        for config in configs:
+            merged_config.update(config)
+        return merged_config
+
+    # this is re-evaluated every time `config` is called.
+    # we can cache it, but that complicates thing. TODO : see how this fares performance-wise
+    @property
+    def config(self):
+        own_config = self.load_config_from_own_project()
+        active_config = self.load_config_from_active_project()
+        return self._merge(own_config, self.in_model_config, active_config)
+
+    def update_in_model_config(self, config):
+        self.in_model_config.update(config)
+
+    def get_project_config(self, project, skip_default=False):
+        config = {} if skip_default else project['model-defaults'].copy()
+
+        model_configs = project['models']
+
+        fqn = self.fqn[:]
+        for level in fqn:
+            level_config = model_configs.get(level, {})
+            relevant_configs = {key: level_config[key] for key in level_config if key in self.ConfigKeys}
+            config.update(relevant_configs)
+
+        return config
+
+    def load_config_from_own_project(self):
+        return self.get_project_config(self.own_project, skip_default=False)
+
+    def load_config_from_active_project(self):
+        return self.get_project_config(self.active_project, skip_default=True)
+
+class DBTSource(object):
 
     def __init__(self, project, top_dir, rel_filepath, own_project):
         self.project = project
         self.own_project = own_project
+
         self.top_dir = top_dir
         self.rel_filepath = rel_filepath
         self.filepath = os.path.join(top_dir, rel_filepath)
         self.filedir = os.path.dirname(self.filepath)
         self.name = self.fqn[-1]
         self.own_project_name = self.fqn[0]
-        self.in_model_config = {}
 
-        self.config = self.load_config_from_own_project()
-        self.config.update(self.load_config_from_active_project())
+        self.source_config = SourceConfig(project, own_project, self.fqn)
 
     @property
     def root_dir(self):
@@ -28,44 +72,29 @@ class DBTSource(object):
 
     def compile(self):
         raise RuntimeError("Not implemented!")
+    
+    def serialize(self):
+        serialized = {
+            "build_path": self.build_path(),
+            "source_path": self.filepath,
+            "name": self.name,
+            "tmp_name": self.tmp_name()
+        }
+
+        serialized.update(self.config)
+        return serialized
 
     @property
     def contents(self):
         with open(self.filepath) as fh:
             return fh.read().strip()
 
+    @property
+    def config(self):
+        return self.source_config.config
+
     def update_in_model_config(self, config):
-        self.in_model_config.update(config)
-
-        self.config = self.load_config_from_own_project()
-        self.config.update(self.in_model_config)
-        self.config.update(self.load_config_from_active_project())
-
-    def __load_config_from_project(self, the_project, skip_default=False):
-        if skip_default:
-            config = {}
-        else:
-            config = the_project['model-defaults'].copy()
-        model_configs = the_project['models']
-        fqn = self.original_fqn[:]
-        while len(fqn) > 0:
-            model_group = fqn.pop(0)
-            if model_group in model_configs:
-                model_configs = model_configs[model_group]
-                relevant_configs = {key: model_configs[key] for key in self.ConfigKeys if key in model_configs}
-                config.update(relevant_configs)
-            else:
-                break
-        return config
-
-    def load_config_from_own_project(self):
-        return self.__load_config_from_project(self.own_project, skip_default=False)
-
-    def load_config_from_active_project(self):
-        # overwrite dep config w/ primary config if different
-        if self.project['name'] != self.own_project['name']:
-            return self.__load_config_from_project(self.project, skip_default=True)
-        return {}
+        self.source_config.update_in_model_config(config)
 
     @property
     def materialization(self):
@@ -89,7 +118,7 @@ class DBTSource(object):
 
     @property
     def is_enabled(self):
-        return self.config.get('enabled')
+        return self.config['enabled']
 
 
     @property
@@ -117,8 +146,9 @@ class DBTSource(object):
 
 
 class Model(DBTSource):
-    def __init__(self, project, model_dir, rel_filepath, own_project):
+    def __init__(self, project, model_dir, rel_filepath, own_project, create_template):
         self.prologue = []
+        self.create_template = create_template
         super(Model, self).__init__(project, model_dir, rel_filepath, own_project)
 
     def add_to_prologue(self, s):
@@ -150,17 +180,17 @@ class Model(DBTSource):
 
         return 'distkey ("{}")'.format(dist_key)
 
-    def build_path(self, create_template):
-        build_dir = create_template.label
-        filename = "{}.sql".format(create_template.model_name(self.name))
+    def build_path(self):
+        build_dir = self.create_template.label
+        filename = "{}.sql".format(self.create_template.model_name(self.name))
         path_parts = [build_dir] + self.fqn[:-1] + [filename]
         return os.path.join(*path_parts)
 
     def compile(self, rendered_query, project, create_template):
         model_config = self.config
 
-        if self.materialization not in DBTSource.Materializations:
-            raise RuntimeError("Invalid materialize option given: '{}'. Must be one of {}".format(self.materialization, DBTSource.Materializations))
+        if self.materialization not in SourceConfig.Materializations:
+            raise RuntimeError("Invalid materialize option given: '{}'. Must be one of {}".format(self.materialization, SourceConfig.Materializations))
 
         ctx = project.context().copy()
         schema = ctx['env'].get('schema', 'public')
@@ -206,9 +236,9 @@ class Analysis(Model):
     def __init__(self, project, target_dir, rel_filepath, own_project):
         return super(Analysis, self).__init__(project, target_dir, rel_filepath, own_project)
 
-    def build_path(self, create_template):
-        build_dir = '{}-analysis'.format(create_template.label)
-        filename = "{}.sql".format(create_template.model_name(self.name))
+    def build_path(self):
+        build_dir = 'build-analysis'
+        filename = "{}.sql".format(self.name)
         path_parts = [build_dir] + self.fqn[:-1] + [filename]
         return os.path.join(*path_parts)
 
@@ -216,11 +246,11 @@ class Analysis(Model):
         return "<Analysis {}: {}>".format(self.name, self.filepath)
 
 class TestModel(Model):
-    def __init__(self, project, target_dir, rel_filepath, own_project):
-        return super(TestModel, self).__init__(project, target_dir, rel_filepath, own_project)
+    def __init__(self, project, target_dir, rel_filepath, own_project, create_template):
+        return super(TestModel, self).__init__(project, target_dir, rel_filepath, own_project, create_template)
 
-    def build_path(self, create_template):
-        build_dir = create_template.label
+    def build_path(self):
+        build_dir = self.create_template.label
         filename = "{}.sql".format(self.name)
         path_parts = [build_dir] + self.fqn[:-1] + [filename]
         return os.path.join(*path_parts)
@@ -243,19 +273,19 @@ class TestModel(Model):
         return "<TestModel {}.{}: {}>".format(self.project['name'], self.name, self.filepath)
 
 
-class CompiledModel(DBTSource):
-    def __init__(self, project, target_dir, rel_filepath, own_project):
-        return super(CompiledModel, self).__init__(project, target_dir, rel_filepath, own_project)
-
-    @property
-    def fqn(self):
-        "fully-qualified name for compiled model. Includes all subdirs below 'target/build-*' path and the filename"
-        parts = self.filepath.split("/")
-        name, _ = os.path.splitext(parts[-1])
-        return parts[2:-1] + [name]
-
-    def __repr__(self):
-        return "<CompiledModel {}.{}: {}>".format(self.project['name'], self.name, self.filepath)
+#class CompiledModel(DBTSource):
+#    def __init__(self, project, target_dir, rel_filepath, own_project):
+#        return super(CompiledModel, self).__init__(project, target_dir, rel_filepath, own_project)
+#
+#    @property
+#    def fqn(self):
+#        "fully-qualified name for compiled model. Includes all subdirs below 'target/build-*' path and the filename"
+#        parts = self.filepath.split("/")
+#        name, _ = os.path.splitext(parts[-1])
+#        return parts[2:-1] + [name]
+#
+#    def __repr__(self):
+#        return "<CompiledModel {}.{}: {}>".format(self.project['name'], self.name, self.filepath)
 
 class Schema(DBTSource):
     def __init__(self, project, target_dir, rel_filepath, own_project):
