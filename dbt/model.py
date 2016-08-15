@@ -95,7 +95,7 @@ class DBTSource(object):
         "fully-qualified name for model. Includes all subdirs below 'models' path and the filename"
         parts = self.filepath.split("/")
         name, _ = os.path.splitext(parts[-1])
-        return [self.project['name']] + parts[1:-1] + [name]
+        return [self.own_project['name']] + parts[1:-1] + [name]
 
     @property
     def original_fqn(self):
