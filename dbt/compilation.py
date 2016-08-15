@@ -74,8 +74,9 @@ class Linker(object):
         self.graph.add_node(node2)
         self.graph.add_edge(node2, node1)
 
-    def add_node(self, node, data):
-        self.graph.add_node(node, data)
+    def add_node(self, node, data=None):
+        node_data = {} if data is None else data
+        self.graph.add_node(node, node_data)
 
     def write_graph(self, outfile):
         nx.write_yaml(self.graph, outfile)
