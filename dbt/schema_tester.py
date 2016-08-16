@@ -10,7 +10,7 @@ import time
 
 QUERY_VALIDATE_NOT_NULL = """
 with validation as (
-  select "{field}" as f
+  select {field} as f
   from "{schema}"."{table}"
 )
 select count(*) from validation where f is null
@@ -18,7 +18,7 @@ select count(*) from validation where f is null
 
 QUERY_VALIDATE_UNIQUE = """
 with validation as (
-  select "{field}" as f
+  select {field} as f
   from "{schema}"."{table}"
 ),
 validation_errors as (
@@ -29,7 +29,7 @@ select count(*) from validation_errors
 
 QUERY_VALIDATE_ACCEPTED_VALUES = """
 with all_values as (
-  select distinct "{field}" as f
+  select distinct {field} as f
   from "{schema}"."{table}"
 ),
 validation_errors as (
@@ -40,10 +40,10 @@ select count(*) from validation_errors
 
 QUERY_VALIDATE_REFERENTIAL_INTEGRITY = """
 with parent as (
-  select "{parent_field}" as id
+  select {parent_field} as id
   from "{schema}"."{parent_table}"
 ), child as (
-  select "{child_field}" as id
+  select {child_field} as id
   from "{schema}"."{child_table}"
 )
 select count(*) from child
@@ -106,7 +106,7 @@ class SchemaTester(object):
         for field in constraint_data:
             params = self.get_query_params(model.name, field)
             sql = self.make_query(QUERY_VALIDATE_NOT_NULL, params)
-            print('VALIDATE NOT NULL "{}"."{}"'.format(model.name, field))
+            print('VALIDATE NOT NULL [{}] {}'.format(model.name, field))
             num_rows = self.execute_query(model, sql)
             if num_rows == 0:
                 print("  OK")
@@ -119,7 +119,7 @@ class SchemaTester(object):
         for field in constraint_data:
             params = self.get_query_params(model.name, field)
             sql = self.make_query(QUERY_VALIDATE_UNIQUE, params)
-            print('VALIDATE UNIQUE "{}"."{}"'.format(model.name, field))
+            print('VALIDATE UNIQUE [{}] {}'.format(model.name, field))
             num_rows = self.execute_query(model, sql)
             if num_rows == 0:
                 print("  OK")
@@ -139,7 +139,7 @@ class SchemaTester(object):
                 "parent_field": reference['field']
             }
             sql = self.make_query(QUERY_VALIDATE_REFERENTIAL_INTEGRITY, params)
-            print('VALIDATE REFERENTIAL INTEGRITY "{}"."{}" to "{}"."{}"'.format(model.name, reference['from'], reference['to'], reference['field']))
+            print('VALIDATE REFERENTIAL INTEGRITY [{}] {} to [{}] {}'.format(model.name, reference['from'], reference['to'], reference['field']))
             num_rows = self.execute_query(model, sql)
             if num_rows == 0:
                 print("  OK")
@@ -160,7 +160,7 @@ class SchemaTester(object):
                 "values_csv": quoted_values_csv
             }
             sql = self.make_query(QUERY_VALIDATE_ACCEPTED_VALUES, params)
-            print('VALIDATE ACCEPTED VALUES "{}"."{}" VALUES ({})'.format(model.name, constraint['field'], quoted_values_csv))
+            print('VALIDATE ACCEPTED VALUES [{}] {} VALUES ({})'.format(model.name, constraint['field'], quoted_values_csv))
             num_rows = self.execute_query(model, sql)
             if num_rows == 0:
                 print("  OK")
