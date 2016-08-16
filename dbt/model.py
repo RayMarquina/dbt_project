@@ -25,35 +25,49 @@ class SourceConfig(object):
     # we can cache it, but that complicates things. TODO : see how this fares performance-wise
     @property
     def config(self):
-        own_config = self.load_config_from_own_project()
+        if self.active_project['name'] != self.own_project['name']:
+            own_config = self.load_config_from_own_project()
+            default_config = self.own_project['model-defaults'].copy()
+        else:
+            own_config = {}
+            default_config = self.active_project['model-defaults'].copy()
+
         active_config = self.load_config_from_active_project()
-        return self._merge(own_config, self.in_model_config, active_config)
+
+        # if this is a dependency model:
+        #   - own default config
+        #   - in-model config
+        #   - own project config
+        #   - active project config
+        # if this is a top-level model:
+        #   - active default config
+        #   - in-model config
+        #   - active project config
+        return self._merge(default_config, self.in_model_config, own_config, active_config)
 
     def update_in_model_config(self, config):
         self.in_model_config.update(config)
 
-    def get_project_config(self, project, skip_default=False):
-        config = {} if skip_default else project['model-defaults'].copy()
-
+    def get_project_config(self, project):
+        config = {} 
         model_configs = project['models']
 
         fqn = self.fqn[:]
         for level in fqn:
-            level_config = model_configs.get(level, {})
+            level_config = model_configs.get(level, None)
+            if level_config is None:
+                break
             relevant_configs = {key: level_config[key] for key in level_config if key in self.ConfigKeys}
             config.update(relevant_configs)
-            if level not in model_configs:
-                break
-            else:
-                model_configs = model_configs[level]
+            model_configs = model_configs[level]
 
         return config
 
     def load_config_from_own_project(self):
-        return self.get_project_config(self.own_project, skip_default=False)
+        return self.get_project_config(self.own_project)
 
     def load_config_from_active_project(self):
-        return self.get_project_config(self.active_project, skip_default=True)
+        return self.get_project_config(self.active_project)
 
 class DBTSource(object):
 
