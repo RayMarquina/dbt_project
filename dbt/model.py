@@ -22,7 +22,7 @@ class SourceConfig(object):
         return merged_config
 
     # this is re-evaluated every time `config` is called.
-    # we can cache it, but that complicates thing. TODO : see how this fares performance-wise
+    # we can cache it, but that complicates things. TODO : see how this fares performance-wise
     @property
     def config(self):
         own_config = self.load_config_from_own_project()
@@ -42,6 +42,10 @@ class SourceConfig(object):
             level_config = model_configs.get(level, {})
             relevant_configs = {key: level_config[key] for key in level_config if key in self.ConfigKeys}
             config.update(relevant_configs)
+            if level not in model_configs:
+                break
+            else:
+                model_configs = model_configs[level]
 
         return config
 
@@ -75,10 +79,11 @@ class DBTSource(object):
     
     def serialize(self):
         serialized = {
-            "build_path": self.build_path(),
+            "build_path": os.path.join(self.project['target-path'], self.build_path()),
             "source_path": self.filepath,
             "name": self.name,
-            "tmp_name": self.tmp_name()
+            "tmp_name": self.tmp_name(),
+            "project_name": self.own_project['name']
         }
 
         serialized.update(self.config)
@@ -271,21 +276,6 @@ class TestModel(Model):
 
     def __repr__(self):
         return "<TestModel {}.{}: {}>".format(self.project['name'], self.name, self.filepath)
-
-
-#class CompiledModel(DBTSource):
-#    def __init__(self, project, target_dir, rel_filepath, own_project):
-#        return super(CompiledModel, self).__init__(project, target_dir, rel_filepath, own_project)
-#
-#    @property
-#    def fqn(self):
-#        "fully-qualified name for compiled model. Includes all subdirs below 'target/build-*' path and the filename"
-#        parts = self.filepath.split("/")
-#        name, _ = os.path.splitext(parts[-1])
-#        return parts[2:-1] + [name]
-#
-#    def __repr__(self):
-#        return "<CompiledModel {}.{}: {}>".format(self.project['name'], self.name, self.filepath)
 
 class Schema(DBTSource):
     def __init__(self, project, target_dir, rel_filepath, own_project):

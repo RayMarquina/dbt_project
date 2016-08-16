@@ -42,22 +42,6 @@ class Source(object):
         models = [Analysis(*analysis) for analysis in self.find(analysis_dirs, pattern)]
         return models
 
-    #def get_compiled(self, target_dir, compilation_type, project_mapping):
-    #    "Get compiled SQL files. compilation_type E {build, test}"
-    #    if compilation_type not in ['build', 'test']:
-    #        raise RuntimeError('Invalid compilation_type. Must be on of ["build", "test]. Got {}'.format(compilation_type))
-    #    pattern = "[!.#~]*.sql"
-    #    source_dir = os.path.join(target_dir, compilation_type)
-    #    compiled_models = []
-    #    for model in self.find([source_dir], pattern):
-    #        this_project, source_path, rel_path, _ = model
-    #        path_parts = rel_path.split("/")
-    #        project_name = path_parts[0] if len(path_parts) > 0 else self.project['name']
-    #        own_project = project_mapping[project_name]
-    #        compiled_model = CompiledModel(this_project, source_path, rel_path, own_project)
-    #        compiled_models.append(compiled_model)
-    #    return compiled_models
-
     def get_schemas(self, model_dirs):
         "Get schema.yml files"
         pattern = "[!.#~]*.yml"
