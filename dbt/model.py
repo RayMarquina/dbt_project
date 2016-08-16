@@ -298,7 +298,7 @@ class Schema(DBTSource):
 
     def get_model(self, project, model_name):
         rel_filepath = self.rel_filepath.replace('schema.yml', '{}.sql'.format(model_name))
-        model = Model(project, self.top_dir, rel_filepath)
+        model = Model(project, self.top_dir, rel_filepath, self.own_project, TestCreateTemplate())
         return model
 
     def __repr__(self):

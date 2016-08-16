@@ -191,8 +191,7 @@ class SchemaTester(object):
             for model_name in schema.schema.keys():
                 # skip this model if it's not enabled
                 model = schema.get_model(self.project, model_name)
-                config = model.get_config(self.project)
-                if not config['enabled']:
+                if not model.is_enabled:
                     continue
 
                 constraints = schema.schema[model_name]['constraints']
