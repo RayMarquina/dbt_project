@@ -6,83 +6,8 @@ from collections import defaultdict
 import dbt.project
 from dbt.source import Source
 from dbt.utils import find_model_by_name, dependency_projects
+from dbt.linker import Linker
 import sqlparse
-
-import networkx as nx
-
-class Linker(object):
-    def __init__(self):
-        self.graph = nx.DiGraph()
-        self.cte_map = defaultdict(set)
-
-    def nodes(self):
-        return self.graph.nodes()
-
-    def get_node(self, node):
-        return self.graph.node[node]
-
-    def as_topological_ordering(self, limit_to=None):
-        try:
-            return nx.topological_sort(self.graph, nbunch=limit_to)
-        except KeyError as e:
-            raise RuntimeError("Couldn't find model '{}' -- does it exist or is it diabled?".format(e))
-
-    def as_dependency_list(self, limit_to=None):
-        """returns a list of list of nodes, eg. [[0,1], [2], [4,5,6]]. Each element contains nodes whose
-        dependenices are subsumed by the union of all lists before it. In this way, all nodes in list `i`
-        can be run simultaneously assuming that all lists before list `i` have been completed"""
-
-        if limit_to is None:
-            graph_nodes = set(self.graph.nodes())
-        else:
-            graph_nodes = set()
-            for node in limit_to:
-                graph_nodes.add(node)
-                if node in self.graph:
-                    graph_nodes.update(nx.descendants(self.graph, node))
-                else:
-                    raise RuntimeError("Couldn't find model '{}' -- does it exist or is it diabled?".format(node))
-
-        depth_nodes = defaultdict(list)
-
-        for node in graph_nodes:
-            num_ancestors = len(nx.ancestors(self.graph, node))
-            depth_nodes[num_ancestors].append(node)
-
-        dependency_list = []
-        for depth in sorted(depth_nodes.keys()):
-            dependency_list.append(depth_nodes[depth])
-
-        return dependency_list
-
-    def inject_cte(self, source, cte_model):
-        self.cte_map[source].add(cte_model)
-
-    def is_child_of(self, nodes, target_node):
-        "returns True if node is a child of a node in nodes. Otherwise, False"
-        node_span = set()
-        for node in nodes:
-            node_span.add(node)
-            for child in nx.descendants(self.graph, node):
-                node_span.add(child)
-
-        return target_node in node_span
-
-    def dependency(self, node1, node2):
-        "indicate that node1 depends on node2"
-        self.graph.add_node(node1)
-        self.graph.add_node(node2)
-        self.graph.add_edge(node2, node1)
-
-    def add_node(self, node, data=None):
-        node_data = {} if data is None else data
-        self.graph.add_node(node, node_data)
-
-    def write_graph(self, outfile):
-        nx.write_yaml(self.graph, outfile)
-
-    def read_graph(self, infile):
-        self.graph = nx.read_yaml(infile)
 
 class Compiler(object):
     def __init__(self, project, create_template_class):
@@ -105,9 +30,9 @@ class Compiler(object):
 
         paths = own_project.get('source-paths', [])
         if self.create_template.label == 'build':
-            return Source(this_project, own_project=own_project).get_models(paths)
+            return Source(this_project, own_project=own_project).get_models(paths, self.create_template)
         elif self.create_template.label == 'test':
-            return Source(this_project, own_project=own_project).get_test_models(paths)
+            return Source(this_project, own_project=own_project).get_test_models(paths, self.create_template)
         else:
             raise RuntimeError("unexpected create template type: '{}'".format(self.create_template.label))
 
@@ -135,7 +60,7 @@ class Compiler(object):
             f.write(payload)
 
 
-    def __model_config(self, model):
+    def __model_config(self, model, linker):
         def do_config(*args, **kwargs):
             if len(args) == 1 and len(kwargs) == 0:
                 opts = args[0]
@@ -147,11 +72,6 @@ class Compiler(object):
             if type(opts) != dict:
                 raise RuntimeError("Invalid model config given inline in {}".format(model))
 
-            already_called = len(model.in_model_config) > 0
-
-            if already_called:
-                raise RuntimeError("config() called more than once in {}".format(model))
-
             model.update_in_model_config(opts)
             model.add_to_prologue("Config specified in model: {}".format(opts))
             return ""
@@ -161,7 +81,7 @@ class Compiler(object):
         schema = ctx['env']['schema']
 
         source_model = tuple(model.fqn)
-        linker.add_node(source_model, {"materialized": model.materialization})
+        linker.add_node(source_model)
 
         def do_ref(*args):
             if len(args) == 1:
@@ -208,7 +128,7 @@ class Compiler(object):
 
         context = self.project.context()
         context['ref'] = self.__ref(linker, context, model, models)
-        context['config'] = self.__model_config(model)
+        context['config'] = self.__model_config(model, linker)
 
         rendered = template.render(context)
         return rendered
@@ -274,6 +194,8 @@ class Compiler(object):
             all_models.extend(self.model_sources(this_project=self.project, own_project=project))
 
         models = [model for model in all_models if model.is_enabled]
+        for model in models:
+            model.create_template = self.create_template
 
         self.validate_models_unique(models)
 
@@ -288,11 +210,15 @@ class Compiler(object):
             injected_stmt = self.add_cte_to_rendered_query(model_linker, model, compiled_models)
             wrapped_stmt = model.compile(injected_stmt, self.project, self.create_template)
 
-            build_path = model.build_path(self.create_template)
+            build_path = model.build_path()
 
             if wrapped_stmt and not model.is_ephemeral:
                 written_models += 1
                 self.__write(build_path, wrapped_stmt)
+
+        for model in models:
+            serialized = model.serialize()
+            model_linker.update_node_data(tuple(model.fqn), serialized)
 
         self.__write_graph_file(model_linker)
 
