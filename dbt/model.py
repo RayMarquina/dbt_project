@@ -2,7 +2,7 @@
 import os.path
 import yaml
 import jinja2
-from dbt.templates import TestCreateTemplate
+from dbt.templates import BaseCreateTemplate, TestCreateTemplate
 
 class SourceConfig(object):
     Materializations = ['view', 'table', 'incremental', 'ephemeral']
@@ -253,7 +253,7 @@ class Model(DBTSource):
 
 class Analysis(Model):
     def __init__(self, project, target_dir, rel_filepath, own_project):
-        return super(Analysis, self).__init__(project, target_dir, rel_filepath, own_project)
+        return super(Analysis, self).__init__(project, target_dir, rel_filepath, own_project, BaseCreateTemplate())
 
     def build_path(self):
         build_dir = 'build-analysis'

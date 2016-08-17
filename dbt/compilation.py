@@ -230,6 +230,8 @@ class Compiler(object):
             for analysis in analyses:
                 compiled = self.compile_model(analysis_linker, analysis, models)
                 if compiled:
+                    build_path = analysis.build_path()
+                    self.__write(build_path, compiled)
                     compiled_analyses.append(compiled)
 
         return written_models, len(compiled_analyses)
