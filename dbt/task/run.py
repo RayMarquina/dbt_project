@@ -3,7 +3,7 @@ from __future__ import print_function
 
 import os
 from dbt.templates import BaseCreateTemplate
-from dbt.runner import Runner
+from dbt.runners.runner import Runner
 from dbt.compilation import Compiler
 
 THREAD_LIMIT = 9

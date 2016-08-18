@@ -48,4 +48,3 @@ class RedshiftTarget:
         if self.handle is None:
             self.handle = psycopg2.connect(self.__get_spec())
         return self.handle
-

@@ -1,5 +1,5 @@
 
-class CompiledBase(object):
+class CompiledModel(object):
     def __init__(self, fqn, data):
         self.fqn = fqn
         self.data = data
@@ -11,12 +11,6 @@ class CompiledBase(object):
 
     def __getitem__(self, key):
         return self.data[key]
-
-    def should_execute(self):
-        return True
-
-    def should_rename(self):
-        return False
 
     @property
     def contents(self):
@@ -45,40 +39,49 @@ class CompiledBase(object):
         else:
             return self.target.schema
 
-    def rename_query(self):
-        raise NotImplementedError("not implemented")
-
-    def __repr__(self):
-        return "<CompiledBase {}.{}: {}>".format(self.data['project_name'], self.name, self.data['build_path'])
-
-class CompiledModel(CompiledBase):
-    def __init__(self, fqn, data):
-        super(CompiledModel, self).__init__(fqn, data)
-
     def should_execute(self):
         return self.data['enabled'] and self.materialization != 'ephemeral'
 
     def should_rename(self):
-        return not self.data['materialized'] == 'incremental' 
+        return self.data['materialized'] in ['table' , 'view']
 
-    def rename_query(self):
-        return 'alter table "{schema}"."{tmp_name}" rename to "{final_name}"'.format(schema=self.schema, tmp_name=self.tmp_name, final_name=self.name)
+    def prepare(self, existing, target):
+        if self.materialization == 'incremental':
+            tmp_drop_type = None
+            final_drop_type = None
+        else:
+            tmp_drop_type = existing.get(self.tmp_name, None) 
+            final_drop_type = existing.get(self.name, None)
+
+        self.tmp_drop_type = tmp_drop_type
+        self.final_drop_type = final_drop_type
+        self.target = target
 
     def __repr__(self):
         return "<CompiledModel {}.{}: {}>".format(self.data['project_name'], self.name, self.data['build_path'])
-
 
 class CompiledTest(CompiledModel):
     def __init__(self, fqn, data):
         super(CompiledTest, self).__init__(fqn, data)
 
+    def should_rename(self):
+        return False
+
     def should_execute(self):
         return True
+
+    def prepare(self, existing, target):
+        self.target = target
+
+    def __repr__(self):
+        return "<CompiledModel {}.{}: {}>".format(self.data['project_name'], self.name, self.data['build_path'])
+
+class CompiledTest(CompiledModel):
+    def __init__(self, fqn, data):
+        super(CompiledTest, self).__init__(fqn, data)
 
     def should_rename(self):
         return False
 
-    def __repr__(self):
-        return "<CompiledTest {}.{}: {}>".format(self.data['project_name'], self.name, self.data['build_path'])
-
-
+    def should_execute(self):
+        return True
