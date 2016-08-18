@@ -83,10 +83,10 @@ class ModelRunner(BaseRunner):
         return output
 
     def pre_run_all_msg(self, models):
-        print("pre all", models)
+        return "Running {} models".format(len(models))
 
     def post_run_all_msg(self, results):
-        print("post all", results)
+        return "Finished running {} models".format(len(results))
 
     def status(self, result):
         return result.status
@@ -170,11 +170,21 @@ class RunManager(object):
         return skip_dependent
 
     def execute_models(self, runner, model_dependency_list, on_failure):
+        flat_models = list(itertools.chain.from_iterable(model_dependency_list))
+
+        num_models = len(flat_models)
+        if num_models == 0:
+            print("WARNING: No models to run in '{}'. Try checking your model configs and running `dbt compile`".format(self.target_path))
+            return []
+
         num_threads = self.target.threads
         print("Concurrency: {} threads (target='{}')".format(num_threads, self.project['run-target']))
         print("Running!")
 
         pool = ThreadPool(num_threads)
+
+        print(runner.pre_run_all_msg(flat_models))
+        runner.pre_run_all(flat_models)
 
         model_results = []
         for model_list in model_dependency_list:
@@ -211,6 +221,9 @@ class RunManager(object):
         pool.close()
         pool.join()
 
+        print(runner.post_run_all_msg(model_results))
+        runner.post_run_all(model_results)
+
         return model_results
 
     def run(self, specified_models=None):
@@ -231,13 +244,8 @@ class RunManager(object):
             sys.exit(1)
 
         existing = self.schema.query_for_existing(schema_name);
-        model_dependency_list = self.as_concurrent_dep_list(linker, compiled_models, existing, self.target)
-        flat_models = list(itertools.chain.from_iterable(model_dependency_list))
 
-        num_models = len(flat_models)
-        if num_models == 0:
-            print("WARNING: No models to run in '{}'. Try checking your model configs and running `dbt compile`".format(self.target_path))
-            return []
+        model_dependency_list = self.as_concurrent_dep_list(linker, compiled_models, existing, self.target)
 
         runner = ModelRunner()
 

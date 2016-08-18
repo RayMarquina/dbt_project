@@ -315,7 +315,7 @@ class SchemaTest(DBTSource):
     def fqn(self):
         parts = self.filepath.split("/")
         name, _ = os.path.splitext(parts[-1])
-        return [self.project['name']] + parts[1:-1] + ['schema',  self.name]
+        return [self.project['name']] + parts[1:-1] + ['schema',  self.get_filename()]
 
     def get_params(self, options):
         return {
@@ -327,10 +327,14 @@ class SchemaTest(DBTSource):
     def unique_option_key(self):
         return self.params
 
+    def get_filename(self):
+        key = re.sub('[^0-9a-zA-Z]+', '_', self.unique_option_key())
+        filename = "validate_{test_type}_{model_name}_{key}".format(test_type=self.test_type, model_name=self.name, key=key)
+        return filename
+
     def build_path(self):
         build_dir = "test"
-        key = re.sub('[^0-9a-zA-Z]+', '_', self.unique_option_key())
-        filename = "validate_{test_type}_{model_name}_{key}.sql".format(test_type=self.test_type, model_name=self.name, key=key)
+        filename = "{}.sql".format(self.get_filename())
         path_parts = [build_dir] + self.fqn[:-1] + [filename]
         return os.path.join(*path_parts)
 

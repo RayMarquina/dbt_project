@@ -12,6 +12,9 @@ class Linker(object):
     def nodes(self):
         return self.graph.nodes()
 
+    def run_type(self):
+        return self.graph.graph['run_type']
+
     def get_node(self, node):
         return self.graph.node[node]
 
