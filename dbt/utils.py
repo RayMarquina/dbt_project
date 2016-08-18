@@ -23,6 +23,7 @@ def find_model_by_fqn(models, fqn):
     for model in models:
         if tuple(model.fqn) == tuple(fqn):
             return model
+    import ipdb; ipdb.set_trace()
     raise RuntimeError("Couldn't find a compiled model with fqn: '{}'".format(fqn))
 
 def dependency_projects(project):

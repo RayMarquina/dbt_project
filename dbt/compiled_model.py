@@ -9,8 +9,16 @@ class CompiledModel(object):
         self.final_drop_type = None
         self.target = None
 
+        self.skip = False
+
     def __getitem__(self, key):
         return self.data[key]
+
+    def skip(self):
+        self.skip = True
+
+    def should_skip(self):
+        return self.skip
 
     @property
     def contents(self):
@@ -85,3 +93,15 @@ class CompiledTest(CompiledModel):
 
     def should_execute(self):
         return True
+
+def make_compiled_model(fqn, data):
+    run_type = data['dbt_run_type']
+
+    if run_type == 'model':
+        return CompiledModel(fqn, data)
+    elif run_type == 'dry-model':
+        raise NotImplementedError("dry-models not implemente yet")
+    elif run_type == 'test':
+        return CompiledTest(fqn, data)
+
+

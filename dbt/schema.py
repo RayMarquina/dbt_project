@@ -23,11 +23,6 @@ class Schema(object):
         self.target = target
         self.logger = logging.getLogger(__name__)
 
-    def create_schema(self, schema_name):
-        with self.target.get_handle() as handle:
-            with handle.cursor() as cursor:
-                cursor.execute('create schema if not exists "{}"'.format(schema_name))
-
     def get_schemas(self):
         existing = []
         with self.target.get_handle() as handle:
@@ -37,13 +32,14 @@ class Schema(object):
                 existing = [name for (name,) in cursor.fetchall()]
         return existing
 
-    def create_schema_or_exit(self, schema_name):
-
+    def create_schema(self, schema_name):
         target_cfg = self.project.run_environment()
         user = target_cfg['user']
 
         try:
-            self.create_schema(schema_name)
+            with self.target.get_handle() as handle:
+                with handle.cursor() as cursor:
+                    cursor.execute('create schema if not exists "{}"'.format(schema_name))
         except psycopg2.ProgrammingError as e:
             if "permission denied for" in e.diag.message_primary:
                 raise RuntimeError(SCHEMA_PERMISSION_DENIED_MESSAGE.format(schema=schema_name, user=user))
@@ -102,4 +98,11 @@ class Schema(object):
         self.logger.info("renaming model %s.%s --> %s.%s", schema, from_name, schema, to_name)
         self.execute_and_handle_permissions(rename_query, from_name)
         self.logger.info("renamed model %s.%s --> %s.%s", schema, from_name, schema, to_name)
+
+
+    def create_schema_if_not_exists(self, schema_name):
+        schemas = self.get_schemas()
+
+        if schema_name not in schemas:
+            self.create_schema(schema_name)
 

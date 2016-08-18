@@ -3,8 +3,10 @@ import networkx as nx
 from collections import defaultdict
 
 class Linker(object):
-    def __init__(self):
-        self.graph = nx.DiGraph()
+    def __init__(self, data=None):
+        if data is None:
+            data = {}
+        self.graph = nx.DiGraph(**data)
         self.cte_map = defaultdict(set)
 
     def nodes(self):
@@ -50,15 +52,8 @@ class Linker(object):
     def inject_cte(self, source, cte_model):
         self.cte_map[source].add(cte_model)
 
-    def is_child_of(self, nodes, target_node):
-        "returns True if node is a child of a node in nodes. Otherwise, False"
-        node_span = set()
-        for node in nodes:
-            node_span.add(node)
-            for child in nx.descendants(self.graph, node):
-                node_span.add(child)
-
-        return target_node in node_span
+    def get_dependent_nodes(self, node):
+        return nx.descendants(self.graph, node)
 
     def dependency(self, node1, node2):
         "indicate that node1 depends on node2"

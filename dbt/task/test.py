@@ -5,7 +5,7 @@ import yaml
 
 from dbt.compilation import Compiler
 from dbt.templates import TestCreateTemplate
-from dbt.runners.runner import Runner
+from dbt.runners.runner import RunManager
 from dbt.schema_tester import SchemaTester
 
 class TestTask:

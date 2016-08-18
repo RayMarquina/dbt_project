@@ -3,7 +3,7 @@ from __future__ import print_function
 
 import os
 from dbt.templates import BaseCreateTemplate
-from dbt.runners.runner import Runner
+from dbt.runners.runner import RunManager
 from dbt.compilation import Compiler
 
 THREAD_LIMIT = 9
@@ -22,7 +22,7 @@ class RunTask:
     def run(self):
         self.compile()
 
-        runner = Runner(self.project, self.project['target-path'], BaseCreateTemplate.label)
+        runner = RunManager(self.project, self.project['target-path'], BaseCreateTemplate.label)
         results = runner.run(self.args.models)
 
         total   = len(results)
