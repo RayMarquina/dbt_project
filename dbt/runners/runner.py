@@ -38,40 +38,72 @@ class BaseRunner(object):
         raise NotImplementedError("not implemented")
 
     def skip_msg(self, model):
+        return "SKIP relation {}.{} because parent failed".format(model.target.schema, model.name)
 
-    def post_run_msg(self, model):
+    def post_run_msg(self, result):
         raise NotImplementedError("not implemented")
 
-    @classmethod
-    def pre_run_all_msg(cls, models):
+    def pre_run_all_msg(self, models):
         raise NotImplementedError("not implemented")
 
-    @classmethod
-    def post_run_all_msg(cls, models):
+    def post_run_all_msg(self, results):
         raise NotImplementedError("not implemented")
 
-    @classmethod
-    def post_run_all(cls, models):
+    def post_run_all(self, results):
         pass
 
-    @classmethod
-    def pre_run_all(cls, models):
+    def pre_run_all(self, models):
         pass
+
+    def status(self, result):
+        raise NotImplementedError("not implemented")
 
 class ModelRunner(BaseRunner):
     def pre_run_msg(self, model):
-        print("pre", model)
+        print_vars = {
+            "schema": model.target.schema,
+            "model_name": model.name,
+            "model_type": model.materialization,
+            "info": "START"
+        }
 
-    def post_run_msg(self, model):
-        print("post", model)
+        output = "START {model_type} model {schema}.{model_name} ".format(**print_vars)
+        return output
 
-    @classmethod
-    def pre_run_all_msg(cls, models):
+    def post_run_msg(self, result):
+        model = result.model
+        print_vars = {
+            "schema": model.target.schema,
+            "model_name": model.name,
+            "model_type": model.materialization,
+            "info": "ERROR creating" if result.errored else "OK created"
+        }
+
+        output = "{info} {model_type} model {schema}.{model_name} ".format(**print_vars)
+        return output
+
+    def pre_run_all_msg(self, models):
         print("pre all", models)
 
-    @classmethod
-    def post_run_all_msg(cls, models):
-        print("post all", models)
+    def post_run_all_msg(self, results):
+        print("post all", results)
+
+    def status(self, result):
+        return result.status
+
+    def execute(self, schema, target, model):
+        if model.tmp_drop_type is not None:
+            schema.drop(target.schema, model.tmp_drop_type, model.tmp_name)
+
+        status = schema.execute_and_handle_permissions(model.contents, model.name)
+
+        if model.final_drop_type is not None:
+            schema.drop(target.schema, model.final_drop_type, model.name)
+
+        if model.should_rename():
+            schema.rename(target.schema, model.tmp_name, model.name)
+
+        return status
 
 class DryRunner(object):
     pass
@@ -98,26 +130,14 @@ class RunManager(object):
 
         return linker
 
-    def execute_model(self, model):
+    def execute_model(self, runner, model):
         self.logger.info("executing model %s", model)
+        return runner.execute(self.schema, self.target, model)
 
-        if model.tmp_drop_type is not None:
-            self.schema.drop(self.target.schema, model.tmp_drop_type, model.tmp_name)
-
-        status = self.schema.execute_and_handle_permissions(model.contents, model.name)
-
-        if model.final_drop_type is not None:
-            self.schema.drop(self.target.schema, model.final_drop_type, model.name)
-
-        if model.should_rename():
-            self.schema.rename(model.target.schema, model.tmp_name, model.name)
-
-        return status
-
-    def safe_execute_model(self, model):
+    def safe_execute_model(self, runner, model):
         error = None
         try:
-            status = self.execute_model(model)
+            status = self.execute_model(runner, model)
         except (RuntimeError, psycopg2.ProgrammingError) as e:
             error = "Error executing {filepath}\n{error}".format(filepath=model['build_path'], error=str(e).strip())
             status = "ERROR"
@@ -127,7 +147,6 @@ class RunManager(object):
             raise e
 
         return RunModelResult(model, error=error, status=status)
-
 
     def as_concurrent_dep_list(self, linker, models, existing, target):
         model_dependency_list = []
@@ -142,21 +161,15 @@ class RunManager(object):
             model_dependency_list.append(level)
         return model_dependency_list
 
-    def on_model_failure(self, linker, model, models):
-        dependent_nodes = linker.get_dependent_nodes(model.fqn)
-        for node in dependent_nodes:
-            model_to_skip = find_model_by_fqn(models, node)
-            print("DEBUG: skipping model {} because {} failed".format(model_to_skip, model))
-            model_to_skip.skip()
+    def on_model_failure(self, linker, models):
+        def skip_dependent(model):
+            dependent_nodes = linker.get_dependent_nodes(model.fqn)
+            for node in dependent_nodes:
+                model_to_skip = find_model_by_fqn(models, node)
+                model_to_skip.do_skip()
+        return skip_dependent
 
-    def execute_models(self, linker, runner, model_dependency_list):
-        flat_models = list(itertools.chain.from_iterable(model_dependency_list))
-        num_models = len(flat_models)
-
-        if num_models == 0:
-            print("WARNING: No models to run in '{}'. Try checking your model configs and running `dbt compile`".format(self.target_path))
-            return []
-
+    def execute_models(self, runner, model_dependency_list, on_failure):
         num_threads = self.target.threads
         print("Concurrency: {} threads (target='{}')".format(num_threads, self.project['run-target']))
         print("Running!")
@@ -165,45 +178,34 @@ class RunManager(object):
 
         model_results = []
         for model_list in model_dependency_list:
-            # TODO : do this differently? mabye it should be a method on the Runner
             for i, model in enumerate([model for model in model_list if model.should_skip()]):
+                output = runner.skip_msg(model).ljust(80, ".")
+                print("{} [SKIP]".format(output))
                 model_result = RunModelResult(model, skip=True)
                 model_results.append(model_result)
-                print("{} of {} -- SKIP relation {}.{} because parent failed".format(len(model_results), num_models, self.target.schema, model_result.model.name))
 
             models_to_execute = [model for model in model_list if not model.should_skip()]
+
             for i, model in enumerate(models_to_execute):
-                print_vars = {
-                    "progress": 1 + i + len(model_results),
-                    "total" : num_models,
-                    "schema": self.target.schema,
-                    "model_name": model.name,
-                    "model_type": model.materialization,
-                    "info": "START"
-                }
+                msg = runner.pre_run_msg(model)
+                output = msg.ljust(80, ".")
+                print("{} [Running]".format(output))
 
-                output = "{progress} of {total} -- {info} {model_type} model {schema}.{model_name} ".format(**print_vars)
-                print("{} [Running]".format(output.ljust(80, ".")))
-
+            # TODO
             #run_model_results = pool.map(self.safe_execute_model, models_to_execute)
-            run_model_results = [self.safe_execute_model(model) for model in models_to_execute]
+            run_model_results = [self.safe_execute_model(runner, model) for model in models_to_execute]
 
             for run_model_result in run_model_results:
                 model_results.append(run_model_result)
 
-                print_vars = {
-                    "progress": len(model_results),
-                    "total" : num_models,
-                    "schema": self.target.schema,
-                    "model_name": run_model_result.model.name,
-                    "model_type": run_model_result.model.materialization,
-                    "info": "ERROR creating" if run_model_result.errored else "OK created"
-                }
+                msg = runner.post_run_msg(run_model_result)
+                status = runner.status(run_model_result)
+                output = msg.ljust(80, ".")
 
-                output = "{progress} of {total} -- {info} {model_type} model {schema}.{model_name} ".format(**print_vars)
-                print("{} [{}]".format(output.ljust(80, "."), run_model_result.status))
+                print("{} [{}]".format(output, status))
 
                 if run_model_result.errored:
+                    on_failure(run_model_result.model)
                     print(run_model_result.error)
 
         pool.close()
@@ -230,7 +232,14 @@ class RunManager(object):
 
         existing = self.schema.query_for_existing(schema_name);
         model_dependency_list = self.as_concurrent_dep_list(linker, compiled_models, existing, self.target)
+        flat_models = list(itertools.chain.from_iterable(model_dependency_list))
+
+        num_models = len(flat_models)
+        if num_models == 0:
+            print("WARNING: No models to run in '{}'. Try checking your model configs and running `dbt compile`".format(self.target_path))
+            return []
 
         runner = ModelRunner()
 
-        return self.execute_models(linker, runner, model_dependency_list)
+        on_failure = self.on_model_failure(linker, compiled_models)
+        return self.execute_models(runner, model_dependency_list, on_failure)

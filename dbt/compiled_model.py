@@ -14,7 +14,7 @@ class CompiledModel(object):
     def __getitem__(self, key):
         return self.data[key]
 
-    def skip(self):
+    def do_skip(self):
         self.skip = True
 
     def should_skip(self):
