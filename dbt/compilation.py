@@ -5,7 +5,7 @@ import jinja2
 from collections import defaultdict
 import dbt.project
 from dbt.source import Source
-from dbt.utils import find_model_by_name, dependency_projects
+from dbt.utils import find_model_by_fqn, find_model_by_name, dependency_projects
 from dbt.linker import Linker
 import sqlparse
 
@@ -190,19 +190,21 @@ class Compiler(object):
             compiled_query = self.combine_query_with_ctes(primary_model, query, required_ctes, compiled_models)
             return compiled_query
 
-    def compile_models(self, linker, models):
+    def compile_models(self, linker, models, limit_to):
         compiled_models = {model: self.compile_model(linker, model, models) for model in models}
+        limited_models = [find_model_by_fqn(models, fqn) for fqn in linker.as_topological_ordering(limit_to)]
 
         written_models = []
-        for model, query in compiled_models.items():
-            if model.is_ephemeral:
-                model.add_to_prologue("This ephemeral model was compiled for debugging purposes. It will not be created in the database directly")
-
+        for model in limited_models:
+            query = compiled_models[model]
             injected_stmt = self.add_cte_to_rendered_query(linker, model, compiled_models)
             wrapped_stmt = model.compile(injected_stmt, self.project, self.create_template)
 
             serialized = model.serialize()
             linker.update_node_data(tuple(model.fqn), serialized)
+
+            if model.is_ephemeral:
+                continue
 
             self.__write(model.build_path(), wrapped_stmt)
             written_models.append(model)
@@ -240,7 +242,21 @@ class Compiler(object):
 
         return written_tests
 
-    def compile(self):
+    def get_limited_models(self, specified_models, models):
+        if specified_models is None:
+            return None
+
+        limit_to = []
+        for model_name in specified_models:
+            try:
+                model = find_model_by_name(models, model_name)
+                limit_to.append(tuple(model.fqn))
+            except RuntimeError as e:
+                raise e
+
+        return limit_to
+
+    def compile(self, specified_models=None):
         linker = Linker()
 
         all_models = self.model_sources(this_project=self.project)
@@ -249,8 +265,10 @@ class Compiler(object):
             all_models.extend(self.model_sources(this_project=self.project, own_project=project))
 
         enabled_models = [model for model in all_models if model.is_enabled]
+        limit_to = self.get_limited_models(specified_models, enabled_models)
 
-        compiled_models = self.compile_models(linker, enabled_models)
+        compiled_models = self.compile_models(linker, enabled_models, limit_to)
+
         # TODO : only compile schema tests for enabled models
         compiled_schema_tests = self.compile_schema_tests(linker)
 

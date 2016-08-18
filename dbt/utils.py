@@ -19,6 +19,12 @@ def find_model_by_name(models, name, package_namespace=None):
     else:
         raise RuntimeError("Model specification is ambiguous: model='{}' package='{}' -- {} models match criteria: {}".format(name, nice_package_name, len(found), found))
 
+def find_model_by_fqn(models, fqn):
+    for model in models:
+        if tuple(model.fqn) == tuple(fqn):
+            return model
+    raise RuntimeError("Couldn't find a compiled model with fqn: '{}'".format(fqn))
+
 def dependency_projects(project):
     for obj in os.listdir(project['modules-path']):
         full_obj = os.path.join(project['modules-path'], obj)

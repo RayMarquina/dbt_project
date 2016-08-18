@@ -11,76 +11,11 @@ from dbt.linker import Linker
 from dbt.templates import BaseCreateTemplate
 from dbt.targets import RedshiftTarget
 from dbt.source import Source
-from dbt.utils import find_model_by_name, dependency_projects
+from dbt.utils import find_model_by_fqn, find_model_by_name, dependency_projects
+from dbt.compiled_model import CompiledModel, CompiledTest
+import dbt.schema
 
 from multiprocessing.dummy import Pool as ThreadPool
-
-SCHEMA_PERMISSION_DENIED_MESSAGE = """The user '{user}' does not have sufficient permissions to create the schema '{schema}'.
-Either create the schema  manually, or adjust the permissions of the '{user}' user."""
-
-RELATION_PERMISSION_DENIED_MESSAGE = """The user '{user}' does not have sufficient permissions to create the model '{model}'  in the schema '{schema}'.
-Please adjust the permissions of the '{user}' user on the '{schema}' schema.
-With a superuser account, execute the following commands, then re-run dbt.
-
-grant usage, create on schema "{schema}" to "{user}";
-grant select, insert, delete on all tables in schema "{schema}" to "{user}";"""
-
-RELATION_NOT_OWNER_MESSAGE = """The user '{user}' does not have sufficient permissions to drop the model '{model}' in the schema '{schema}'.
-This is likely because the relation was created by a different user. Either delete the model "{schema}"."{model}" manually,
-or adjust the permissions of the '{user}' user in the '{schema}' schema."""
-
-
-class CompiledModel(object):
-    def __init__(self, fqn, data):
-        self.fqn = fqn
-        self.data = data
-
-        # these are set just before the models are executed
-        self.tmp_drop_type = None
-        self.final_drop_type = None
-        self.target = None
-
-    def __getitem__(self, key):
-        return self.data[key]
-
-    def should_execute(self):
-        return self.data['enabled'] and self.materialization != 'ephemeral'
-
-    def should_rename(self):
-        return not self.data['materialized'] == 'incremental' 
-
-    @property
-    def contents(self):
-        with open(self.data['build_path']) as fh:
-            return fh.read()
-
-    @property
-    def materialization(self):
-        return self.data['materialized']
-
-    @property
-    def name(self):
-        return self.data['name']
-
-    @property
-    def tmp_name(self):
-        return self.data['tmp_name']
-
-    def project(self):
-        return {'name': self.data['project_name']}
-
-    @property
-    def schema(self):
-        if self.target is None:
-            raise RuntimeError("`target` not set in compiled model {}".format(self))
-        else:
-            return self.target.schema
-
-    def rename_query(self):
-        return 'alter table "{schema}"."{tmp_name}" rename to "{final_name}"'.format(schema=self.schema, tmp_name=self.tmp_name, final_name=self.name)
-
-    def __repr__(self):
-        return "<CompiledModel {}.{}: {}>".format(self.data['project_name'], self.name, self.data['build_path'])
 
 
 class RunModelResult(object):
@@ -105,6 +40,8 @@ class Runner:
         self.target_path = target_path
         self.run_mode = run_mode
 
+        self.schema = dbt.schema.Schema(self.project, self.get_target())
+
     def deserialize_graph(self):
         linker = Linker()
         base_target_path = self.project['target-path']
@@ -114,54 +51,12 @@ class Runner:
 
         return linker
 
-    def create_schema(self, schema_name):
-        target = self.get_target()
-        with target.get_handle() as handle:
-            with handle.cursor() as cursor:
-                cursor.execute('create schema if not exists "{}"'.format(schema_name))
-
-    def get_schemas(self):
-        target = self.get_target()
-        existing = []
-        with target.get_handle() as handle:
-            with handle.cursor() as cursor:
-                cursor.execute('select nspname from pg_catalog.pg_namespace')
-
-                existing = [name for (name,) in cursor.fetchall()]
-        return existing
-
-    def create_schema_or_exit(self, schema_name):
-
+    def get_target(self):
         target_cfg = self.project.run_environment()
-        user = target_cfg['user']
-
-        try:
-            self.create_schema(schema_name)
-        except psycopg2.ProgrammingError as e:
-            if "permission denied for" in e.diag.message_primary:
-                raise RuntimeError(SCHEMA_PERMISSION_DENIED_MESSAGE.format(schema=schema_name, user=user))
-            else:
-                raise e
-
-    def query_for_existing(self, target, schema):
-        sql = """
-            select tablename as name, 'table' as type from pg_tables where schemaname = '{schema}'
-                union all
-            select viewname as name, 'view' as type from pg_views where schemaname = '{schema}' """.format(schema=schema)
-
-
-        with target.get_handle() as handle:
-            with handle.cursor() as cursor:
-                cursor.execute(sql)
-                existing = [(name, relation_type) for (name, relation_type) in cursor.fetchall()]
-
-        return dict(existing)
-
-    def get_drop_statement(self, schema, relation, relation_type):
-        return 'drop {relation_type} if exists "{schema}"."{relation}" cascade'.format(schema=schema, relation_type=relation_type, relation=relation)
+        return RedshiftTarget(target_cfg)
 
     def drop(self, target, model, relation, relation_type):
-        sql = self.get_drop_statement(target.schema, relation, relation_type)
+        sql = 'drop {relation_type} if exists "{schema}"."{relation}" cascade'.format(schema=target.schema, relation_type=relation_type, relation=relation)
         self.logger.info("dropping %s %s.%s", relation_type, target.schema, relation)
         self.execute_and_handle_permissions(target, sql, model, relation)
         self.logger.info("dropped %s %s.%s", relation_type, target.schema, relation)
@@ -184,7 +79,7 @@ class Runner:
     def drop_models(self, models):
         target = self.get_target()
 
-        existing = self.query_for_existing(target, target.schema);
+        existing = self.schema.query_for_existing(target.schema);
         for model in models:
             model_name = model.fqn[-1]
             self.drop(target, model, model.name, existing[model_name])
@@ -209,9 +104,9 @@ class Runner:
         except psycopg2.ProgrammingError as e:
             error_data = {"model": model_name, "schema": target.schema, "user": target.user}
             if 'must be owner of relation' in e.diag.message_primary:
-                raise RuntimeError(RELATION_NOT_OWNER_MESSAGE.format(**error_data))
+                raise RuntimeError(dbt.schema.RELATION_NOT_OWNER_MESSAGE.format(**error_data))
             elif "permission denied for" in e.diag.message_primary:
-                raise RuntimeError(RELATION_PERMISSION_DENIED_MESSAGE.format(**error_data))
+                raise RuntimeError(dbt.schema.RELATION_PERMISSION_DENIED_MESSAGE.format(**error_data))
             else:
                 raise e
 
@@ -249,31 +144,24 @@ class Runner:
         model.final_drop_type = final_drop_type
         model.target = target
 
-    def as_concurrent_dep_list(self, linker, models, limit_to, existing, target):
+    def as_concurrent_dep_list(self, linker, models, existing, target):
         model_dependency_list = []
-        dependency_list = linker.as_dependency_list(limit_to)
+        dependency_list = linker.as_dependency_list()
         for node_list in dependency_list:
             level = []
             for fqn in node_list:
-                model = self.get_model_by_fqn(models, fqn)
+                model = find_model_by_fqn(models, fqn)
                 if model.should_execute():
                     self.prepare_model_for_execution(model, existing, target)
                     level.append(model)
             model_dependency_list.append(level)
         return model_dependency_list
 
-    def get_model_by_fqn(self, models, fqn):
-        for model in models:
-            if tuple(model.fqn) == tuple(fqn):
-                return model
-        raise RuntimeError("Couldn't find a compiled model with fqn: '{}'".format(fqn))
-
-
-    def execute_models(self, linker, models, limit_to=None):
+    def execute_models(self, linker, models):
         target = self.get_target()
 
-        existing = self.query_for_existing(target, target.schema);
-        model_dependency_list = self.as_concurrent_dep_list(linker, models, limit_to, existing, target)
+        existing = self.schema.query_for_existing(target.schema);
+        model_dependency_list = self.as_concurrent_dep_list(linker, models, existing, target)
         num_models = sum([len(node_list) for node_list in model_dependency_list])
 
         if num_models == 0:
@@ -339,40 +227,35 @@ class Runner:
 
         return model_results
 
-    def get_limited_models(self, specified_models, compiled_models):
-        if specified_models is None:
-            return None
-
-        limit_to = []
-        for model_name in specified_models:
-            try:
-                model = find_model_by_name(compiled_models, model_name)
-                limit_to.append(tuple(model.fqn))
-            except RuntimeError as e:
-                raise e
-
-        return limit_to
-
     def make_model(self, linker, fqn):
         data = linker.get_node(fqn)
-        return CompiledModel(fqn, data)
+        run_type = data['dbt_run_type']
+        if run_type == 'model':
+            return CompiledModel(fqn, data)
+        elif run_type == 'test':
+            return CompiledTest(fqn, data)
+        else:
+            raise NotImplemented("Unknown dbt run type: '{}'".format(run_type))
+
 
     def run(self, specified_models=None):
         linker = self.deserialize_graph()
 
+        if specified_models is not None:
+            raise NotImplementedError("TODO")
+
         compiled_models = [self.make_model(linker, fqn) for fqn in linker.nodes()]
-        limited_models = self.get_limited_models(specified_models, compiled_models)
 
         target_cfg = self.project.run_environment()
         schema_name = target_cfg['schema']
 
         try:
-            schemas = self.get_schemas()
+            schemas = self.schema.get_schemas()
 
             if schema_name not in schemas:
-                self.create_schema_or_exit(schema_name)
+                self.schema.create_schema_or_exit(schema_name)
 
-            return self.execute_models(linker, compiled_models, limited_models)
+            return self.execute_models(linker, compiled_models)
         except psycopg2.OperationalError as e:
             print("ERROR: Could not connect to the target database. Try `dbt debug` for more information")
             print(str(e))
