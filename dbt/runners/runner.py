@@ -108,8 +108,46 @@ class ModelRunner(BaseRunner):
 class DryRunner(object):
     pass
 
-class TestRunner(object):
-    pass
+class TestRunner(ModelRunner):
+    def pre_run_msg(self, model):
+        output = "TEST {name} ".format(name=model.name)
+        return output
+
+    def post_run_msg(self, result):
+        model = result.model
+        info = self.status(result)
+
+        output = "{info} {name} ".format(info=info, name=model.name)
+        return output
+
+    def pre_run_all_msg(self, models):
+        return "Running {} tests".format(len(models))
+
+    def post_run_all_msg(self, results):
+        return "Finished running {} tests".format(len(results))
+
+    def status(self, result):
+        if result.errored:
+            info = "ERROR"
+        elif result.status > 0:
+            info = 'FAIL {}'.format(result.status)
+        elif result.status == 0:
+            info = 'OK'
+        else:
+            raise RuntimeError("unexpected status: {}".format(result.status))
+
+        return info
+
+    def execute(self, schema, target, model):
+        rows = schema.execute_and_fetch(model.contents)
+        if len(rows) > 1:
+            raise RuntimeError("Bad test {name}: Returned {num_rows} rows instead of 1".format(name=model.name, num_rows=len(rows)))
+
+        row = rows[0]
+        if len(row) > 1:
+            raise RuntimeError("Bad test {name}: Returned {num_cols} cols instead of 1".format(name=model.name, num_cols=len(row)))
+
+        return row[0]
 
 class RunManager(object):
     def __init__(self, project, target_path, run_mode):
@@ -247,7 +285,8 @@ class RunManager(object):
 
         model_dependency_list = self.as_concurrent_dep_list(linker, compiled_models, existing, self.target)
 
-        runner = ModelRunner()
+        runner = TestRunner()
+        #runner = ModelRunner()
 
         on_failure = self.on_model_failure(linker, compiled_models)
         return self.execute_models(runner, model_dependency_list, on_failure)

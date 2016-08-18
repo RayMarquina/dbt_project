@@ -74,6 +74,20 @@ class Schema(object):
                     self.logger.exception("Error running SQL: %s", sql)
                     raise e
 
+    def execute_and_fetch(self, sql):
+        with self.target.get_handle() as handle:
+            with handle.cursor() as cursor:
+                try:
+                    self.logger.debug("SQL: %s", sql)
+                    pre = time.time()
+                    cursor.execute(sql)
+                    post = time.time()
+                    self.logger.debug("SQL status: %s in %d seconds", cursor.statusmessage, post-pre)
+                    return cursor.fetchall()
+                except Exception as e:
+                    self.logger.exception("Error running SQL: %s", sql)
+                    raise e
+
     def execute_and_handle_permissions(self, query, model_name):
         try:
             return self.execute(query)
