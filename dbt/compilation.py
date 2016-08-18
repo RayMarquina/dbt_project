@@ -21,6 +21,9 @@ class Compiler(object):
         if not os.path.exists(self.project['modules-path']):
             os.makedirs(self.project['modules-path'])
 
+    def get_target(self):
+        target_cfg = self.project.run_environment()
+        return RedshiftTarget(target_cfg)
 
     def model_sources(self, this_project, own_project=None):
         "source_key is a dbt config key like source-paths or analysis-paths"
@@ -35,6 +38,10 @@ class Compiler(object):
             return Source(this_project, own_project=own_project).get_test_models(paths, self.create_template)
         else:
             raise RuntimeError("unexpected create template type: '{}'".format(self.create_template.label))
+
+    def project_schemas(self):
+        source_paths = self.project.get('source-paths', [])
+        return Source(self.project).get_schemas(source_paths)
 
     def analysis_sources(self, project):
         "source_key is a dbt config key like source-paths or analysis-paths"
@@ -120,10 +127,6 @@ class Compiler(object):
 
     def compile_model(self, linker, model, models):
         jinja = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath=model.root_dir))
-
-        if not model.is_enabled:
-            return None
-
         template = jinja.get_template(model.rel_filepath)
 
         context = self.project.context()
@@ -133,7 +136,7 @@ class Compiler(object):
         rendered = template.render(context)
         return rendered
 
-    def __write_graph_file(self, linker):
+    def write_graph_file(self, linker):
         filename = 'graph-{}.yml'.format(self.create_template.label)
         graph_path = os.path.join(self.project['target-path'], filename)
         linker.write_graph(graph_path)
@@ -187,51 +190,76 @@ class Compiler(object):
             compiled_query = self.combine_query_with_ctes(primary_model, query, required_ctes, compiled_models)
             return compiled_query
 
+    def compile_models(self, linker, models):
+        compiled_models = {model: self.compile_model(linker, model, models) for model in models}
+
+        written_models = []
+        for model, query in compiled_models.items():
+            if model.is_ephemeral:
+                model.add_to_prologue("This ephemeral model was compiled for debugging purposes. It will not be created in the database directly")
+
+            injected_stmt = self.add_cte_to_rendered_query(linker, model, compiled_models)
+            wrapped_stmt = model.compile(injected_stmt, self.project, self.create_template)
+
+            serialized = model.serialize()
+            linker.update_node_data(tuple(model.fqn), serialized)
+
+            self.__write(model.build_path(), wrapped_stmt)
+            written_models.append(model)
+
+        return written_models
+
+    def compile_analyses(self, linker, models):
+        compiled_analyses = []
+        analyses = self.analysis_sources(self.project)
+        for analysis in analyses:
+            compiled = self.compile_model(linker, analysis, models)
+            build_path = analysis.build_path()
+            self.__write(build_path, compiled)
+            compiled_analyses.append(compiled)
+
+        return compiled_analyses
+
+    def compile_schema_tests(self, linker):
+        target_cfg = self.project.run_environment()
+
+        schemas = self.project_schemas()
+
+        schema_tests = []
+        for schema in schemas:
+            schema_tests.extend(schema.compile()) # compiling a SchemaFile returns >= 0 SchemaTest models
+
+        written_tests = []
+        for schema_test in schema_tests:
+            serialized = schema_test.serialize()
+            linker.update_node_data(tuple(schema_test.fqn), serialized)
+
+            query = schema_test.render()
+            self.__write(schema_test.build_path(), query)
+            written_tests.append(schema_test)
+
+        return written_tests
+
     def compile(self):
+        linker = Linker()
+
         all_models = self.model_sources(this_project=self.project)
 
         for project in dependency_projects(self.project):
             all_models.extend(self.model_sources(this_project=self.project, own_project=project))
 
-        models = [model for model in all_models if model.is_enabled]
-        for model in models:
-            model.create_template = self.create_template
+        enabled_models = [model for model in all_models if model.is_enabled]
 
-        self.validate_models_unique(models)
+        compiled_models = self.compile_models(linker, enabled_models)
+        # TODO : only compile schema tests for enabled models
+        compiled_schema_tests = self.compile_schema_tests(linker)
 
-        model_linker = Linker()
-        compiled_models = {}
-        written_models = 0
-        for model in models:
-            query = self.compile_model(model_linker, model, models)
-            compiled_models[model] = query
+        # TODO
+        #self.validate_models_unique(compiled_models)
+        self.write_graph_file(linker)
 
-        for model, query in compiled_models.items():
-            injected_stmt = self.add_cte_to_rendered_query(model_linker, model, compiled_models)
-            wrapped_stmt = model.compile(injected_stmt, self.project, self.create_template)
-
-            build_path = model.build_path()
-
-            if wrapped_stmt and not model.is_ephemeral:
-                written_models += 1
-                self.__write(build_path, wrapped_stmt)
-
-        for model in models:
-            serialized = model.serialize()
-            model_linker.update_node_data(tuple(model.fqn), serialized)
-
-        self.__write_graph_file(model_linker)
-
-        # don't compile analyses in test mode!
         compiled_analyses = []
         if self.create_template.label != 'test':
-            analysis_linker = Linker()
-            analyses = self.analysis_sources(self.project)
-            for analysis in analyses:
-                compiled = self.compile_model(analysis_linker, analysis, models)
-                if compiled:
-                    build_path = analysis.build_path()
-                    self.__write(build_path, compiled)
-                    compiled_analyses.append(compiled)
+            compiled_analyses = self.compile_analyses(linker, enabled_models)
 
-        return written_models, len(compiled_analyses)
+        return len(compiled_models), len(compiled_schema_tests), len(compiled_analyses)

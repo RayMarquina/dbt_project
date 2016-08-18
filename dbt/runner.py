@@ -105,10 +105,6 @@ class Runner:
         self.target_path = target_path
         self.run_mode = run_mode
 
-    def get_target(self):
-        target_cfg = self.project.run_environment()
-        return RedshiftTarget(target_cfg)
-
     def deserialize_graph(self):
         linker = Linker()
         base_target_path = self.project['target-path']

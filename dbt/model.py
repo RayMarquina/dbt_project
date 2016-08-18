@@ -2,7 +2,9 @@
 import os.path
 import yaml
 import jinja2
+import re
 from dbt.templates import BaseCreateTemplate, TestCreateTemplate
+import dbt.schema_tester
 
 class SourceConfig(object):
     Materializations = ['view', 'table', 'incremental', 'ephemeral']
@@ -70,6 +72,7 @@ class SourceConfig(object):
         return self.get_project_config(self.active_project)
 
 class DBTSource(object):
+    dbt_run_type = 'base'
 
     def __init__(self, project, top_dir, rel_filepath, own_project):
         self.project = project
@@ -97,7 +100,8 @@ class DBTSource(object):
             "source_path": self.filepath,
             "name": self.name,
             "tmp_name": self.tmp_name(),
-            "project_name": self.own_project['name']
+            "project_name": self.own_project['name'],
+            "dbt_run_type": self.dbt_run_type
         }
 
         serialized.update(self.config)
@@ -165,6 +169,8 @@ class DBTSource(object):
 
 
 class Model(DBTSource):
+    dbt_run_type = 'model'
+
     def __init__(self, project, model_dir, rel_filepath, own_project, create_template):
         self.prologue = []
         self.create_template = create_template
@@ -265,6 +271,8 @@ class Analysis(Model):
         return "<Analysis {}: {}>".format(self.name, self.filepath)
 
 class TestModel(Model):
+    dbt_run_type = 'dry-model'
+
     def __init__(self, project, target_dir, rel_filepath, own_project, create_template):
         return super(TestModel, self).__init__(project, target_dir, rel_filepath, own_project, create_template)
 
@@ -291,18 +299,140 @@ class TestModel(Model):
     def __repr__(self):
         return "<TestModel {}.{}: {}>".format(self.project['name'], self.name, self.filepath)
 
-class Schema(DBTSource):
+class SchemaTest(DBTSource):
+    test_type = "base"
+    dbt_run_type = 'test'
+
+    def __init__(self, project, target_dir, rel_filepath, name, options):
+        self.schema = project.context()['env']['schema']
+        self.name = name
+        self.options = options
+        self.params = self.get_params(options)
+
+        super(SchemaTest, self).__init__(project, target_dir, rel_filepath, project)
+
+    @property
+    def fqn(self):
+        parts = self.filepath.split("/")
+        name, _ = os.path.splitext(parts[-1])
+        return [self.project['name']] + parts[1:-1] + ['schema',  self.name]
+
+    def get_params(self, options):
+        return {
+            "schema": self.schema,
+            "table": self.name,
+            "field": options
+        }
+
+    def unique_option_key(self):
+        return self.params
+
+    def build_path(self):
+        build_dir = "test"
+        key = re.sub('[^0-9a-zA-Z]+', '_', self.unique_option_key())
+        filename = "validate_{test_type}_{model_name}_{key}.sql".format(test_type=self.test_type, model_name=self.name, key=key)
+        path_parts = [build_dir] + self.fqn[:-1] + [filename]
+        return os.path.join(*path_parts)
+
+    @property
+    def template(self):
+        raise NotImplementedError("not implemented")
+
+    def render(self):
+        return self.template.format(**self.params)
+
+class NotNullSchemaTest(SchemaTest):
+    template = dbt.schema_tester.QUERY_VALIDATE_NOT_NULL
+    test_type = "not_null"
+
+    def unique_option_key(self):
+        return self.params['field']
+
+    def describe(self):
+        return 'VALIDATE NOT NULL {schema}.{table}.{field}'.format(**self.params)
+
+class UniqueSchemaTest(SchemaTest):
+    template = dbt.schema_tester.QUERY_VALIDATE_UNIQUE
+    test_type = "unique"
+
+    def unique_option_key(self):
+        return self.params['field']
+
+    def describe(self):
+        return 'VALIDATE UNIQUE {schema}.{table}.{field}'.format(**self.params)
+
+class ReferentialIntegritySchemaTest(SchemaTest):
+    template = dbt.schema_tester.QUERY_VALIDATE_REFERENTIAL_INTEGRITY
+    test_type = "relationships"
+
+    def get_params(self, options):
+        return {
+            "schema": self.schema,
+            "child_table": self.name,
+            "child_field": options['from'],
+            "parent_table": options['to'],
+            "parent_field": options['field']
+        }
+
+    def unique_option_key(self):
+        return "from_{child_field}_to_{parent_table}_{parent_field}".format(**self.params)
+
+    def describe(self):
+        return 'VALIDATE REFERENTIAL INTEGRITY {schema}.{child_table}.{child_field} to {schema}.{parent_table}.{parent_field}'.format(**self.params)
+
+class AcceptedValuesSchemaTest(SchemaTest):
+    template = dbt.schema_tester.QUERY_VALIDATE_ACCEPTED_VALUES
+    test_type = "accepted_values"
+
+    def get_params(self, options):
+        quoted_values = ["'{}'".format(v) for v in options['values']]
+        quoted_values_csv = ",".join(quoted_values)
+        return {
+            "schema": self.schema,
+            "table" : self.name,
+            "field" : options['field'],
+            "values_csv": quoted_values_csv
+        }
+
+    def unique_option_key(self):
+        return "{field}".format(**self.params)
+
+    def describe(self):
+        return 'VALIDATE ACCEPTED VALUES {schema}.{table}.{field} VALUES ({values_csv})'.format(**self.params)
+
+class SchemaFile(DBTSource):
+    SchemaTestMap = {
+        'not_null': NotNullSchemaTest,
+        'unique': UniqueSchemaTest,
+        'relationships': ReferentialIntegritySchemaTest,
+        'accepted_values': AcceptedValuesSchemaTest
+    }
+
     def __init__(self, project, target_dir, rel_filepath, own_project):
-        super(Schema, self).__init__(project, target_dir, rel_filepath, own_project)
+        super(SchemaFile, self).__init__(project, target_dir, rel_filepath, own_project)
+        self.og_target_dir = target_dir
         self.schema = yaml.safe_load(self.contents)
 
-    def get_model(self, project, model_name):
-        rel_filepath = self.rel_filepath.replace('schema.yml', '{}.sql'.format(model_name))
-        model = Model(project, self.top_dir, rel_filepath, self.own_project, TestCreateTemplate())
-        return model
+    def get_test(self, test_type):
+        if test_type in SchemaFile.SchemaTestMap:
+            return SchemaFile.SchemaTestMap[test_type]
+        else:
+            possible_types = ", ".join(SchemaFile.SchemaTestMap.keys())
+            raise RuntimeError("Invalid validation type given: '{}'. Possible: {}".format(test_type, possible_types))
+
+    def compile(self):
+        schema_tests = []
+        for model_name, constraint_blob in self.schema.items():
+            constraints = constraint_blob.get('constraints', {})
+            for constraint_type, constraint_data in constraints.items():
+                for params in constraint_data:
+                    schema_test_klass = self.get_test(constraint_type)
+                    schema_test = schema_test_klass(self.project, self.og_target_dir, self.rel_filepath, model_name, params)
+                    schema_tests.append(schema_test)
+        return schema_tests
 
     def __repr__(self):
-        return "<Schema {}.{}: {}>".format(self.project['name'], self.name, self.filepath)
+        return "<SchemaFile {}.{}: {}>".format(self.project['name'], self.name, self.filepath)
 
 class Csv(DBTSource):
     def __init__(self, project, target_dir, rel_filepath, own_project):
