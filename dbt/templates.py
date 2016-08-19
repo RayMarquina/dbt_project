@@ -43,12 +43,32 @@ insert into "{schema}"."{identifier}" (
         return "{}\n\n{}".format(opts['prologue'], sql)
 
 class TestCreateTemplate(object):
-    template = """
+    base_template = """
 create view "{schema}"."{identifier}" as (
     SELECT * FROM (
         {query}
     ) as tmp LIMIT 0
 );"""
+
+
+    incremental_template = """
+create temporary table "{identifier}__dbt_incremental_tmp" {dist_qualifier} {sort_qualifier} as (
+    select * from (
+        {query}
+    ) as tmp limit 0
+);
+
+create table if not exists "{schema}"."{identifier}" (like "{identifier}__dbt_incremental_tmp");
+
+insert into "{schema}"."{identifier}" (
+    with dbt_incr_sbq as (
+        {query}
+    )
+    select * from dbt_incr_sbq
+    where ({sql_where}) or ({sql_where}) is null
+    limit 0
+);
+    """
 
     label = "test"
 
@@ -57,6 +77,10 @@ create view "{schema}"."{identifier}" as (
         return 'test_{}'.format(base_name)
 
     def wrap(self, opts):
-        return self.template.format(**opts)
-
+        if opts['materialization'] in ('table', 'view'):
+            return self.base_template.format(**opts)
+        elif opts['materialization'] == 'incremental':
+            return self.incremental_template.format(**opts)
+        else:
+            raise RuntimeError("Invalid materialization parameter ({})".format(opts['materialization']))
 

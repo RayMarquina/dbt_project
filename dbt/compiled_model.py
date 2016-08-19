@@ -84,16 +84,6 @@ class CompiledTest(CompiledModel):
     def __repr__(self):
         return "<CompiledModel {}.{}: {}>".format(self.data['project_name'], self.name, self.data['build_path'])
 
-class CompiledTest(CompiledModel):
-    def __init__(self, fqn, data):
-        super(CompiledTest, self).__init__(fqn, data)
-
-    def should_rename(self):
-        return False
-
-    def should_execute(self):
-        return True
-
 def make_compiled_model(fqn, data):
     run_type = data['dbt_run_type']
 

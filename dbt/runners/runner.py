@@ -128,7 +128,8 @@ class DryRunner(ModelRunner):
             model = result.model
             schema_name = model.target.schema
 
-            schema.drop(schema_name, 'view', model.name)
+            relation_type = 'table' if model.materialization == 'incremental' else 'view'
+            schema.drop(schema_name, relation_type, model.name)
 
 class TestRunner(ModelRunner):
     def pre_run_msg(self, model):
@@ -202,7 +203,9 @@ class RunManager(object):
         self.logger.info("executing model %s", model)
         return runner.execute(self.schema, self.target, model)
 
-    def safe_execute_model(self, runner, model):
+    def safe_execute_model(self, data):
+        runner, model = data['runner'], data['model']
+
         error = None
         try:
             status = self.execute_model(runner, model)
@@ -272,9 +275,9 @@ class RunManager(object):
                 output = msg.ljust(80, ".")
                 print("{} [Running]".format(output))
 
-            # TODO
-            #run_model_results = pool.map(self.safe_execute_model, models_to_execute)
-            run_model_results = [self.safe_execute_model(runner, model) for model in models_to_execute]
+            wrapped_models_to_execute = [{"runner": runner, "model": model} for model in models_to_execute]
+            run_model_results = pool.map(self.safe_execute_model, wrapped_models_to_execute)
+            #run_model_results = [self.safe_execute_model(runner, model) for model in models_to_execute]
 
             for run_model_result in run_model_results:
                 model_results.append(run_model_result)
