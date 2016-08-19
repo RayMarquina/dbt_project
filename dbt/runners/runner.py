@@ -122,6 +122,7 @@ class DryRunner(ModelRunner):
         return "Finished dry-running {} models".format(len(results))
 
     def post_run_all(self, schema, results):
+        count_dropped = 0
         for result in results:
             if result.errored or result.skipped:
                 continue
@@ -130,6 +131,8 @@ class DryRunner(ModelRunner):
 
             relation_type = 'table' if model.materialization == 'incremental' else 'view'
             schema.drop(schema_name, relation_type, model.name)
+            count_dropped += 1
+        print("Dropped {} dry-run models".format(count_dropped))
 
 class TestRunner(ModelRunner):
     def pre_run_msg(self, model):
@@ -243,6 +246,12 @@ class RunManager(object):
                 model_to_skip.do_skip()
         return skip_dependent
 
+    def print_fancy_output_line(self, message, status, index, total):
+        prefix = "{index} of {total} {message}".format(index=index, total=total, message=message)
+        justified = prefix.ljust(80, ".")
+        output = "{justified} [{status}]".format(justified=justified, status=status)
+        print(output)
+
     def execute_models(self, runner, model_dependency_list, on_failure):
         flat_models = list(itertools.chain.from_iterable(model_dependency_list))
 
@@ -260,33 +269,34 @@ class RunManager(object):
         print(runner.pre_run_all_msg(flat_models))
         runner.pre_run_all(flat_models)
 
+        fqn_to_id_map = {model.fqn: i + 1 for (i, model) in enumerate(flat_models)}
+
+        def get_idx(model):
+            return fqn_to_id_map[model.fqn]
+
         model_results = []
         for model_list in model_dependency_list:
             for i, model in enumerate([model for model in model_list if model.should_skip()]):
-                output = runner.skip_msg(model).ljust(80, ".")
-                print("{} [SKIP]".format(output))
-                model_result = RunModelResult(model, skip=True)
                 model_results.append(model_result)
+                msg = runner.skip_msg(model)
+                self.print_fancy_output_line(msg, 'SKIP', get_idx(model), num_models)
+                model_result = RunModelResult(model, skip=True)
 
             models_to_execute = [model for model in model_list if not model.should_skip()]
 
             for i, model in enumerate(models_to_execute):
                 msg = runner.pre_run_msg(model)
-                output = msg.ljust(80, ".")
-                print("{} [Running]".format(output))
+                self.print_fancy_output_line(msg, 'RUN', get_idx(model), num_models)
 
             wrapped_models_to_execute = [{"runner": runner, "model": model} for model in models_to_execute]
             run_model_results = pool.map(self.safe_execute_model, wrapped_models_to_execute)
-            #run_model_results = [self.safe_execute_model(runner, model) for model in models_to_execute]
 
-            for run_model_result in run_model_results:
+            for i, run_model_result in enumerate(run_model_results):
                 model_results.append(run_model_result)
 
                 msg = runner.post_run_msg(run_model_result)
                 status = runner.status(run_model_result)
-                output = msg.ljust(80, ".")
-
-                print("{} [{}]".format(output, status))
+                self.print_fancy_output_line(msg, status, get_idx(run_model_result.model), num_models)
 
                 if run_model_result.errored:
                     on_failure(run_model_result.model)
@@ -295,6 +305,7 @@ class RunManager(object):
         pool.close()
         pool.join()
 
+        print()
         print(runner.post_run_all_msg(model_results))
         runner.post_run_all(self.schema, model_results)
 
