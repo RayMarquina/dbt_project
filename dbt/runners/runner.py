@@ -216,9 +216,9 @@ class RunManager(object):
 
         return RunModelResult(model, error=error, status=status)
 
-    def as_concurrent_dep_list(self, linker, models, existing, target):
+    def as_concurrent_dep_list(self, linker, models, existing, target, limit_to):
         model_dependency_list = []
-        dependency_list = linker.as_dependency_list()
+        dependency_list = linker.as_dependency_list(limit_to)
         for node_list in dependency_list:
             level = []
             for fqn in node_list:
@@ -297,7 +297,7 @@ class RunManager(object):
 
         return model_results
 
-    def run(self, run_mode, specified_models=None):
+    def run(self, run_mode, limit_to=None):
         linker = self.deserialize_graph()
 
         if run_mode == 'test':
@@ -308,9 +308,6 @@ class RunManager(object):
             runner = DryRunner()
         else:
             raise RuntimeError('invalid run_mode provided: {}'.format(run_mode))
-
-        if specified_models is not None:
-            raise NotImplementedError("TODO")
 
         compiled_models = [make_compiled_model(fqn, linker.get_node(fqn)) for fqn in linker.nodes()]
         relevant_compiled_models = [m for m in compiled_models if m.data['dbt_run_type'] == run_mode]
@@ -326,7 +323,11 @@ class RunManager(object):
 
         existing = self.schema.query_for_existing(schema_name);
 
-        model_dependency_list = self.as_concurrent_dep_list(linker, relevant_compiled_models, existing, self.target)
+        if limit_to is None:
+            specified_models = None
+        else:
+            specified_models = [find_model_by_name(relevant_compiled_models, name).fqn for name in limit_to]
+        model_dependency_list = self.as_concurrent_dep_list(linker, relevant_compiled_models, existing, self.target, specified_models)
 
         on_failure = self.on_model_failure(linker, relevant_compiled_models)
         return self.execute_models(runner, model_dependency_list, on_failure)
