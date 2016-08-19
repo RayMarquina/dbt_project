@@ -175,8 +175,10 @@ class Compiler(object):
         sorted_nodes = linker.as_topological_ordering()
         required_ctes = []
         for node in sorted_nodes:
+
             if node not in fqn_to_model:
-                continue # HACK -- TODO
+                continue
+
             model = fqn_to_model[node]
             if model.is_ephemeral and model in linker.cte_map[primary_model]:
                 required_ctes.append(model)

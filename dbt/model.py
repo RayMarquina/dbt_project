@@ -303,9 +303,9 @@ class SchemaTest(DBTSource):
     test_type = "base"
     dbt_run_type = 'test'
 
-    def __init__(self, project, target_dir, rel_filepath, name, options):
+    def __init__(self, project, target_dir, rel_filepath, model_name, options):
         self.schema = project.context()['env']['schema']
-        self.name = name
+        self.model_name = model_name
         self.options = options
         self.params = self.get_params(options)
 
@@ -320,7 +320,7 @@ class SchemaTest(DBTSource):
     def get_params(self, options):
         return {
             "schema": self.schema,
-            "table": self.name,
+            "table": self.model_name,
             "field": options
         }
 
@@ -329,7 +329,7 @@ class SchemaTest(DBTSource):
 
     def get_filename(self):
         key = re.sub('[^0-9a-zA-Z]+', '_', self.unique_option_key())
-        filename = "validate_{test_type}_{model_name}_{key}".format(test_type=self.test_type, model_name=self.name, key=key)
+        filename = "{test_type}_{model_name}_{key}".format(test_type=self.test_type, model_name=self.model_name, key=key)
         return filename
 
     def build_path(self):
@@ -372,14 +372,14 @@ class ReferentialIntegritySchemaTest(SchemaTest):
     def get_params(self, options):
         return {
             "schema": self.schema,
-            "child_table": self.name,
+            "child_table": self.model_name,
             "child_field": options['from'],
             "parent_table": options['to'],
             "parent_field": options['field']
         }
 
     def unique_option_key(self):
-        return "from_{child_field}_to_{parent_table}_{parent_field}".format(**self.params)
+        return "{child_field}_to_{parent_table}_{parent_field}".format(**self.params)
 
     def describe(self):
         return 'VALIDATE REFERENTIAL INTEGRITY {schema}.{child_table}.{child_field} to {schema}.{parent_table}.{parent_field}'.format(**self.params)
@@ -393,7 +393,7 @@ class AcceptedValuesSchemaTest(SchemaTest):
         quoted_values_csv = ",".join(quoted_values)
         return {
             "schema": self.schema,
-            "table" : self.name,
+            "table" : self.model_name,
             "field" : options['field'],
             "values_csv": quoted_values_csv
         }
@@ -436,11 +436,11 @@ class SchemaFile(DBTSource):
         return schema_tests
 
     def __repr__(self):
-        return "<SchemaFile {}.{}: {}>".format(self.project['name'], self.name, self.filepath)
+        return "<SchemaFile {}.{}: {}>".format(self.project['name'], self.model_name, self.filepath)
 
 class Csv(DBTSource):
     def __init__(self, project, target_dir, rel_filepath, own_project):
         super(Csv, self).__init__(project, target_dir, rel_filepath, own_project)
 
     def __repr__(self):
-        return "<Csv {}.{}: {}>".format(self.project['name'], self.name, self.filepath)
+        return "<Csv {}.{}: {}>".format(self.project['name'], self.model_name, self.filepath)

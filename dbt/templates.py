@@ -77,10 +77,14 @@ insert into "{schema}"."{identifier}" (
         return 'test_{}'.format(base_name)
 
     def wrap(self, opts):
+        sql = ""
         if opts['materialization'] in ('table', 'view'):
-            return self.base_template.format(**opts)
+            sql = self.base_template.format(**opts)
         elif opts['materialization'] == 'incremental':
-            return self.incremental_template.format(**opts)
+            sql = self.incremental_template.format(**opts)
+        elif opts['materialization'] == 'ephemeral':
+            sql = opts['query']
         else:
             raise RuntimeError("Invalid materialization parameter ({})".format(opts['materialization']))
 
+        return "{}\n\n{}".format(opts['prologue'], sql)
