@@ -38,7 +38,7 @@ class BaseRunner(object):
         raise NotImplementedError("not implemented")
 
     def skip_msg(self, model):
-        return "SKIP relation {}.{} because parent failed".format(model.target.schema, model.name)
+        return "SKIP relation {}.{}".format(model.target.schema, model.name)
 
     def post_run_msg(self, result):
         raise NotImplementedError("not implemented")
@@ -212,9 +212,10 @@ class RunManager(object):
         error = None
         try:
             status = self.execute_model(runner, model)
-        except (RuntimeError, psycopg2.ProgrammingError) as e:
+        except (RuntimeError, psycopg2.ProgrammingError, psycopg2.InternalError) as e:
             error = "Error executing {filepath}\n{error}".format(filepath=model['build_path'], error=str(e).strip())
             status = "ERROR"
+            self.logger.exception(error)
         except Exception as e:
             error = "Unhandled error while executing {filepath}\n{error}".format(filepath=model['build_path'], error=str(e).strip())
             self.logger.exception(error)
@@ -266,6 +267,7 @@ class RunManager(object):
 
         pool = ThreadPool(num_threads)
 
+        print()
         print(runner.pre_run_all_msg(flat_models))
         runner.pre_run_all(flat_models)
 
@@ -277,10 +279,10 @@ class RunManager(object):
         model_results = []
         for model_list in model_dependency_list:
             for i, model in enumerate([model for model in model_list if model.should_skip()]):
-                model_results.append(model_result)
                 msg = runner.skip_msg(model)
                 self.print_fancy_output_line(msg, 'SKIP', get_idx(model), num_models)
                 model_result = RunModelResult(model, skip=True)
+                model_results.append(model_result)
 
             models_to_execute = [model for model in model_list if not model.should_skip()]
 
