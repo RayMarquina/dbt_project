@@ -26,8 +26,6 @@ class Compiler(object):
         return RedshiftTarget(target_cfg)
 
     def model_sources(self, this_project, own_project=None):
-        "source_key is a dbt config key like source-paths or analysis-paths"
-
         if own_project is None:
             own_project = this_project
 
@@ -44,7 +42,6 @@ class Compiler(object):
         return Source(self.project).get_schemas(source_paths)
 
     def analysis_sources(self, project):
-        "source_key is a dbt config key like source-paths or analysis-paths"
         paths = project.get('analysis-paths', [])
         return Source(project).get_analyses(paths)
 
@@ -147,7 +144,6 @@ class Compiler(object):
             raise RuntimeError("unexpectedly parsed {} queries from model {}".format(len(parsed_stmts), model))
         parsed = parsed_stmts[0]
 
-        # TODO : i think there's a function to get this w/o iterating?
         with_stmt = None
         for token in parsed.tokens:
             if token.is_keyword and token.normalized == 'WITH':
@@ -179,6 +175,8 @@ class Compiler(object):
         sorted_nodes = linker.as_topological_ordering()
         required_ctes = []
         for node in sorted_nodes:
+            if node not in fqn_to_model:
+                continue # HACK -- TODO
             model = fqn_to_model[node]
             if model.is_ephemeral and model in linker.cte_map[primary_model]:
                 required_ctes.append(model)
@@ -190,13 +188,12 @@ class Compiler(object):
             compiled_query = self.combine_query_with_ctes(primary_model, query, required_ctes, compiled_models)
             return compiled_query
 
-    def compile_models(self, linker, models, limit_to):
+    def compile_models(self, linker, models):
         compiled_models = {model: self.compile_model(linker, model, models) for model in models}
-        limited_models = [find_model_by_fqn(models, fqn) for fqn in linker.as_topological_ordering(limit_to)]
+        sorted_models = [find_model_by_fqn(models, fqn) for fqn in linker.as_topological_ordering()]
 
         written_models = []
-        for model in limited_models:
-            query = compiled_models[model]
+        for model in sorted_models:
             injected_stmt = self.add_cte_to_rendered_query(linker, model, compiled_models)
             wrapped_stmt = model.compile(injected_stmt, self.project, self.create_template)
 
@@ -209,18 +206,23 @@ class Compiler(object):
             self.__write(model.build_path(), wrapped_stmt)
             written_models.append(model)
 
-        return written_models
+        return compiled_models, written_models
 
-    def compile_analyses(self, linker, models):
-        compiled_analyses = []
+    def compile_analyses(self, linker, compiled_models):
         analyses = self.analysis_sources(self.project)
-        for analysis in analyses:
-            compiled = self.compile_model(linker, analysis, models)
-            build_path = analysis.build_path()
-            self.__write(build_path, compiled)
-            compiled_analyses.append(compiled)
+        compiled_analyses = {analysis: self.compile_model(linker, analysis, compiled_models) for analysis in analyses}
 
-        return compiled_analyses
+        written_analyses = []
+        referenceable_models = {}
+        referenceable_models.update(compiled_models)
+        referenceable_models.update(compiled_analyses)
+        for analysis in analyses:
+            injected_stmt = self.add_cte_to_rendered_query(linker, analysis, referenceable_models)
+            build_path = analysis.build_path()
+            self.__write(build_path, injected_stmt)
+            written_analyses.append(analysis)
+
+        return written_analyses
 
     def compile_schema_tests(self, linker):
         target_cfg = self.project.run_environment()
@@ -242,21 +244,7 @@ class Compiler(object):
 
         return written_tests
 
-    def get_limited_models(self, specified_models, models):
-        if specified_models is None:
-            return None
-
-        limit_to = []
-        for model_name in specified_models:
-            try:
-                model = find_model_by_name(models, model_name)
-                limit_to.append(tuple(model.fqn))
-            except RuntimeError as e:
-                raise e
-
-        return limit_to
-
-    def compile(self, dry=False, specified_models=None):
+    def compile(self, dry=False):
         linker = Linker()
 
         all_models = self.model_sources(this_project=self.project)
@@ -265,19 +253,18 @@ class Compiler(object):
             all_models.extend(self.model_sources(this_project=self.project, own_project=project))
 
         enabled_models = [model for model in all_models if model.is_enabled]
-        limit_to = self.get_limited_models(specified_models, enabled_models)
 
-        compiled_models = self.compile_models(linker, enabled_models, limit_to)
+        compiled_models, written_models = self.compile_models(linker, enabled_models)
 
         # TODO : only compile schema tests for enabled models
-        compiled_schema_tests = self.compile_schema_tests(linker)
+        written_schema_tests = self.compile_schema_tests(linker)
 
-        # TODO
-        #self.validate_models_unique(compiled_models)
+        self.validate_models_unique(compiled_models)
         self.write_graph_file(linker)
 
-        compiled_analyses = []
         if self.create_template.label != 'test':
-            compiled_analyses = self.compile_analyses(linker, enabled_models)
+            written_analyses = self.compile_analyses(linker, compiled_models)
+        else:
+            written_analyses = []
 
-        return len(compiled_models), len(compiled_schema_tests), len(compiled_analyses)
+        return len(written_models), len(written_schema_tests), len(written_analyses)
