@@ -13,7 +13,7 @@ class Linker(object):
         return self.graph.nodes()
 
     def run_type(self):
-        return self.graph.graph['run_type']
+        return self.graph.graph['dbt_run_type']
 
     def get_node(self, node):
         return self.graph.node[node]

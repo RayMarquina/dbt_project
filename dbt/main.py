@@ -42,6 +42,7 @@ def handle(args):
     sub.set_defaults(cls=clean_task.CleanTask, which='clean')
 
     sub = subs.add_parser('compile', parents=[base_subparser])
+    sub.add_argument('--dry', action='store_true', help="Compile 'dry run' models")
     sub.set_defaults(cls=compile_task.CompileTask, which='compile')
 
     sub = subs.add_parser('debug', parents=[base_subparser])
@@ -51,6 +52,7 @@ def handle(args):
     sub.set_defaults(cls=deps_task.DepsTask, which='deps')
 
     sub = subs.add_parser('run', parents=[base_subparser])
+    sub.add_argument('--dry', action='store_true', help="'dry run' models")
     sub.add_argument('--models', required=False, nargs='+', help="Specify the models to run. All models depending on these models will also be run")
     sub.set_defaults(cls=run_task.RunTask, which='run')
 

@@ -1,6 +1,6 @@
 
 from dbt.compilation import Compiler
-from dbt.templates import BaseCreateTemplate
+from dbt.templates import BaseCreateTemplate, TestCreateTemplate
 
 
 class CompileTask:
@@ -9,8 +9,13 @@ class CompileTask:
         self.project = project
 
     def run(self):
-        compiler = Compiler(self.project, BaseCreateTemplate)
+        if self.args.dry:
+            create_template = TestCreateTemplate
+        else:
+            create_template = BaseCreateTemplate
+
+        compiler = Compiler(self.project, create_template)
         compiler.initialize()
-        created_models, created_tests, created_analyses = compiler.compile()
+        created_models, created_tests, created_analyses = compiler.compile(dry=self.args.dry)
 
         print("Compiled {} models, {} tests and {} analyses".format(created_models, created_tests, created_analyses))

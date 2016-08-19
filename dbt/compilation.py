@@ -256,10 +256,8 @@ class Compiler(object):
 
         return limit_to
 
-    def compile(self, specified_models=None):
-        # TODO
-        compilation_type = 'run'
-        linker = Linker({"compilation_type": compilation_type})
+    def compile(self, dry=False, specified_models=None):
+        linker = Linker()
 
         all_models = self.model_sources(this_project=self.project)
 

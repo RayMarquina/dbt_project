@@ -169,7 +169,7 @@ class DBTSource(object):
 
 
 class Model(DBTSource):
-    dbt_run_type = 'model'
+    dbt_run_type = 'run'
 
     def __init__(self, project, model_dir, rel_filepath, own_project, create_template):
         self.prologue = []
@@ -271,7 +271,7 @@ class Analysis(Model):
         return "<Analysis {}: {}>".format(self.name, self.filepath)
 
 class TestModel(Model):
-    dbt_run_type = 'dry-model'
+    dbt_run_type = 'dry-run'
 
     def __init__(self, project, target_dir, rel_filepath, own_project, create_template):
         return super(TestModel, self).__init__(project, target_dir, rel_filepath, own_project, create_template)

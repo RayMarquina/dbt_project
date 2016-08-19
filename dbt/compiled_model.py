@@ -97,11 +97,11 @@ class CompiledTest(CompiledModel):
 def make_compiled_model(fqn, data):
     run_type = data['dbt_run_type']
 
-    if run_type == 'model':
+    if run_type in ['run', 'dry-run']:
         return CompiledModel(fqn, data)
-    elif run_type == 'dry-model':
-        raise NotImplementedError("dry-models not implemente yet")
     elif run_type == 'test':
         return CompiledTest(fqn, data)
+    else:
+        raise RuntimeError("invalid run_type given: {}".format(run_type))
 
 

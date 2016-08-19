@@ -49,7 +49,7 @@ class BaseRunner(object):
     def post_run_all_msg(self, results):
         raise NotImplementedError("not implemented")
 
-    def post_run_all(self, results):
+    def post_run_all(self, schema, results):
         pass
 
     def pre_run_all(self, models):
@@ -105,26 +105,56 @@ class ModelRunner(BaseRunner):
 
         return status
 
-class DryRunner(object):
-    pass
+class DryRunner(ModelRunner):
+    def pre_run_msg(self, model):
+        output = "DRY-RUN model {schema}.{model_name} ".format(schema=model.target.schema, model_name=model.name)
+        return output
+
+    def post_run_msg(self, result):
+        model = result.model
+        output = "DONE model {schema}.{model_name} ".format(schema=model.target.schema, model_name=model.name)
+        return output
+
+    def pre_run_all_msg(self, models):
+        return "Dry-running {} models".format(len(models))
+
+    def post_run_all_msg(self, results):
+        return "Finished dry-running {} models".format(len(results))
+
+    def post_run_all(self, schema, results):
+        for result in results:
+            if result.errored or result.skipped:
+                continue
+            model = result.model
+            schema_name = model.target.schema
+
+            schema.drop(schema_name, 'view', model.name)
 
 class TestRunner(ModelRunner):
     def pre_run_msg(self, model):
-        output = "TEST {name} ".format(name=model.name)
-        return output
+        return "TEST {name} ".format(name=model.name)
 
     def post_run_msg(self, result):
         model = result.model
         info = self.status(result)
 
-        output = "{info} {name} ".format(info=info, name=model.name)
-        return output
+        return "{info} {name} ".format(info=info, name=model.name)
 
     def pre_run_all_msg(self, models):
         return "Running {} tests".format(len(models))
 
     def post_run_all_msg(self, results):
-        return "Finished running {} tests".format(len(results))
+        total = len(results)
+        passed  = len([result for result in results if not result.errored and not result.skipped])
+        errored = len([result for result in results if result.errored])
+        skipped = len([result for result in results if result.skipped])
+        overview = "PASS={passed} ERROR={errored} SKIP={skipped} TOTAL={total}".format(total=total, passed=passed, errored=errored, skipped=skipped)
+        if errored > 0:
+            final = "Tests completed with errors"
+        else:
+            final = "All tests passed"
+
+        return "\n{overview}\n{final}".format(overview=overview, final=final)
 
     def status(self, result):
         if result.errored:
@@ -132,7 +162,7 @@ class TestRunner(ModelRunner):
         elif result.status > 0:
             info = 'FAIL {}'.format(result.status)
         elif result.status == 0:
-            info = 'OK'
+            info = 'PASS'
         else:
             raise RuntimeError("unexpected status: {}".format(result.status))
 
@@ -192,7 +222,10 @@ class RunManager(object):
         for node_list in dependency_list:
             level = []
             for fqn in node_list:
-                model = find_model_by_fqn(models, fqn)
+                try:
+                    model = find_model_by_fqn(models, fqn)
+                except RuntimeError as e:
+                    continue
                 if model.should_execute():
                     model.prepare(existing, target)
                     level.append(model)
@@ -260,17 +293,27 @@ class RunManager(object):
         pool.join()
 
         print(runner.post_run_all_msg(model_results))
-        runner.post_run_all(model_results)
+        runner.post_run_all(self.schema, model_results)
 
         return model_results
 
-    def run(self, specified_models=None):
+    def run(self, run_mode, specified_models=None):
         linker = self.deserialize_graph()
+
+        if run_mode == 'test':
+            runner = TestRunner()
+        elif run_mode == 'run':
+            runner = ModelRunner()
+        elif run_mode == 'dry-run':
+            runner = DryRunner()
+        else:
+            raise RuntimeError('invalid run_mode provided: {}'.format(run_mode))
 
         if specified_models is not None:
             raise NotImplementedError("TODO")
 
         compiled_models = [make_compiled_model(fqn, linker.get_node(fqn)) for fqn in linker.nodes()]
+        relevant_compiled_models = [m for m in compiled_models if m.data['dbt_run_type'] == run_mode]
 
         schema_name = self.target.schema
 
@@ -283,10 +326,7 @@ class RunManager(object):
 
         existing = self.schema.query_for_existing(schema_name);
 
-        model_dependency_list = self.as_concurrent_dep_list(linker, compiled_models, existing, self.target)
+        model_dependency_list = self.as_concurrent_dep_list(linker, relevant_compiled_models, existing, self.target)
 
-        runner = TestRunner()
-        #runner = ModelRunner()
-
-        on_failure = self.on_model_failure(linker, compiled_models)
+        on_failure = self.on_model_failure(linker, relevant_compiled_models)
         return self.execute_models(runner, model_dependency_list, on_failure)
