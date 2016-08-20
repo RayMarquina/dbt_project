@@ -25,21 +25,15 @@ class Schema(object):
 
     def get_schemas(self):
         existing = []
-        with self.target.get_handle() as handle:
-            with handle.cursor() as cursor:
-                cursor.execute('select nspname from pg_catalog.pg_namespace')
-
-                existing = [name for (name,) in cursor.fetchall()]
-        return existing
+        results = self.execute_and_fetch('select nspname from pg_catalog.pg_namespace')
+        return [name for (name,) in results]
 
     def create_schema(self, schema_name):
         target_cfg = self.project.run_environment()
         user = target_cfg['user']
 
         try:
-            with self.target.get_handle() as handle:
-                with handle.cursor() as cursor:
-                    cursor.execute('create schema if not exists "{}"'.format(schema_name))
+            self.execute('create schema if not exists "{}"'.format(schema_name))
         except psycopg2.ProgrammingError as e:
             if "permission denied for" in e.diag.message_primary:
                 raise RuntimeError(SCHEMA_PERMISSION_DENIED_MESSAGE.format(schema=schema_name, user=user))
@@ -53,10 +47,8 @@ class Schema(object):
             select viewname as name, 'view' as type from pg_views where schemaname = '{schema}' """.format(schema=schema)
 
 
-        with self.target.get_handle() as handle:
-            with handle.cursor() as cursor:
-                cursor.execute(sql)
-                existing = [(name, relation_type) for (name, relation_type) in cursor.fetchall()]
+        results = self.execute_and_fetch(sql)
+        existing = [(name, relation_type) for (name, relation_type) in results]
 
         return dict(existing)
 
@@ -68,10 +60,12 @@ class Schema(object):
                     pre = time.time()
                     cursor.execute(sql)
                     post = time.time()
-                    self.logger.debug("SQL status: %s in %d seconds", cursor.statusmessage, post-pre)
+                    self.logger.debug("SQL status: %s in %0.2f seconds", cursor.statusmessage, post-pre)
                     return cursor.statusmessage
                 except Exception as e:
+                    self.target.rollback()
                     self.logger.exception("Error running SQL: %s", sql)
+                    self.logger.debug("rolling back connection")
                     raise e
 
     def execute_and_fetch(self, sql):
@@ -82,10 +76,14 @@ class Schema(object):
                     pre = time.time()
                     cursor.execute(sql)
                     post = time.time()
-                    self.logger.debug("SQL status: %s in %d seconds", cursor.statusmessage, post-pre)
-                    return cursor.fetchall()
+                    self.logger.debug("SQL status: %s in %0.2f seconds", cursor.statusmessage, post-pre)
+                    data = cursor.fetchall()
+                    self.logger.debug("SQL response: %s", data)
+                    return data
                 except Exception as e:
+                    self.target.rollback()
                     self.logger.exception("Error running SQL: %s", sql)
+                    self.logger.debug("rolling back connection")
                     raise e
 
     def execute_and_handle_permissions(self, query, model_name):

@@ -48,3 +48,7 @@ class RedshiftTarget:
         if self.handle is None:
             self.handle = psycopg2.connect(self.__get_spec())
         return self.handle
+
+    def rollback(self):
+        if self.handle is not None:
+            self.handle.rollback()

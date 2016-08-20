@@ -18,6 +18,8 @@ import dbt.schema
 
 from multiprocessing.dummy import Pool as ThreadPool
 
+ABORTED_TRANSACTION_STRING = "current transaction is aborted, commands ignored until end of transaction block"
+
 class RunModelResult(object):
     def __init__(self, model, error=None, skip=False, status=None):
         self.model = model
@@ -226,6 +228,8 @@ class RunManager(object):
             error = "Error executing {filepath}\n{error}".format(filepath=model['build_path'], error=str(e).strip())
             status = "ERROR"
             self.logger.exception(error)
+            if type(e) == psycopg2.InternalError and ABORTED_TRANSACTION_STRING == e.diag.message_primary:
+                return RunModelResult(model, error="An error occurred in a concurrently running model", status="SKIP")
         except Exception as e:
             error = "Unhandled error while executing {filepath}\n{error}".format(filepath=model['build_path'], error=str(e).strip())
             self.logger.exception(error)
