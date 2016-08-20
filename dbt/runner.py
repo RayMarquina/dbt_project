@@ -330,12 +330,15 @@ class RunManager(object):
         return model_results
 
     def run_from_graph(self, runner, limit_to):
+        print("Loading dependency graph file")
         linker = self.deserialize_graph()
         compiled_models = [make_compiled_model(fqn, linker.get_node(fqn)) for fqn in linker.nodes()]
         relevant_compiled_models = [m for m in compiled_models if m.is_type(runner.run_type)]
 
         schema_name = self.target.schema
 
+
+        print("Connecting to redshift")
         try:
             self.schema.create_schema_if_not_exists(schema_name)
         except psycopg2.OperationalError as e:
