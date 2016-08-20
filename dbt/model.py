@@ -345,6 +345,10 @@ class SchemaTest(DBTSource):
     def render(self):
         return self.template.format(**self.params)
 
+    def __repr__(self):
+        class_name = self.__class__.__name__
+        return "<{} {}.{}: {}>".format(class_name, self.project['name'], self.name, self.filepath)
+
 class NotNullSchemaTest(SchemaTest):
     template = dbt.schema_tester.QUERY_VALIDATE_NOT_NULL
     test_type = "not_null"

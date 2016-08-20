@@ -262,6 +262,7 @@ class Compiler(object):
         written_schema_tests = self.compile_schema_tests(linker)
 
         self.validate_models_unique(compiled_models)
+        self.validate_models_unique(written_schema_tests)
         self.write_graph_file(linker)
 
         if self.create_template.label != 'test':
