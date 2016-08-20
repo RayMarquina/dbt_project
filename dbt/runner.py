@@ -207,6 +207,7 @@ class RunManager(object):
 
         if self.target.should_open_tunnel():
             print("Opening ssh tunnel to host {}... ".format(self.target.ssh_host), end="")
+            sys.stdout.flush()
             self.target.open_tunnel_if_needed()
             print("Connected")
 
@@ -385,6 +386,7 @@ class RunManager(object):
         finally:
             if self.target.should_open_tunnel():
                 print("Closing SSH tunnel... ", end="")
+                sys.stdout.flush()
                 self.target.cleanup()
                 print("Done")
 

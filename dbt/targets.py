@@ -41,6 +41,8 @@ class RedshiftTarget:
         host = config.get('hostname')
         port = int(config.get('port', '22'))
         user = config.get('user')
+        timeout = config.get('connecttimeout', 10)
+        timeout = float(timeout)
 
         if host is None:
             raise RuntimeError("Invalid ssh config for Hostname {} -- missing 'hostname' field".format(self.ssh_host))
@@ -48,7 +50,7 @@ class RedshiftTarget:
             raise RuntimeError("Invalid ssh config for Hostname {} -- missing 'user' field".format(self.ssh_host))
 
         # modules are only imported once -- this singleton makes sure we don't try to bind to the host twice (and lock)
-        server = dbt.ssh_forward.get_or_create_tunnel(host, port, user, self.host, self.port)
+        server = dbt.ssh_forward.get_or_create_tunnel(host, port, user, self.host, self.port, timeout)
 
         # rebind the pg host and port
         self.host = 'localhost'
