@@ -42,7 +42,7 @@ insert into "{schema}"."{identifier}" (
 
         return "{}\n\n{}".format(opts['prologue'], sql)
 
-class TestCreateTemplate(object):
+class DryCreateTemplate(object):
     base_template = """
 create view "{schema}"."{identifier}" as (
     SELECT * FROM (

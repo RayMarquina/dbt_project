@@ -59,6 +59,7 @@ class BaseRunner(object):
         raise NotImplementedError("not implemented")
 
 class ModelRunner(BaseRunner):
+    run_type = 'run'
     def pre_run_msg(self, model):
         print_vars = {
             "schema": model.target.schema,
@@ -106,6 +107,8 @@ class ModelRunner(BaseRunner):
         return status
 
 class DryRunner(ModelRunner):
+    run_type = 'dry-run'
+
     def pre_run_msg(self, model):
         output = "DRY-RUN model {schema}.{model_name} ".format(schema=model.target.schema, model_name=model.name)
         return output
@@ -135,6 +138,8 @@ class DryRunner(ModelRunner):
         print("Dropped {} dry-run models".format(count_dropped))
 
 class TestRunner(ModelRunner):
+    run_type = 'test'
+
     def pre_run_msg(self, model):
         return "TEST {name} ".format(name=model.name)
 
@@ -153,8 +158,12 @@ class TestRunner(ModelRunner):
         failed  = len([result for result in results if not result.errored and not result.skipped and result.status > 0])
         errored = len([result for result in results if result.errored])
         skipped = len([result for result in results if result.skipped])
-        overview = "PASS={passed} FAIL={failed} ERROR={errored} SKIP={skipped} TOTAL={total}".format(total=total, passed=passed, failed=failed, errored=errored, skipped=skipped)
-        if errored > 0:
+
+        total_errors = failed + errored
+
+        overview = "PASS={passed} FAIL={total_errors} SKIP={skipped} TOTAL={total}".format(total=total, passed=passed, total_errors=total_errors, skipped=skipped)
+
+        if total_errors > 0:
             final = "Tests completed with errors"
         else:
             final = "All tests passed"
@@ -185,11 +194,11 @@ class TestRunner(ModelRunner):
         return row[0]
 
 class RunManager(object):
-    def __init__(self, project, target_path, run_mode):
+    def __init__(self, project, target_path, graph_type):
         self.logger = logging.getLogger(__name__)
         self.project = project
         self.target_path = target_path
-        self.run_mode = run_mode
+        self.graph_type = graph_type
 
         self.target = RedshiftTarget(self.project.run_environment())
         self.schema = dbt.schema.Schema(self.project, self.target)
@@ -197,7 +206,7 @@ class RunManager(object):
     def deserialize_graph(self):
         linker = Linker()
         base_target_path = self.project['target-path']
-        filename = 'graph-{}.yml'.format(self.run_mode)
+        filename = 'graph-{}.yml'.format(self.graph_type)
         graph_file = os.path.join(base_target_path, filename)
         linker.read_graph(graph_file)
 
@@ -314,20 +323,10 @@ class RunManager(object):
 
         return model_results
 
-    def run(self, run_mode, limit_to=None):
+    def run_from_graph(self, runner, limit_to):
         linker = self.deserialize_graph()
-
-        if run_mode == 'test':
-            runner = TestRunner()
-        elif run_mode == 'run':
-            runner = ModelRunner()
-        elif run_mode == 'dry-run':
-            runner = DryRunner()
-        else:
-            raise RuntimeError('invalid run_mode provided: {}'.format(run_mode))
-
         compiled_models = [make_compiled_model(fqn, linker.get_node(fqn)) for fqn in linker.nodes()]
-        relevant_compiled_models = [m for m in compiled_models if m.data['dbt_run_type'] == run_mode]
+        relevant_compiled_models = [m for m in compiled_models if m.is_type(runner.run_type)]
 
         schema_name = self.target.schema
 
@@ -348,3 +347,18 @@ class RunManager(object):
 
         on_failure = self.on_model_failure(linker, relevant_compiled_models)
         return self.execute_models(runner, model_dependency_list, on_failure)
+
+    # ------------------------------------
+
+    def run_tests(self, limit_to=None):
+        runner = TestRunner()
+        return self.run_from_graph(runner, limit_to)
+
+    def run(self, limit_to=None):
+        runner = ModelRunner()
+        return self.run_from_graph(runner, limit_to)
+
+    def dry_run(self, limit_to=None):
+        runner = DryRunner()
+        return self.run_from_graph(runner, limit_to)
+

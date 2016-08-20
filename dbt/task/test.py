@@ -4,7 +4,7 @@ import psycopg2
 import yaml
 
 from dbt.compilation import Compiler
-from dbt.templates import TestCreateTemplate, BaseCreateTemplate
+from dbt.templates import DryCreateTemplate, BaseCreateTemplate
 from dbt.runners.runner import RunManager
 from dbt.schema_tester import SchemaTester
 
@@ -34,6 +34,6 @@ class TestTask:
     def run(self):
         self.compile()
         runner = RunManager(self.project, self.project['target-path'], 'build')
-        runner.run('test')
+        runner.run_tests()
 
         print("Done!")

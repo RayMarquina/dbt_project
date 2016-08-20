@@ -2,7 +2,7 @@
 from __future__ import print_function
 
 import os
-from dbt.templates import TestCreateTemplate, BaseCreateTemplate
+from dbt.templates import DryCreateTemplate, BaseCreateTemplate
 from dbt.runners.runner import RunManager
 from dbt.compilation import Compiler
 
@@ -13,24 +13,24 @@ class RunTask:
         self.args = args
         self.project = project
 
-    def compile(self, create_template):
+    def compile(self):
+        create_template = DryCreateTemplate if self.args.dry else BaseCreateTemplate
         compiler = Compiler(self.project, create_template)
         compiler.initialize()
         created_models, created_tests, created_analyses = compiler.compile(self.args.dry)
         print("Compiled {} models, {} tests, and {} analyses".format(created_models, created_tests, created_analyses))
 
+        return create_template.label
+
     def run(self):
+        graph_type = self.compile()
+
+        runner = RunManager(self.project, self.project['target-path'], graph_type)
+
         if self.args.dry:
-            create_template = TestCreateTemplate
-            run_mode = 'dry-run'
+            results = runner.dry_run(self.args.models)
         else:
-            create_template = BaseCreateTemplate
-            run_mode = 'run'
-
-        self.compile(create_template)
-
-        runner = RunManager(self.project, self.project['target-path'], create_template.label)
-        results = runner.run(run_mode, self.args.models)
+            results = runner.run(self.args.models)
 
         total   = len(results)
         passed  = len([r for r in results if not r.errored and not r.skipped])

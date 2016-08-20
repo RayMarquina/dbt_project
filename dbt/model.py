@@ -3,7 +3,7 @@ import os.path
 import yaml
 import jinja2
 import re
-from dbt.templates import BaseCreateTemplate, TestCreateTemplate
+from dbt.templates import BaseCreateTemplate, DryCreateTemplate
 import dbt.schema_tester
 
 class SourceConfig(object):
@@ -287,7 +287,7 @@ class TestModel(Model):
         "fully-qualified name for model. Includes all subdirs below 'models' path and the filename"
         parts = self.filepath.split("/")
         name, _ = os.path.splitext(parts[-1])
-        test_name = TestCreateTemplate.model_name(name)
+        test_name = DryCreateTemplate.model_name(name)
         return [self.own_project['name']] + parts[1:-1] + [test_name]
 
     @property

@@ -1,6 +1,6 @@
 
 from dbt.compilation import Compiler
-from dbt.templates import BaseCreateTemplate, TestCreateTemplate
+from dbt.templates import BaseCreateTemplate, DryCreateTemplate
 
 
 class CompileTask:
@@ -10,7 +10,7 @@ class CompileTask:
 
     def run(self):
         if self.args.dry:
-            create_template = TestCreateTemplate
+            create_template = DryCreateTemplate
         else:
             create_template = BaseCreateTemplate
 

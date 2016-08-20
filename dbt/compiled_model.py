@@ -20,6 +20,9 @@ class CompiledModel(object):
     def should_skip(self):
         return self.skip
 
+    def is_type(self, run_type):
+        return self.data['dbt_run_type'] == run_type
+
     @property
     def contents(self):
         with open(self.data['build_path']) as fh:
