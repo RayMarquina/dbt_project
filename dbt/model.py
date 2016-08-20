@@ -422,7 +422,7 @@ class SchemaFile(DBTSource):
             return SchemaFile.SchemaTestMap[test_type]
         else:
             possible_types = ", ".join(SchemaFile.SchemaTestMap.keys())
-            raise RuntimeError("Invalid validation type given: '{}'. Possible: {}".format(test_type, possible_types))
+            raise RuntimeError("Invalid validation type given in {}: '{}'. Possible: {}".format(self.filepath, test_type, possible_types))
 
     def compile(self):
         schema_tests = []
