@@ -5,6 +5,7 @@ import jinja2
 import re
 from dbt.templates import BaseCreateTemplate, DryCreateTemplate
 import dbt.schema_tester
+import dbt.project
 
 class SourceConfig(object):
     Materializations = ['view', 'table', 'incremental', 'ephemeral']
@@ -27,25 +28,25 @@ class SourceConfig(object):
     # we can cache it, but that complicates things. TODO : see how this fares performance-wise
     @property
     def config(self):
-        if self.active_project['name'] != self.own_project['name']:
-            own_config = self.load_config_from_own_project()
-            default_config = self.own_project['model-defaults'].copy()
-        else:
-            own_config = {}
-            default_config = self.active_project['model-defaults'].copy()
+        """
+        Config resolution order:
 
+         if this is a dependency model:
+           - own project config
+           - in-model config
+           - active project config
+         if this is a top-level model:
+           - active project config
+           - in-model config
+        """
+        defaults = {"enabled": True, "materialized": "view"}
         active_config = self.load_config_from_active_project()
 
-        # if this is a dependency model:
-        #   - own default config
-        #   - in-model config
-        #   - own project config
-        #   - active project config
-        # if this is a top-level model:
-        #   - active default config
-        #   - in-model config
-        #   - active project config
-        return self._merge(default_config, self.in_model_config, own_config, active_config)
+        if self.active_project['name'] == self.own_project['name']:
+            return self._merge(defaults, active_config, self.in_model_config)
+        else:
+            own_config = self.load_config_from_own_project()
+            return self._merge(defaults, own_config, self.in_model_config, active_config)
 
     def update_in_model_config(self, config):
         self.in_model_config.update(config)

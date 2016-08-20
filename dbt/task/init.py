@@ -12,18 +12,14 @@ clean-targets: ["target"]  # directories removed by the clean task
 test-paths: ["test"]       # where to store test results
 data-paths: ["data"]       # load CSVs from this directory with `dbt seed`
 
-# default paramaters that apply to _all_ models (unless overridden below)
-model-defaults:
-  enabled: true           # enable all models by default
-  materialized: false     # If true, create tables. If false, create views
-
 # specify per-model configs
 #models:
-#  pardot:                 # assuming pardot is listed in the models/ directory
-#    enabled: false        # disable all pardot models except where overriden
-#    pardot_emails:        # override the configs for the pardot_emails model
-#      enabled: true       # enable this specific model
-#      materialized: true  # create a table instead of a view
+#  package_name:             # define configs for this package (called "package_name" above)
+#    pardot:                 # assuming pardot is listed in the models/ directory
+#      enabled: false        # disable all pardot models except where overriden
+#      pardot_emails:        # override the configs for the pardot_emails model
+#        enabled: true       # enable this specific model
+#        materialized: true  # create a table instead of a view
 
 # uncomment below and add real repositories to add dependencies to this project
 #repositories:

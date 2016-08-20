@@ -13,10 +13,6 @@ default_project_cfg = {
     'outputs': {'default': {}},
     'run-target': 'default',
     'models': {},
-    'model-defaults': {
-        'enabled': True,
-        'materialized': False
-    },
     'profile': None,
     'repositories': [],
     'modules-path': 'dbt_modules'
