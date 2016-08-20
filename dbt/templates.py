@@ -5,6 +5,9 @@ create {materialization} "{schema}"."{identifier}" {dist_qualifier} {sort_qualif
     {query}
 );"""
 
+    # Distribution style, sort keys,BACKUP, and NULL properties are inherited by LIKE tables,
+    # but you cannot explicitly set them in the CREATE TABLE ... LIKE statement.
+    # via http://docs.aws.amazon.com/redshift/latest/dg/r_CREATE_TABLE_NEW.html
     incremental_template = """
 create temporary table "{identifier}__dbt_incremental_tmp" {dist_qualifier} {sort_qualifier} as (
     select * from (
@@ -14,6 +17,8 @@ create temporary table "{identifier}__dbt_incremental_tmp" {dist_qualifier} {sor
 
 create table if not exists "{schema}"."{identifier}" (like "{identifier}__dbt_incremental_tmp");
 
+{incremental_delete_statement}
+
 insert into "{schema}"."{identifier}" (
     with dbt_incr_sbq as (
         {query}
@@ -22,6 +27,16 @@ insert into "{schema}"."{identifier}" (
     where ({sql_where}) or ({sql_where}) is null
 );
     """
+
+    incremental_delete_template = """
+delete from "{schema}"."{identifier}" where  ({unique_key}) in (
+    with dbt_delete_sbq as (
+        {query}
+    )
+    select ({unique_key}) from dbt_delete_sbq
+    where ({sql_where}) or ({sql_where}) is null
+);
+"""
 
     label = "build"
 
@@ -34,7 +49,15 @@ insert into "{schema}"."{identifier}" (
         if opts['materialization'] in ('table', 'view'):
             sql = self.template.format(**opts)
         elif opts['materialization'] == 'incremental':
+            if opts.get('unique_key') is not None:
+                delete_sql = self.incremental_delete_template.format(**opts)
+            else:
+                delete_sql = "-- no unique key provided... skipping delete"
+
+            opts['incremental_delete_statement'] = delete_sql
             sql = self.incremental_template.format(**opts)
+
+
         elif opts['materialization'] == 'ephemeral':
             sql = opts['query']
         else:
@@ -60,6 +83,8 @@ create temporary table "{identifier}__dbt_incremental_tmp" {dist_qualifier} {sor
 
 create table if not exists "{schema}"."{identifier}" (like "{identifier}__dbt_incremental_tmp");
 
+{incremental_delete_statement}
+
 insert into "{schema}"."{identifier}" (
     with dbt_incr_sbq as (
         {query}
@@ -69,6 +94,16 @@ insert into "{schema}"."{identifier}" (
     limit 0
 );
     """
+
+    incremental_delete_template = """
+delete from "{schema}"."{identifier}" where  ({unique_key}) in (
+    with dbt_delete_sbq as (
+        {query}
+    )
+    select ({unique_key}) from dbt_delete_sbq
+    where ({sql_where}) or ({sql_where}) is null
+);
+"""
 
     label = "test"
 
@@ -81,7 +116,14 @@ insert into "{schema}"."{identifier}" (
         if opts['materialization'] in ('table', 'view'):
             sql = self.base_template.format(**opts)
         elif opts['materialization'] == 'incremental':
+            if 'unique_key' in opts:
+                delete_sql = self.incremental_delete_template.format(**opts)
+            else:
+                delete_sql = "-- no unique key provided... skipping delete"
+
+            opts['incremental_delete_statement'] = delete_sql
             sql = self.incremental_template.format(**opts)
+
         elif opts['materialization'] == 'ephemeral':
             sql = opts['query']
         else:

@@ -9,7 +9,7 @@ import dbt.project
 
 class SourceConfig(object):
     Materializations = ['view', 'table', 'incremental', 'ephemeral']
-    ConfigKeys = ['enabled', 'materialized', 'dist', 'sort', 'sql_where']
+    ConfigKeys = ['enabled', 'materialized', 'dist', 'sort', 'sql_where', 'unique_key']
 
     def __init__(self, active_project, own_project, fqn):
         self.active_project = active_project
@@ -185,7 +185,7 @@ class Model(DBTSource):
         return "-- Compiled by DBT\n{}".format(blob)
 
     def sort_qualifier(self, model_config):
-        if 'sort' not in model_config:
+        if 'sort' not in model_config or self.is_view or self.is_ephemeral:
             return ''
         sort_keys = model_config['sort']
         if type(sort_keys) == str:
@@ -196,7 +196,7 @@ class Model(DBTSource):
         return "sortkey ({})".format(', '.join(formatted_sort_keys))
 
     def dist_qualifier(self, model_config):
-        if 'dist' not in model_config:
+        if 'dist' not in model_config or self.is_view or self.is_ephemeral:
             return ''
 
         dist_key = model_config['dist']
@@ -233,10 +233,12 @@ class Model(DBTSource):
             raw_sql_where = model_config['sql_where']
             env = jinja2.Environment()
             sql_where = env.from_string(raw_sql_where).render(ctx)
+            unique_key = model_config.get('unique_key', None)
         else:
             identifier = self.tmp_name()
             ctx['this'] =  '"{}"."{}"'.format(schema, identifier)
             sql_where = None
+            unique_key = None
 
         opts = {
             "materialization": self.materialization,
@@ -246,7 +248,8 @@ class Model(DBTSource):
             "dist_qualifier": dist_qualifier,
             "sort_qualifier": sort_qualifier,
             "sql_where": sql_where,
-            "prologue": self.get_prologue_string()
+            "prologue": self.get_prologue_string(),
+            "unique_key" : unique_key
         }
 
         return create_template.wrap(opts)
