@@ -185,7 +185,7 @@ class Model(DBTSource):
         return "-- Compiled by DBT\n{}".format(blob)
 
     def sort_qualifier(self, model_config):
-        if 'sort' not in model_config:
+        if 'sort' not in model_config or self.is_view or self.is_ephemeral:
             return ''
         sort_keys = model_config['sort']
         if type(sort_keys) == str:
@@ -196,7 +196,7 @@ class Model(DBTSource):
         return "sortkey ({})".format(', '.join(formatted_sort_keys))
 
     def dist_qualifier(self, model_config):
-        if 'dist' not in model_config:
+        if 'dist' not in model_config or self.is_view or self.is_ephemeral:
             return ''
 
         dist_key = model_config['dist']
