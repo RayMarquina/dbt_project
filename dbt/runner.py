@@ -229,7 +229,7 @@ class RunManager(object):
             status = "ERROR"
             self.logger.exception(error)
             if type(e) == psycopg2.InternalError and ABORTED_TRANSACTION_STRING == e.diag.message_primary:
-                return RunModelResult(model, error="An error occurred in a concurrently running model", status="SKIP")
+                return RunModelResult(model, error=ABORTED_TRANSACTION_STRING, status="SKIP")
         except Exception as e:
             error = "Unhandled error while executing {filepath}\n{error}".format(filepath=model['build_path'], error=str(e).strip())
             self.logger.exception(error)
