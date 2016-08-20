@@ -1,8 +1,11 @@
 
 import psycopg2
 import os
+import logging
 
 from paramiko import SSHConfig
+logging.getLogger("paramiko").setLevel(logging.WARNING)
+
 import dbt.ssh_forward
 
 THREAD_MIN = 1
@@ -53,13 +56,13 @@ class RedshiftTarget:
 
         return server
 
+    def should_open_tunnel(self):
+        return self.ssh_host is not None
+
     # make the user explicitly call this function to enable the ssh tunnel
     # we don't want it to be automatically opened any time someone makes a RedshiftTarget()
     def open_tunnel_if_needed(self):
-        if self.ssh_host is None:
-            self.ssh_tunnel = None
-        else:
-            self.ssh_tunnel = self.__open_tunnel()
+        self.ssh_tunnel = self.__open_tunnel()
 
     def cleanup(self):
         if self.ssh_tunnel is not None:

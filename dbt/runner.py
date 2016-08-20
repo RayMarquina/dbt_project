@@ -21,11 +21,12 @@ from multiprocessing.dummy import Pool as ThreadPool
 ABORTED_TRANSACTION_STRING = "current transaction is aborted, commands ignored until end of transaction block"
 
 class RunModelResult(object):
-    def __init__(self, model, error=None, skip=False, status=None):
+    def __init__(self, model, error=None, skip=False, status=None, execution_time=0):
         self.model = model
         self.error = error
         self.skip  = skip
         self.status = status
+        self.execution_time = execution_time
 
     @property
     def errored(self):
@@ -203,7 +204,12 @@ class RunManager(object):
         self.graph_type = graph_type
 
         self.target = RedshiftTarget(self.project.run_environment())
-        self.target.open_tunnel_if_needed()
+
+        if self.target.should_open_tunnel():
+            print("Opening ssh tunnel to host {}... ".format(self.target.ssh_host), end="")
+            self.target.open_tunnel_if_needed()
+            print("Connected")
+
 
         self.schema = dbt.schema.Schema(self.project, self.target)
 
@@ -218,10 +224,14 @@ class RunManager(object):
 
     def execute_model(self, runner, model):
         self.logger.info("executing model %s", model)
-        return runner.execute(self.schema, self.target, model)
+
+        result = runner.execute(self.schema, self.target, model)
+        return result
 
     def safe_execute_model(self, data):
         runner, model = data['runner'], data['model']
+
+        start_time = time.time()
 
         error = None
         try:
@@ -237,7 +247,9 @@ class RunManager(object):
             self.logger.exception(error)
             raise e
 
-        return RunModelResult(model, error=error, status=status)
+        execution_time = time.time() - start_time
+
+        return RunModelResult(model, error=error, status=status, execution_time=execution_time)
 
     def as_concurrent_dep_list(self, linker, models, existing, target, limit_to):
         model_dependency_list = []
@@ -263,10 +275,16 @@ class RunManager(object):
                 model_to_skip.do_skip()
         return skip_dependent
 
-    def print_fancy_output_line(self, message, status, index, total):
+    def print_fancy_output_line(self, message, status, index, total, execution_time=None):
         prefix = "{index} of {total} {message}".format(index=index, total=total, message=message)
         justified = prefix.ljust(80, ".")
-        output = "{justified} [{status}]".format(justified=justified, status=status)
+
+        if execution_time is None:
+            status_time = ""
+        else:
+            status_time = " in {execution_time:0.2f}s".format(execution_time=execution_time) 
+
+        output = "{justified} [{status}{status_time}]".format(justified=justified, status=status, status_time=status_time)
         print(output)
 
     def execute_models(self, runner, model_dependency_list, on_failure):
@@ -314,7 +332,7 @@ class RunManager(object):
 
                 msg = runner.post_run_msg(run_model_result)
                 status = runner.status(run_model_result)
-                self.print_fancy_output_line(msg, status, get_idx(run_model_result.model), num_models)
+                self.print_fancy_output_line(msg, status, get_idx(run_model_result.model), num_models, run_model_result.execution_time)
 
                 if run_model_result.errored:
                     on_failure(run_model_result.model)
@@ -357,21 +375,30 @@ class RunManager(object):
         on_failure = self.on_model_failure(linker, relevant_compiled_models)
         results = self.execute_models(runner, model_dependency_list, on_failure)
 
-        self.target.cleanup()
-
         return results
+
+    def safe_run_from_graph(self, *args, **kwargs):
+        try:
+            return self.run_from_graph(*args, **kwargs)
+        except:
+            raise
+        finally:
+            if self.target.should_open_tunnel():
+                print("Closing SSH tunnel... ", end="")
+                self.target.cleanup()
+                print("Done")
 
     # ------------------------------------
 
     def run_tests(self, limit_to=None):
         runner = TestRunner()
-        return self.run_from_graph(runner, limit_to)
+        return self.safe_run_from_graph(runner, limit_to)
 
     def run(self, limit_to=None):
         runner = ModelRunner()
-        return self.run_from_graph(runner, limit_to)
+        return self.safe_run_from_graph(runner, limit_to)
 
     def dry_run(self, limit_to=None):
         runner = DryRunner()
-        return self.run_from_graph(runner, limit_to)
+        return self.safe_run_from_graph(runner, limit_to)
 
