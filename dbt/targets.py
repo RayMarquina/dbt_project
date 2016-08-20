@@ -3,7 +3,7 @@ import psycopg2
 import os
 
 from paramiko import SSHConfig
-import ssh_forward
+import dbt.ssh_forward
 
 THREAD_MIN = 1
 THREAD_MAX = 8
@@ -45,7 +45,7 @@ class RedshiftTarget:
             raise RuntimeError("Invalid ssh config for Hostname {} -- missing 'user' field".format(self.ssh_host))
 
         # modules are only imported once -- this singleton makes sure we don't try to bind to the host twice (and lock)
-        server = ssh_forward.get_or_create_tunnel(host, port, user, self.host, self.port)
+        server = dbt.ssh_forward.get_or_create_tunnel(host, port, user, self.host, self.port)
 
         # rebind the pg host and port
         self.host = 'localhost'
