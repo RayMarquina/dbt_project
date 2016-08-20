@@ -9,7 +9,7 @@ import dbt.project
 
 class SourceConfig(object):
     Materializations = ['view', 'table', 'incremental', 'ephemeral']
-    ConfigKeys = ['enabled', 'materialized', 'dist', 'sort', 'sql_where']
+    ConfigKeys = ['enabled', 'materialized', 'dist', 'sort', 'sql_where', 'unique_key']
 
     def __init__(self, active_project, own_project, fqn):
         self.active_project = active_project
@@ -233,10 +233,12 @@ class Model(DBTSource):
             raw_sql_where = model_config['sql_where']
             env = jinja2.Environment()
             sql_where = env.from_string(raw_sql_where).render(ctx)
+            unique_key = model_config.get('unique_key', None)
         else:
             identifier = self.tmp_name()
             ctx['this'] =  '"{}"."{}"'.format(schema, identifier)
             sql_where = None
+            unique_key = None
 
         opts = {
             "materialization": self.materialization,
@@ -246,7 +248,8 @@ class Model(DBTSource):
             "dist_qualifier": dist_qualifier,
             "sort_qualifier": sort_qualifier,
             "sql_where": sql_where,
-            "prologue": self.get_prologue_string()
+            "prologue": self.get_prologue_string(),
+            "unique_key" : unique_key
         }
 
         return create_template.wrap(opts)
