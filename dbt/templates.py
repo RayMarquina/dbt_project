@@ -5,6 +5,9 @@ create {materialization} "{schema}"."{identifier}" {dist_qualifier} {sort_qualif
     {query}
 );"""
 
+    # Distribution style, sort keys,BACKUP, and NULL properties are inherited by LIKE tables,
+    # but you cannot explicitly set them in the CREATE TABLE ... LIKE statement.
+    # via http://docs.aws.amazon.com/redshift/latest/dg/r_CREATE_TABLE_NEW.html
     incremental_template = """
 create temporary table "{identifier}__dbt_incremental_tmp" {dist_qualifier} {sort_qualifier} as (
     select * from (
