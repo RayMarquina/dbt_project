@@ -79,7 +79,7 @@ class RedshiftTarget:
             raise bad_threads_error
 
     def __get_spec(self):
-        return "dbname='{}' user='{}' host='{}' password='{}' port='{}'".format(
+        return "dbname='{}' user='{}' host='{}' password='{}' port='{}' connect_timeout=10".format(
             self.dbname,
             self.user,
             self.host,
