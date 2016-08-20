@@ -149,10 +149,11 @@ class TestRunner(ModelRunner):
 
     def post_run_all_msg(self, results):
         total = len(results)
-        passed  = len([result for result in results if not result.errored and not result.skipped])
+        passed  = len([result for result in results if not result.errored and not result.skipped and result.status == 0])
+        failed  = len([result for result in results if not result.errored and not result.skipped and result.status > 0])
         errored = len([result for result in results if result.errored])
         skipped = len([result for result in results if result.skipped])
-        overview = "PASS={passed} ERROR={errored} SKIP={skipped} TOTAL={total}".format(total=total, passed=passed, errored=errored, skipped=skipped)
+        overview = "PASS={passed} FAIL={failed} ERROR={errored} SKIP={skipped} TOTAL={total}".format(total=total, passed=passed, failed=failed, errored=errored, skipped=skipped)
         if errored > 0:
             final = "Tests completed with errors"
         else:
