@@ -1,8 +1,12 @@
 
 import psycopg2
+import os
+
+from paramiko import SSHConfig
+import ssh_forward
 
 THREAD_MIN = 1
-THREAD_MAX = 10
+THREAD_MAX = 8
 
 BAD_THREADS_ERROR = """Invalid value given for "threads" in active run-target.
 Value given was {supplied} but it should be an int between {min_val} and {max_val}"""
@@ -18,12 +22,53 @@ class RedshiftTarget:
         self.schema = cfg['schema']
         self.threads = self.__get_threads(cfg)
 
+        self.ssh_host = cfg.get('ssh-host', None)
         self.handle = None
+
+    def get_tunnel_config(self):
+        config = SSHConfig()
+
+        config_filepath = os.path.join(os.path.expanduser('~'), '.ssh/config')
+        config.parse(open(config_filepath))
+        options = config.lookup(self.ssh_host)
+        return options
+
+    def __open_tunnel(self):
+        config = self.get_tunnel_config()
+        host = config.get('hostname')
+        port = int(config.get('port', '22'))
+        user = config.get('user')
+
+        if host is None:
+            raise RuntimeError("Invalid ssh config for Hostname {} -- missing 'hostname' field".format(self.ssh_host))
+        if user is None:
+            raise RuntimeError("Invalid ssh config for Hostname {} -- missing 'user' field".format(self.ssh_host))
+
+        # modules are only imported once -- this singleton makes sure we don't try to bind to the host twice (and lock)
+        server = ssh_forward.get_or_create_tunnel(host, port, user, self.host, self.port)
+
+        # rebind the pg host and port
+        self.host = 'localhost'
+        self.port = server.local_bind_port
+
+        return server
+
+    # make the user explicitly call this function to enable the ssh tunnel
+    # we don't want it to be automatically opened any time someone makes a RedshiftTarget()
+    def open_tunnel_if_needed(self):
+        if self.ssh_host is None:
+            self.ssh_tunnel = None
+        else:
+            self.ssh_tunnel = self.__open_tunnel()
+
+    def cleanup(self):
+        if self.ssh_tunnel is not None:
+            self.ssh_tunnel.stop()
 
     def __get_threads(self, cfg):
         supplied = cfg.get('threads', 1)
 
-        bad_threads_error = RuntimeError(BAD_THREADS_ERROR.format(run_target="...", supplied=supplied, min_val=THREAD_MIN, max_val=THREAD_MAX))
+        bad_threads_error = RuntimeError(BAD_THREADS_ERROR.format(supplied=supplied, min_val=THREAD_MIN, max_val=THREAD_MAX))
 
         if type(supplied) != int:
             raise bad_threads_error

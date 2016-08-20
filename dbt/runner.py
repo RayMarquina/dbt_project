@@ -203,6 +203,8 @@ class RunManager(object):
         self.graph_type = graph_type
 
         self.target = RedshiftTarget(self.project.run_environment())
+        self.target.open_tunnel_if_needed()
+
         self.schema = dbt.schema.Schema(self.project, self.target)
 
     def deserialize_graph(self):
@@ -350,7 +352,11 @@ class RunManager(object):
         model_dependency_list = self.as_concurrent_dep_list(linker, relevant_compiled_models, existing, self.target, specified_models)
 
         on_failure = self.on_model_failure(linker, relevant_compiled_models)
-        return self.execute_models(runner, model_dependency_list, on_failure)
+        results = self.execute_models(runner, model_dependency_list, on_failure)
+
+        self.target.cleanup()
+
+        return results
 
     # ------------------------------------
 
