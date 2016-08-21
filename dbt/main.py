@@ -13,6 +13,7 @@ import dbt.task.deps as deps_task
 import dbt.task.init as init_task
 import dbt.task.seed as seed_task
 import dbt.task.test as test_task
+import dbt.tracking
 
 def main(args=None):
     if args is None:
@@ -24,6 +25,11 @@ def main(args=None):
         print("Encountered an error:")
         print(str(e))
         sys.exit(1)
+
+def track_run(cmd_name, project_name='none', cmd_opts=""):
+    if len(cmd_opts) == 0:
+        cmd_opts = None
+    dbt.tracking.track_run(project_name, cmd_name, cmd_opts)
 
 def handle(args):
 
@@ -71,12 +77,17 @@ def handle(args):
 
     if parsed.which == 'init':
         # bypass looking for a project file if we're running `dbt init`
+        track_run('init')
         parsed.cls(args=parsed).run()
 
     elif os.path.isfile('dbt_project.yml'):
         try:
           proj = project.read_project('dbt_project.yml', validate=False).with_profiles(parsed.profile)
           proj.validate()
+
+          cmd_name = args[0]
+          cmd_opts = " ".join([arg for arg in args[1:] if arg.startswith("--")])
+          track_run(cmd_name, project_name=proj.get('name', 'none'), cmd_opts=cmd_opts)
         except project.DbtProjectError as e:
           print("Encountered an error while reading the project:")
           print("  ERROR {}".format(str(e)))
