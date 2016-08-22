@@ -29,7 +29,7 @@ setup(
     'sqlparse==0.1.19',
     'networkx==1.11',
     'csvkit==0.9.1',
-    'paramiko==2.0.1',
-    'sshtunnel==0.0.8.2'
+    #'paramiko==2.0.1',
+    #'sshtunnel==0.0.8.2'
   ],
 )
