@@ -18,7 +18,7 @@ Then, install using `pip`:
 › pip install dbt
 ```
 
-If you encounter SSL cryptography errors during install on OSX, make sure your copy of pip is up-to-date (via [cryptography.io](https://cryptography.io/en/latest/faq/#compiling-cryptography-on-os-x-produces-a-fatal-error-openssl-aes-h-file-not-found-error)
+If you encounter SSL cryptography errors during install on OSX, make sure your copy of pip is up-to-date (via [cryptography.io](https://cryptography.io/en/latest/faq/#compiling-cryptography-on-os-x-produces-a-fatal-error-openssl-aes-h-file-not-found-error))
 ```bash
 › pip install -U pip
 › pip install -U dbt
