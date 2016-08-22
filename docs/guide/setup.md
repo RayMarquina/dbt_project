@@ -18,6 +18,12 @@ Then, install using `pip`:
 › pip install dbt
 ```
 
+If you encounter SSL cryptography errors during install on OSX, make sure your copy of pip is up-to-date (via [cryptography.io](https://cryptography.io/en/latest/faq/#compiling-cryptography-on-os-x-produces-a-fatal-error-openssl-aes-h-file-not-found-error)
+```bash
+› pip install -U pip
+› pip install -U dbt
+```
+
 ## Configuration
 
 To create your first dbt project, run:
@@ -28,7 +34,7 @@ To create your first dbt project, run:
 
 This will do two things:
 - create a directory at `./[project]` with everything you need to get started.
-- create a directory at `~/.dbt/` for environment configuration.
+- create a directory at `~/.dbt/` for environment configuration. [TODO]
 
 Finally, configure your environment:
 - supply project configuration within `[project]/dbt_project.yml`
