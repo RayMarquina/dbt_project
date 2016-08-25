@@ -204,8 +204,10 @@ class Model(DBTSource):
         if type(dist_key) != str:
             raise RuntimeError("The provided distkey '{}' is not valid!".format(dist_key))
 
-        if dist_key.strip().lower() == 'all':
-            return 'diststyle all'
+        dist_key = dist_key.strip().lower()
+
+        if dist_key in ['all', 'even']:
+            return 'diststyle {}'.format(dist_key)
         else:
             return 'diststyle key distkey ("{}")'.format(dist_key)
 
