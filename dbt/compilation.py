@@ -170,9 +170,22 @@ class Compiler(object):
 
         return sqlparse.format(str(parsed), keyword_case='lower', reindent=True)
 
+    def __recursive_add_ctes(self, linker, model):
+        if model not in linker.cte_map:
+            return set()
+
+        models_to_add = linker.cte_map[model]
+        recursive_models = [self.__recursive_add_ctes(linker, m) for m in models_to_add]
+        for recursive_model_set in recursive_models:
+             models_to_add = models_to_add | recursive_model_set
+        return models_to_add
+
     def add_cte_to_rendered_query(self, linker, primary_model, compiled_models):
         fqn_to_model = {tuple(model.fqn): model for model in compiled_models}
         sorted_nodes = linker.as_topological_ordering()
+
+        models_to_add = self.__recursive_add_ctes(linker, primary_model)
+
         required_ctes = []
         for node in sorted_nodes:
 
@@ -180,7 +193,8 @@ class Compiler(object):
                 continue
 
             model = fqn_to_model[node]
-            if model.is_ephemeral and model in linker.cte_map[primary_model]:
+            # add these in topological sort order -- that's significant for CTEs
+            if model.is_ephemeral and model in models_to_add:
                 required_ctes.append(model)
 
         query = compiled_models[primary_model]
