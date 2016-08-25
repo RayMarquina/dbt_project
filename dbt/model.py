@@ -196,8 +196,9 @@ class Model(DBTSource):
 
         sort_type = sort_type.strip().lower()
 
-        if sort_type not in ['compound', 'interleaved']:
-            raise RuntimeError("Invalid sort_type given: {} -- must be one of ['compound', 'interleaved']".format(sort_type))
+        valid_sort_types = ['compound', 'interleaved']
+        if sort_type not in valid_sort_types:
+            raise RuntimeError("Invalid sort_type given: {} -- must be one of {}".format(sort_type, valid_sort_types))
 
         if type(sort_keys) == str:
             sort_keys = [sort_keys]
