@@ -204,7 +204,10 @@ class Model(DBTSource):
         if type(dist_key) != str:
             raise RuntimeError("The provided distkey '{}' is not valid!".format(dist_key))
 
-        return 'distkey ("{}")'.format(dist_key)
+        if dist_key.strip().lower() == 'all':
+            return 'diststyle all'
+        else:
+            return 'diststyle key distkey ("{}")'.format(dist_key)
 
     def build_path(self):
         build_dir = self.create_template.label
