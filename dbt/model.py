@@ -9,7 +9,7 @@ import dbt.project
 
 class SourceConfig(object):
     Materializations = ['view', 'table', 'incremental', 'ephemeral']
-    ConfigKeys = ['enabled', 'materialized', 'dist', 'sort', 'sql_where', 'unique_key']
+    ConfigKeys = ['enabled', 'materialized', 'dist', 'sort', 'sql_where', 'unique_key', 'sort_type']
 
     def __init__(self, active_project, own_project, fqn):
         self.active_project = active_project
@@ -187,13 +187,26 @@ class Model(DBTSource):
     def sort_qualifier(self, model_config):
         if 'sort' not in model_config or self.is_view or self.is_ephemeral:
             return ''
+
         sort_keys = model_config['sort']
+        sort_type = model_config.get('sort_type', 'compound')
+
+        if type(sort_type) != str:
+            raise RuntimeError("The provided sort_type '{}' is not valid!".format(sort_type))
+
+        sort_type = sort_type.strip().lower()
+
+        if sort_type not in ['compound', 'interleaved']:
+            raise RuntimeError("Invalid sort_type given: {} -- must be one of ['compound', 'interleaved']".format(sort_type))
+
         if type(sort_keys) == str:
             sort_keys = [sort_keys]
 
         # remove existing quotes in field name, then wrap in quotes
         formatted_sort_keys = ['"{}"'.format(sort_key.replace('"', '')) for sort_key in sort_keys]
-        return "sortkey ({})".format(', '.join(formatted_sort_keys))
+        keys_csv = ', '.join(formatted_sort_keys)
+
+        return "{sort_type} sortkey ({keys_csv})".format(sort_type=sort_type, keys_csv=keys_csv)
 
     def dist_qualifier(self, model_config):
         if 'dist' not in model_config or self.is_view or self.is_ephemeral:
