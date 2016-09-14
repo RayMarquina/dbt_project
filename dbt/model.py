@@ -9,7 +9,7 @@ import dbt.project
 
 class SourceConfig(object):
     Materializations = ['view', 'table', 'incremental', 'ephemeral']
-    ConfigKeys = ['enabled', 'materialized', 'dist', 'sort', 'sql_where', 'unique_key']
+    ConfigKeys = ['enabled', 'materialized', 'dist', 'sort', 'sql_where', 'unique_key', 'sort_type']
 
     def __init__(self, active_project, own_project, fqn):
         self.active_project = active_project
@@ -187,13 +187,27 @@ class Model(DBTSource):
     def sort_qualifier(self, model_config):
         if 'sort' not in model_config or self.is_view or self.is_ephemeral:
             return ''
+
         sort_keys = model_config['sort']
+        sort_type = model_config.get('sort_type', 'compound')
+
+        if type(sort_type) != str:
+            raise RuntimeError("The provided sort_type '{}' is not valid!".format(sort_type))
+
+        sort_type = sort_type.strip().lower()
+
+        valid_sort_types = ['compound', 'interleaved']
+        if sort_type not in valid_sort_types:
+            raise RuntimeError("Invalid sort_type given: {} -- must be one of {}".format(sort_type, valid_sort_types))
+
         if type(sort_keys) == str:
             sort_keys = [sort_keys]
 
         # remove existing quotes in field name, then wrap in quotes
         formatted_sort_keys = ['"{}"'.format(sort_key.replace('"', '')) for sort_key in sort_keys]
-        return "sortkey ({})".format(', '.join(formatted_sort_keys))
+        keys_csv = ', '.join(formatted_sort_keys)
+
+        return "{sort_type} sortkey ({keys_csv})".format(sort_type=sort_type, keys_csv=keys_csv)
 
     def dist_qualifier(self, model_config):
         if 'dist' not in model_config or self.is_view or self.is_ephemeral:
@@ -204,7 +218,12 @@ class Model(DBTSource):
         if type(dist_key) != str:
             raise RuntimeError("The provided distkey '{}' is not valid!".format(dist_key))
 
-        return 'distkey ("{}")'.format(dist_key)
+        dist_key = dist_key.strip().lower()
+
+        if dist_key in ['all', 'even']:
+            return 'diststyle {}'.format(dist_key)
+        else:
+            return 'diststyle key distkey ("{}")'.format(dist_key)
 
     def build_path(self):
         build_dir = self.create_template.label

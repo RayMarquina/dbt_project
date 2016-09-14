@@ -1,4 +1,5 @@
 # dbt
+Tests: [![CircleCI](https://circleci.com/gh/analyst-collective/dbt/tree/master.svg?style=svg)](https://circleci.com/gh/analyst-collective/dbt/tree/master)
 
 dbt (data build tool) helps analysts write reliable, modular code using a workflow that closely mirrors software development.
 

@@ -23,6 +23,9 @@ class Linker(object):
             return nx.topological_sort(self.graph, nbunch=limit_to)
         except KeyError as e:
             raise RuntimeError("Couldn't find model '{}' -- does it exist or is it diabled?".format(e))
+        except nx.exception.NetworkXUnfeasible as e:
+            cycle = " --> ".join([".".join(node) for node in  nx.algorithms.find_cycle(self.graph)[0]])
+            raise RuntimeError("Can't compile -- cycle exists in model graph\n{}".format(cycle))
 
     def as_dependency_list(self, limit_to=None):
         """returns a list of list of nodes, eg. [[0,1], [2], [4,5,6]]. Each element contains nodes whose
