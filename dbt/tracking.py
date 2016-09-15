@@ -21,7 +21,7 @@ INVOCATION_SPEC = "https://s3.amazonaws.com/fishtown-events/schemas/com.fishtown
 PLATFORM_SPEC = "https://s3.amazonaws.com/fishtown-events/schemas/com.fishtownanalytics/platform_context.json"
 RUN_MODEL_SPEC = "https://s3.amazonaws.com/fishtown-events/schemas/com.fishtownanalytics/run_model_context.json"
 
-emitter = AsyncEmitter(COLLECTOR_URL, protocol=COLLECTOR_PROTOCOL)
+emitter = AsyncEmitter(COLLECTOR_URL, protocol=COLLECTOR_PROTOCOL, buffer_size=1)
 tracker = Tracker(emitter, namespace="cf", app_id="dbt")
 
 def __write_user():
@@ -135,3 +135,6 @@ def track_invocation_end(project=None, args=None, result_type=None, result=None)
     context = [invocation_context, platform_context]
     tracker.track_struct_event(category="dbt", action='invocation', label='end', context=context)
 
+
+def flush():
+    tracker.flush()
