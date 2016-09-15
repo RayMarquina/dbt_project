@@ -113,10 +113,11 @@ def handle(args):
     else:
         raise RuntimeError("dbt must be run from a project root directory with a dbt_project.yml file")
 
-    import ipdb; ipdb.set_trace()
-
     dbt.tracking.track_invocation_start(project=proj, args=parsed)
-    task.run()
-    dbt.tracking.track_invocation_end(project=proj, args=parsed)
-
+    try:
+        task.run()
+        dbt.tracking.track_invocation_end(project=proj, args=parsed, result_type="ok", result=None)
+    except Exception as e:
+        dbt.tracking.track_invocation_end(project=proj, args=parsed, result_type="error", result=str(e))
+        raise e
 

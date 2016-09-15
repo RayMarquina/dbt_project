@@ -10,12 +10,16 @@ import json
 
 sp_logger.setLevel(30)
 
+#COLLECTOR_URL = "events.fivetran.com/snowplow/forgiving_ain"
+#COLLECTOR_PROTOCOL = "https"
 
-COLLECTOR_URL = "events.fivetran.com/snowplow/forgiving_ain"
-COLLECTOR_PROTOCOL = "https"
+COLLECTOR_URL = "127.0.0.1:8000"
+COLLECTOR_PROTOCOL = "http"
+
 COOKIE_PATH = os.path.join(os.path.expanduser('~'), '.dbt/.user.yml')
 INVOCATION_SPEC = "https://s3.amazonaws.com/fishtown-events/schemas/com.fishtownanalytics/invocation_event.json"
 PLATFORM_SPEC = "https://s3.amazonaws.com/fishtown-events/schemas/com.fishtownanalytics/platform_context.json"
+RUN_MODEL_SPEC = "https://s3.amazonaws.com/fishtown-events/schemas/com.fishtownanalytics/run_model_context.json"
 
 emitter = AsyncEmitter(COLLECTOR_URL, protocol=COLLECTOR_PROTOCOL)
 tracker = Tracker(emitter, namespace="cf", app_id="dbt")
@@ -63,7 +67,7 @@ def get_run_type(args):
         return 'regular'
 
 def get_invocation_context(invocation_id, user, project, args):
-    data = {
+    return {
       "project_id"    : project.hashed_name(),
       "user_id"       : user.get("id", None),
       "invocation_id" : invocation_id,
@@ -76,7 +80,7 @@ def get_invocation_context(invocation_id, user, project, args):
     }
 
 def get_invocation_start_context(invocation_id, user, project, args):
-    base_data = get_invocation_context(invocation_id, user, project, args)
+    data = get_invocation_context(invocation_id, user, project, args)
 
     start_data = {
         "progress"    : "start",
@@ -84,11 +88,11 @@ def get_invocation_start_context(invocation_id, user, project, args):
         "result"      : None
     }
 
-    data = base_data.update(start_data)
+    data.update(start_data)
     return SelfDescribingJson(INVOCATION_SPEC, data)
 
 def get_invocation_end_context(invocation_id, user, project, args, result_type, result):
-    base_data = get_invocation_context(invocation_id, user, project, args)
+    data = get_invocation_context(invocation_id, user, project, args)
 
     start_data = {
         "progress"    : "start",
@@ -96,7 +100,7 @@ def get_invocation_end_context(invocation_id, user, project, args, result_type, 
         "result"      : result,
     }
 
-    data = base_data.update(start_data)
+    data.update(start_data)
     return SelfDescribingJson(INVOCATION_SPEC, data)
 
 def get_platform_context():
@@ -121,8 +125,13 @@ def track_invocation_start(project=None, args=None):
     context = [invocation_context, platform_context]
     tracker.track_struct_event(category="dbt", action='invocation', label='start', context=context)
 
-# TODO : how do we get result_type and result?
+def track_model_run(options):
+    context = [SelfDescribingJson(RUN_MODEL_SPEC, options)]
+    model_id = options['model_id']
+    tracker.track_struct_event(category="dbt", action='run_model', label=model_id, context=context)
+
 def track_invocation_end(project=None, args=None, result_type=None, result=None):
     invocation_context = get_invocation_end_context(invocation_id, user, project, args, result_type, result)
     context = [invocation_context, platform_context]
     tracker.track_struct_event(category="dbt", action='invocation', label='end', context=context)
+

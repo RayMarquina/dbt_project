@@ -14,6 +14,7 @@ from dbt.targets import RedshiftTarget
 from dbt.source import Source
 from dbt.utils import find_model_by_fqn, find_model_by_name, dependency_projects
 from dbt.compiled_model import make_compiled_model
+import dbt.tracking
 import dbt.schema
 
 from multiprocessing.dummy import Pool as ThreadPool
@@ -333,7 +334,20 @@ class RunManager(object):
 
                 msg = runner.post_run_msg(run_model_result)
                 status = runner.status(run_model_result)
-                self.print_fancy_output_line(msg, status, get_idx(run_model_result.model), num_models, run_model_result.execution_time)
+                index = get_idx(run_model_result.model)
+                self.print_fancy_output_line(msg, status, index, num_models, run_model_result.execution_time)
+
+                dbt.tracking.track_model_run({
+                    "invocation_id": dbt.tracking.invocation_id,
+                    "index": index,
+                    "total": num_models,
+                    "execution_time": run_model_result.execution_time,
+                    "run_status": run_model_result.status,
+                    "run_skipped": run_model_result.skip,
+                    "run_error": run_model_result.error,
+                    "model_materialization": run_model_result.model['materialized'],
+                    "model_id": run_model_result.model.hashed_name(),
+                })
 
                 if run_model_result.errored:
                     on_failure(run_model_result.model)
