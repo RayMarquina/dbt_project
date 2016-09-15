@@ -116,7 +116,8 @@ def read_profiles():
         if os.path.isfile(path):
             with open(path, 'r') as f:
                 m = yaml.safe_load(f)
-                profiles.update(m)
+                valid_profiles = {k:v for (k,v) in m.items() if k != 'config'}
+                profiles.update(valid_profiles)
 
     return profiles
 

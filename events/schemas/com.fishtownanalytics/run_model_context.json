@@ -27,6 +27,9 @@
     },
     "model_id": {
       "type": "string"
+    },
+    "hashed_contents": {
+      "type": "string"
     }
   }
 }

@@ -7,8 +7,11 @@ import uuid
 import yaml
 import os
 import json
+import logging
 
-sp_logger.setLevel(30)
+logger = logging.getLogger(__name__)
+
+sp_logger.setLevel(100)
 
 COLLECTOR_URL = "events.fivetran.com/snowplow/forgiving_ain"
 COLLECTOR_PROTOCOL = "https"
@@ -66,7 +69,7 @@ def get_run_type(args):
 
 def get_invocation_context(invocation_id, user, project, args):
     return {
-      "project_id"    : project.hashed_name(),
+      "project_id"    : None if project is None else project.hashed_name(),
       "user_id"       : user.get("id", None),
       "invocation_id" : invocation_id,
 
@@ -101,6 +104,18 @@ def get_invocation_end_context(invocation_id, user, project, args, result_type, 
     data.update(start_data)
     return SelfDescribingJson(INVOCATION_SPEC, data)
 
+def get_invocation_invalid_context(invocation_id, user, project, args, result_type, result):
+    data = get_invocation_context(invocation_id, user, project, args)
+
+    start_data = {
+        "progress"    : "invalid",
+        "result_type" : result_type,
+        "result"      : result,
+    }
+
+    data.update(start_data)
+    return SelfDescribingJson(INVOCATION_SPEC, data)
+
 def get_platform_context():
     data = {
         "platform"       : platform.platform(),
@@ -118,21 +133,39 @@ subject = Subject()
 subject.set_user_id(user.get("id", None))
 tracker.set_subject(subject)
 
+__is_do_not_track = False
+
+def track(*args, **kwargs):
+    if __is_do_not_track:
+        return
+    else:
+        #logger.debug("Sending event: {}".format(kwargs))
+        tracker.track_struct_event(*args, **kwargs)
+
 def track_invocation_start(project=None, args=None):
     invocation_context = get_invocation_start_context(invocation_id, user, project, args)
     context = [invocation_context, platform_context]
-    tracker.track_struct_event(category="dbt", action='invocation', label='start', context=context)
+    track(category="dbt", action='invocation', label='start', context=context)
 
 def track_model_run(options):
     context = [SelfDescribingJson(RUN_MODEL_SPEC, options)]
     model_id = options['model_id']
-    tracker.track_struct_event(category="dbt", action='run_model', label=model_id, context=context)
+    track(category="dbt", action='run_model', label=model_id, context=context)
 
 def track_invocation_end(project=None, args=None, result_type=None, result=None):
     invocation_context = get_invocation_end_context(invocation_id, user, project, args, result_type, result)
     context = [invocation_context, platform_context]
-    tracker.track_struct_event(category="dbt", action='invocation', label='end', context=context)
+    track(category="dbt", action='invocation', label='end', context=context)
 
+def track_invalid_invocation(project=None, args=None, result_type=None, result=None):
+    invocation_context = get_invocation_invalid_context(invocation_id, user, project, args, result_type, result)
+    context = [invocation_context, platform_context]
+    track(category="dbt", action='invocation', label='invalid', context=context)
 
 def flush():
     tracker.flush()
+
+def do_not_track():
+    global __is_do_not_track
+    logger.info("Not sending anonymous usage events")
+    __is_do_not_track = True

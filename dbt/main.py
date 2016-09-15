@@ -17,18 +17,36 @@ import dbt.task.seed as seed_task
 import dbt.task.test as test_task
 import dbt.tracking
 
+
+def is_opted_out():
+    profiles = project.read_profiles()
+
+    if profiles is None or profiles.get("config") is None:
+        return False
+    elif profiles['config'].get("send_anonymous_usage_stats") == False:
+        return True
+    else:
+        return False
+
 def main(args=None):
     if args is None:
         args = sys.argv[1:]
 
+    if is_opted_out():
+        dbt.tracking.do_not_track()
+
     try:
         handle(args)
+        dbt.tracking.flush()
+
     except RuntimeError as e:
         print("Encountered an error:")
         print(str(e))
         sys.exit(1)
 
 def handle(args):
+
+    is_opted_out()
 
     p = argparse.ArgumentParser(prog='dbt: data build tool')
     p.add_argument('--version', action='version', version="{}".format(dbt_version))
@@ -91,7 +109,8 @@ def handle(args):
             all_profiles = project.read_profiles().keys()
             profiles_string = "\n".join([" - " + key for key in all_profiles])
             print("Valid profiles:\n{}".format(profiles_string))
-            return
+            dbt.tracking.track_invalid_invocation(project=proj, args=parsed, result_type="invalid_profile", result=str(e))
+            return None
 
         if parsed.target is not None:
             targets = proj.cfg.get('outputs', {}).keys()
@@ -101,7 +120,8 @@ def handle(args):
                 print("Encountered an error while reading the project:")
                 print("  ERROR Specified target {} is not a valid option for profile {}".format(parsed.target, parsed.profile))
                 print("Valid targets are: {}".format(targets))
-                return
+                dbt.tracking.track_invalid_invocation(project=proj, args=parsed, result_type="invalid_target", result="target not found")
+                return None
 
         log_dir = proj.get('log-path', 'logs')
         logger = getLogger(log_dir, __name__)
@@ -120,6 +140,3 @@ def handle(args):
     except Exception as e:
         dbt.tracking.track_invocation_end(project=proj, args=parsed, result_type="error", result=str(e))
         raise e
-
-    dbt.tracking.flush()
-

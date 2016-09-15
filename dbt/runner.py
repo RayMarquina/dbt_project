@@ -347,6 +347,7 @@ class RunManager(object):
                     "run_error": run_model_result.error,
                     "model_materialization": run_model_result.model['materialized'],
                     "model_id": run_model_result.model.hashed_name(),
+                    "hashed_contents": run_model_result.model.hashed_contents(),
                 })
 
                 if run_model_result.errored:
