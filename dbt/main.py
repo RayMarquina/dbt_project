@@ -5,6 +5,7 @@ import argparse
 import os.path
 import sys
 import re
+from dbt import version as dbt_version
 import dbt.project as project
 import dbt.task.run as run_task
 import dbt.task.compile as compile_task
@@ -15,21 +16,6 @@ import dbt.task.init as init_task
 import dbt.task.seed as seed_task
 import dbt.task.test as test_task
 import dbt.tracking
-
-def get_version():
-    dbt_dir = os.path.dirname(os.path.dirname(__file__))
-    version_cfg = os.path.join(dbt_dir, ".bumpversion.cfg")
-    if not os.path.exists(version_cfg):
-        return "???"
-    else:
-        with open(version_cfg) as fh:
-            contents = fh.read()
-            matches = re.search(r"current_version = ([\.0-9]+)", contents)
-            if matches is None or len(matches.groups()) != 1:
-                return "???"
-            else:
-                version = matches.groups()[0]
-                return version
 
 def main(args=None):
     if args is None:
@@ -42,15 +28,10 @@ def main(args=None):
         print(str(e))
         sys.exit(1)
 
-def track_run(cmd_name, project_name='none', cmd_opts=""):
-    if len(cmd_opts) == 0:
-        cmd_opts = None
-    dbt.tracking.track_run(project_name, cmd_name, cmd_opts)
-
 def handle(args):
 
     p = argparse.ArgumentParser(prog='dbt: data build tool')
-    p.add_argument('--version', action='version', version="%(prog)s {}".format(get_version()))
+    p.add_argument('--version', action='version', version="{}".format(dbt_version))
     subs = p.add_subparsers()
 
     base_subparser = argparse.ArgumentParser(add_help=False)
@@ -92,46 +73,50 @@ def handle(args):
 
     parsed = p.parse_args(args)
 
+    task = None
+    proj = None
+
     if parsed.which == 'init':
         # bypass looking for a project file if we're running `dbt init`
-        track_run('init')
-        parsed.cls(args=parsed).run()
+        task = parsed.cls(args=parsed)
 
     elif os.path.isfile('dbt_project.yml'):
         try:
-          proj = project.read_project('dbt_project.yml', validate=False).with_profiles(parsed.profile)
-          proj.validate()
-
-          cmd_name = args[0]
-          cmd_opts = " ".join([arg for arg in args[1:] if arg.startswith("--")])
-          track_run(cmd_name, project_name=proj.get('name', 'none'), cmd_opts=cmd_opts)
+            proj = project.read_project('dbt_project.yml', validate=False).with_profiles(parsed.profile)
+            proj.validate()
         except project.DbtProjectError as e:
-          print("Encountered an error while reading the project:")
-          print("  ERROR {}".format(str(e)))
-          print("Did you set the correct --profile? Using: {}".format(parsed.profile))
-          all_profiles = project.read_profiles().keys()
-          profiles_string = "\n".join([" - " + key for key in all_profiles])
-          print("Valid profiles:\n{}".format(profiles_string))
-          return
+            print("Encountered an error while reading the project:")
+            print("  ERROR {}".format(str(e)))
+            print("Did you set the correct --profile? Using: {}".format(parsed.profile))
+            all_profiles = project.read_profiles().keys()
+            profiles_string = "\n".join([" - " + key for key in all_profiles])
+            print("Valid profiles:\n{}".format(profiles_string))
+            return
 
         if parsed.target is not None:
-          targets = proj.cfg.get('outputs', {}).keys()
-          if parsed.target in targets:
-            proj.cfg['run-target'] = parsed.target
-          else:
-            print("Encountered an error while reading the project:")
-            print("  ERROR Specified target {} is not a valid option for profile {}".format(parsed.target, parsed.profile))
-            print("Valid targets are: {}".format(targets))
-            return
+            targets = proj.cfg.get('outputs', {}).keys()
+            if parsed.target in targets:
+                proj.cfg['run-target'] = parsed.target
+            else:
+                print("Encountered an error while reading the project:")
+                print("  ERROR Specified target {} is not a valid option for profile {}".format(parsed.target, parsed.profile))
+                print("Valid targets are: {}".format(targets))
+                return
 
         log_dir = proj.get('log-path', 'logs')
         logger = getLogger(log_dir, __name__)
 
         logger.info("running dbt with arguments %s", parsed)
 
-        parsed.cls(args=parsed, project=proj).run()
+        task = parsed.cls(args=parsed, project=proj)
 
     else:
         raise RuntimeError("dbt must be run from a project root directory with a dbt_project.yml file")
+
+    import ipdb; ipdb.set_trace()
+
+    dbt.tracking.track_invocation_start(project=proj, args=parsed)
+    task.run()
+    dbt.tracking.track_invocation_end(project=proj, args=parsed)
 
 

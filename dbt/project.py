@@ -3,6 +3,7 @@ import yaml
 import pprint
 import copy
 import sys
+import hashlib
 
 default_project_cfg = {
     'source-paths': ['models'],
@@ -96,6 +97,15 @@ class Project:
         for key in required_keys:
             if key not in target_cfg or len(str(target_cfg[key])) == 0:
                 raise DbtProjectError("Expected project configuration '{}' was not supplied".format(key), self)
+
+
+    def hashed_name(self):
+        if self.cfg.get("name", None) is None:
+            return None
+
+        project_name = self['name']
+        return hashlib.md5(project_name).hexdigest()
+
 
 def read_profiles():
     profiles = {}
