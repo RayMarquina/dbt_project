@@ -10,13 +10,11 @@ import json
 
 sp_logger.setLevel(30)
 
-#COLLECTOR_URL = "events.fivetran.com/snowplow/forgiving_ain"
-#COLLECTOR_PROTOCOL = "https"
-
-COLLECTOR_URL = "127.0.0.1:8000"
-COLLECTOR_PROTOCOL = "http"
+COLLECTOR_URL = "events.fivetran.com/snowplow/forgiving_ain"
+COLLECTOR_PROTOCOL = "https"
 
 COOKIE_PATH = os.path.join(os.path.expanduser('~'), '.dbt/.user.yml')
+
 INVOCATION_SPEC = "https://s3.amazonaws.com/fishtown-events/schemas/com.fishtownanalytics/invocation_event.json"
 PLATFORM_SPEC = "https://s3.amazonaws.com/fishtown-events/schemas/com.fishtownanalytics/platform_context.json"
 RUN_MODEL_SPEC = "https://s3.amazonaws.com/fishtown-events/schemas/com.fishtownanalytics/run_model_context.json"
