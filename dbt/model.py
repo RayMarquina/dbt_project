@@ -209,13 +209,6 @@ class Model(DBTSource):
     def add_to_prologue(self, s):
         self.prologue.append(s)
 
-    def get_model_hooks(self):
-        for pre_hook in self.config.get('pre-hook', []):
-            print pre_hook
-
-        for post_hook in self.config.get('post-hook', []):
-            print post_hook
-
     def get_prologue_string(self):
         blob = "\n".join("-- {}".format(s) for s in self.prologue)
         return "-- Compiled by DBT\n{}".format(blob)
