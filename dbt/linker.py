@@ -24,6 +24,7 @@ class Linker(object):
         except KeyError as e:
             raise RuntimeError("Couldn't find model '{}' -- does it exist or is it diabled?".format(e))
         except nx.exception.NetworkXUnfeasible as e:
+            import ipdb; ipdb.set_trace()
             cycle = " --> ".join([".".join(node) for node in  nx.algorithms.find_cycle(self.graph)[0]])
             raise RuntimeError("Can't compile -- cycle exists in model graph\n{}".format(cycle))
 
