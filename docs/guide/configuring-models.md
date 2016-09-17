@@ -93,6 +93,14 @@ dbt applies this `WHERE` condition automatically, so it shouldn't be present in 
 WHERE session_end_timestamp >= (select max(session_end_timestamp) from {{this}})
 ```
 
+Additionally, it is possible to write the following:
+
+```SQL
+{{this}} --returns "schema"."table"
+{{this.schema}} --returns schema
+{{this.table}} --returns table
+```
+
 #### unique_key
 
 `unique_key` is an optional parameter that specifies uniqueness on this table. Records matching this UK that are found in the table will be deleted before new records are inserted. Functionally, this allows for modification of existing rows in an incremental table. `unique_key` can be any valid SQL expression, including a single field, or a function. A common use case is concatenating multiple fields together to create a single unique key, as such: `user_id || session_index`.

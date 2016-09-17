@@ -16,11 +16,11 @@ my-profile:                   # each project has a single default profile. creat
       schema: my_model_schema # the schema to create models in. commonly "dbt_" + a suffix for development, and "analytics" for production
   run-target: my-target       # default target; can be overridden at run time.
 
-# create a second profile. You can switch to this profile in the CLI with --profile my-org
+# create a second profile. You can switch to this profile in the CLI with --profile my-profile
 # Valid dbt options include:
-# dbt debug --profile my-org # use my-org profile with default "dev" run target
-# dbt debug --profile my-org --target dev # explicitly use "dev" run target
-# dbt debug --profile my-org --target prod # switch to the "prod" run target
+# dbt debug --profile my-profile # use my-profile profile with default "dev" run target
+# dbt debug --profile my-profile --target dev # explicitly use "dev" run target
+# dbt debug --profile my-profile --target prod # switch to the "prod" run target
 # these flags work with `dbt (debug|compile|run|test)` as you would expect!
 evil-corp:
   outputs:

@@ -32,4 +32,3 @@ When your project gets large enough, `dbt run` can take a while. dbt provides th
 1. Use views instead of tables to the greatest extent possible in development. Views typically deploy much faster than tables, and in development it's often not critical that subsequent analytic queries run as fast as possible. It's easy to change this setting later and it will have no impact on your business logic.
 1. Use `dbt_project.yml` to disable portions of your project that you're not currently working on. If you have multiple modules within a given project, turn off the ones that you're not currently working on so that those models don't deploy with every `dbt run`.
 1. Pass the `--models` flag to `dbt run`. This flag causes dbt to only deploy the models you specify and their dependents. If you're working on a particular model, this can make a very significant difference in your deployment time in large projects.
-1. [mention limitation based on `target` once that is built]

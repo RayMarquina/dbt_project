@@ -18,7 +18,7 @@ log-path: "logs"             # where to save log files (rotated daily)
 # configuration of default database information, as defined within ~/.dbt/profiles.yml.
 # all execution of dbt from the root directory of this project will default to this profile.
 
-profile: evil-corp           # use my-org profile within this project.
+profile: evil-corp           # use evil-corp profile within this project.
 
 # Custom configurations for each model.
 # The structure of this config object should mirror the project files in the "source-paths" directories.
