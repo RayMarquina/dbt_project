@@ -18,9 +18,9 @@ COLLECTOR_PROTOCOL = "https"
 
 COOKIE_PATH = os.path.join(os.path.expanduser('~'), '.dbt/.user.yml')
 
-INVOCATION_SPEC = "https://s3.amazonaws.com/fishtown-events/schemas/com.fishtownanalytics/invocation_event.json"
-PLATFORM_SPEC = "https://s3.amazonaws.com/fishtown-events/schemas/com.fishtownanalytics/platform_context.json"
-RUN_MODEL_SPEC = "https://s3.amazonaws.com/fishtown-events/schemas/com.fishtownanalytics/run_model_context.json"
+INVOCATION_SPEC = "https://raw.githubusercontent.com/analyst-collective/dbt/feature/event-tracking/events/schemas/com.fishtownanalytics/invocation_event.json"
+PLATFORM_SPEC = "https://raw.githubusercontent.com/analyst-collective/dbt/feature/event-tracking/events/schemas/com.fishtownanalytics/platform_context.json"
+RUN_MODEL_SPEC = "https://raw.githubusercontent.com/analyst-collective/dbt/feature/event-tracking/events/schemas/com.fishtownanalytics/run_model_context.json"
 
 emitter = AsyncEmitter(COLLECTOR_URL, protocol=COLLECTOR_PROTOCOL, buffer_size=1)
 tracker = Tracker(emitter, namespace="cf", app_id="dbt")
