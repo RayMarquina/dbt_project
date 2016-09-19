@@ -1,7 +1,13 @@
 
 import os, re
-import urllib2
 import argparse
+
+try:
+    # For Python 3.0 and later
+    from urllib.request import urlopen
+except ImportError:
+    # Fall back to Python 2's urllib2
+    from urllib2 import urlopen
 
 REMOTE_VERISON_FILE = 'https://raw.githubusercontent.com/analyst-collective/dbt/master/.bumpversion.cfg'
 
@@ -24,7 +30,7 @@ def get_version():
             return __parse_version(contents)
 
 def get_latest_version():
-    f = urllib2.urlopen(REMOTE_VERISON_FILE)
+    f = urlopen(REMOTE_VERISON_FILE)
     contents = f.read()
     return __parse_version(contents)
 
