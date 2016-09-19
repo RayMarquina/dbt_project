@@ -25,9 +25,6 @@
     "version": {
       "type": "string"
     },
-    "local_ip": {
-      "type": "string"
-    },
     "remote_ip": {
       "type": "string"
     },
