@@ -146,7 +146,7 @@ delete from "{schema}"."{identifier}" where  ({unique_key}) in (
         if opts['materialization'] in ('table', 'view'):
             sql = self.base_template.format(**opts)
         elif opts['materialization'] == 'incremental':
-            if 'unique_key' in opts:
+            if opts.get('unique_key') is not None:
                 delete_sql = self.incremental_delete_template.format(**opts)
             else:
                 delete_sql = "-- no unique key provided... skipping delete"

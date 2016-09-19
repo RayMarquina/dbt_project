@@ -67,7 +67,7 @@ class SourceConfig(object):
             new_hooks = [new_hooks]
 
         for hook in new_hooks:
-            if type(hook) not in [str, unicode]:
+            if type(hook) != str:
                 name = ".".join(self.fqn)
                 raise RuntimeError("{} for model {} is not a string!".format(key, name))
 

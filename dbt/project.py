@@ -104,7 +104,7 @@ class Project:
             return None
 
         project_name = self['name']
-        return hashlib.md5(project_name).hexdigest()
+        return hashlib.md5(project_name.encode('utf-8')).hexdigest()
 
 
 def read_profiles():

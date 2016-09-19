@@ -18,10 +18,10 @@ class CompiledModel(object):
 
     def hashed_name(self):
         fqn_string = ".".join(self.fqn)
-        return hashlib.md5(fqn_string).hexdigest()
+        return hashlib.md5(fqn_string.encode('utf-8')).hexdigest()
 
     def hashed_contents(self):
-        return hashlib.md5(self.contents).hexdigest()
+        return hashlib.md5(self.contents.encode('utf-8')).hexdigest()
 
     def do_skip(self):
         self.skip = True
