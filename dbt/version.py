@@ -12,7 +12,7 @@ except ImportError:
 REMOTE_VERISON_FILE = 'https://raw.githubusercontent.com/analyst-collective/dbt/master/.bumpversion.cfg'
 
 def __parse_version(contents):
-    matches = re.search(r"current_version = ([\.0-9]+)", contents)
+    matches = re.search(r"current_version = ([\.0-9]+)", contents.decode('utf-8'))
     if matches is None or len(matches.groups()) != 1:
         return "???"
     else:
