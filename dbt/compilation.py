@@ -5,7 +5,7 @@ import jinja2
 from collections import defaultdict
 import dbt.project
 from dbt.source import Source
-from dbt.utils import find_model_by_fqn, find_model_by_name, dependency_projects, split_path
+from dbt.utils import find_model_by_fqn, find_model_by_name, dependency_projects, split_path, This
 from dbt.linker import Linker
 import sqlparse
 
@@ -102,7 +102,9 @@ class Compiler(object):
                 ref_fqn = ".".join(other_model_fqn)
                 raise RuntimeError("Model '{}' depends on model '{}' which is disabled in the project config".format(src_fqn, ref_fqn))
 
-            linker.dependency(source_model, other_model_fqn)
+            # this creates a trivial cycle -- should this be a compiler error?
+            if source_model != other_model_fqn:
+                linker.dependency(source_model, other_model_fqn)
 
             if other_model.is_ephemeral:
                 linker.inject_cte(model, other_model)
@@ -132,6 +134,13 @@ class Compiler(object):
         context = self.project.context()
         context['ref'] = self.__ref(linker, context, model, models)
         context['config'] = self.__model_config(model, linker)
+        context['this'] = This(context['env']['schema'], model.name)
+
+        hook_keys = ['pre-hook', 'post-hook']
+        for key in hook_keys:
+            hooks = model.config.get(key, [])
+            rendered_hooks = [jinja2.Environment().from_string(hook).render(context) for hook in hooks]
+            model.update_in_model_config({key: rendered_hooks})
 
         rendered = template.render(context)
         return rendered
