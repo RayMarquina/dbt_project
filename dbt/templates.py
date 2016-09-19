@@ -41,11 +41,11 @@ delete from "{schema}"."{identifier}" where  ({unique_key}) in (
     extras_template = """
 {prologue}
 
-{pre_hooks};
+{pre_hooks}
 
 {sql}
 
-{post_hooks};
+{post_hooks}
 """
 
     label = "build"
@@ -55,11 +55,20 @@ delete from "{schema}"."{identifier}" where  ({unique_key}) in (
         return base_name
 
     def add_extras(self, opts, sql):
+        pre_hooks = ';\n'.join(opts['pre-hooks'])
+        post_hooks = ';\n'.join(opts['post-hooks'])
+
+        if len(pre_hooks) > 0:
+            pre_hooks = pre_hooks + ';'
+
+        if len(post_hooks) > 0:
+            post_hooks = post_hooks + ';'
+
         extras = {
             'prologue': opts['prologue'],
-            'pre_hooks': ';\n'.join(opts['pre-hooks']),
+            'pre_hooks': pre_hooks,
             'sql': sql,
-            'post_hooks': ';\n'.join(opts['post-hooks']),
+            'post_hooks': post_hooks,
         }
 
         return self.extras_template.format(**extras)

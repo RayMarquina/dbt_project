@@ -19,6 +19,7 @@ class SourceConfig(object):
         self.fqn = fqn
 
         self.in_model_config   = {} # the config options defined within the model
+        self.force_config      = {} # hack -- apply these on top of all other configs
 
     def _merge(self, *configs):
         merged_config = {}
@@ -48,10 +49,12 @@ class SourceConfig(object):
             return self._merge(defaults, active_config, self.in_model_config)
         else:
             own_config = self.load_config_from_own_project()
-            return self._merge(defaults, own_config, self.in_model_config, active_config)
+            return self._merge(defaults, own_config, self.in_model_config, active_config, self.force_config)
 
-    def update_in_model_config(self, config):
+    def update_in_model_config(self, config, force=False):
         self.in_model_config.update(config)
+        if force:
+            self.force_config.update(config)
 
     def __get_hooks(self, relevant_configs, key):
         hooks = []
@@ -147,8 +150,8 @@ class DBTSource(object):
     def config(self):
         return self.source_config.config
 
-    def update_in_model_config(self, config):
-        self.source_config.update_in_model_config(config)
+    def update_in_model_config(self, config, force=False):
+        self.source_config.update_in_model_config(config, force)
 
     @property
     def materialization(self):

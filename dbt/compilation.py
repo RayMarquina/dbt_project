@@ -142,7 +142,7 @@ class Compiler(object):
         for key in hook_keys:
             hooks = model.config.get(key, [])
             rendered_hooks = [jinja2.Environment().from_string(hook).render(context) for hook in hooks]
-            model.update_in_model_config({key: rendered_hooks})
+            model.update_in_model_config({key: rendered_hooks}, force=True)
 
         rendered = template.render(context)
         return rendered
