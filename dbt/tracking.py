@@ -62,7 +62,7 @@ def get_options(args):
     return json.dumps(options)
 
 def get_run_type(args):
-    if 'dry' in args:
+    if 'dry' in args and args.dry == True:
         return 'dry'
     else:
         return 'regular'
@@ -75,7 +75,7 @@ def get_invocation_context(invocation_id, user, project, args):
 
       "command"       : args.which,
       "options"       : get_options(args),
-      "version"       : dbt_version,
+      "version"       : dbt_version.installed,
 
       "run_type"      : get_run_type(args),
     }
@@ -96,7 +96,7 @@ def get_invocation_end_context(invocation_id, user, project, args, result_type, 
     data = get_invocation_context(invocation_id, user, project, args)
 
     start_data = {
-        "progress"    : "start",
+        "progress"    : "end",
         "result_type" : result_type,
         "result"      : result,
     }

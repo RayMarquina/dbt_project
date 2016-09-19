@@ -5,7 +5,8 @@ import argparse
 import os.path
 import sys
 import re
-from dbt import version as dbt_version
+
+import dbt.version
 import dbt.project as project
 import dbt.task.run as run_task
 import dbt.task.compile as compile_task
@@ -45,11 +46,8 @@ def main(args=None):
         sys.exit(1)
 
 def handle(args):
-
-    is_opted_out()
-
-    p = argparse.ArgumentParser(prog='dbt: data build tool')
-    p.add_argument('--version', action='version', version="{}".format(dbt_version))
+    p = argparse.ArgumentParser(prog='dbt: data build tool', formatter_class=argparse.RawTextHelpFormatter)
+    p.add_argument('--version', action='version', version=dbt.version.get_version_information(), help="Show version information")
     subs = p.add_subparsers()
 
     base_subparser = argparse.ArgumentParser(add_help=False)
