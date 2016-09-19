@@ -7,6 +7,7 @@ import dbt.project
 from dbt.source import Source
 from dbt.utils import find_model_by_fqn, find_model_by_name, dependency_projects, split_path, This
 from dbt.linker import Linker
+import time
 import sqlparse
 
 class Compiler(object):
@@ -135,6 +136,7 @@ class Compiler(object):
         context['ref'] = self.__ref(linker, context, model, models)
         context['config'] = self.__model_config(model, linker)
         context['this'] = This(context['env']['schema'], model.name)
+        context['compiled_at'] = time.strftime('%Y-%m-%d %H:%M:%S')
 
         hook_keys = ['pre-hook', 'post-hook']
         for key in hook_keys:
