@@ -2,6 +2,14 @@
 import os
 import dbt.project
 
+class This(object):
+    def __init__(self, schema, table):
+        self.schema = schema
+        self.table = table
+
+    def __repr__(self):
+        return '"{}"."{}"'.format(self.schema, self.table)
+
 def find_model_by_name(models, name, package_namespace=None):
     found = []
     for model in models:
