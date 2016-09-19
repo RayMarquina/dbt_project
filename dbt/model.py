@@ -4,12 +4,14 @@ import yaml
 import jinja2
 import re
 from dbt.templates import BaseCreateTemplate, DryCreateTemplate
+from dbt.utils import split_path
 import dbt.schema_tester
 import dbt.project
+from dbt.utils import This
 
 class SourceConfig(object):
     Materializations = ['view', 'table', 'incremental', 'ephemeral']
-    ConfigKeys = ['enabled', 'materialized', 'dist', 'sort', 'sql_where', 'unique_key', 'sort_type']
+    ConfigKeys = ['enabled', 'materialized', 'dist', 'sort', 'sql_where', 'unique_key', 'sort_type', 'pre-hook', 'post-hook']
 
     def __init__(self, active_project, own_project, fqn):
         self.active_project = active_project
@@ -17,6 +19,7 @@ class SourceConfig(object):
         self.fqn = fqn
 
         self.in_model_config   = {} # the config options defined within the model
+        self.force_config      = {} # hack -- apply these on top of all other configs
 
     def _merge(self, *configs):
         merged_config = {}
@@ -46,13 +49,36 @@ class SourceConfig(object):
             return self._merge(defaults, active_config, self.in_model_config)
         else:
             own_config = self.load_config_from_own_project()
-            return self._merge(defaults, own_config, self.in_model_config, active_config)
+            return self._merge(defaults, own_config, self.in_model_config, active_config, self.force_config)
 
-    def update_in_model_config(self, config):
+    def update_in_model_config(self, config, force=False):
         self.in_model_config.update(config)
+        if force:
+            self.force_config.update(config)
+
+    def __get_hooks(self, relevant_configs, key):
+        hooks = []
+
+        if key not in relevant_configs:
+            return []
+
+        new_hooks = relevant_configs[key]
+        if type(new_hooks) not in [list, tuple]:
+            new_hooks = [new_hooks]
+
+        for hook in new_hooks:
+            if type(hook) != str:
+                name = ".".join(self.fqn)
+                raise RuntimeError("{} for model {} is not a string!".format(key, name))
+
+            hooks.append(hook)
+        return hooks
 
     def get_project_config(self, project):
-        config = {} 
+        # most configs are overwritten by a more specific config, but pre/post hooks are appended!
+        hook_fields = ['pre-hook', 'post-hook']
+        config = {k:[] for k in hook_fields} 
+
         model_configs = project['models']
 
         fqn = self.fqn[:]
@@ -60,8 +86,15 @@ class SourceConfig(object):
             level_config = model_configs.get(level, None)
             if level_config is None:
                 break
+
             relevant_configs = {key: level_config[key] for key in level_config if key in self.ConfigKeys}
-            config.update(relevant_configs)
+
+            for key in hook_fields:
+                new_hooks = self.__get_hooks(relevant_configs, key)
+                config[key].extend([h for h in new_hooks if h not in config[key]])
+
+            clobber_configs = {k:v for (k,v) in relevant_configs.items() if k not in hook_fields}
+            config.update(clobber_configs)
             model_configs = model_configs[level]
 
         return config
@@ -117,8 +150,8 @@ class DBTSource(object):
     def config(self):
         return self.source_config.config
 
-    def update_in_model_config(self, config):
-        self.source_config.update_in_model_config(config)
+    def update_in_model_config(self, config, force=False):
+        self.source_config.update_in_model_config(config, force)
 
     @property
     def materialization(self):
@@ -148,7 +181,7 @@ class DBTSource(object):
     @property
     def fqn(self):
         "fully-qualified name for model. Includes all subdirs below 'models' path and the filename"
-        parts = self.filepath.split("/")
+        parts = split_path(self.filepath)
         name, _ = os.path.splitext(parts[-1])
         return [self.own_project['name']] + parts[1:-1] + [name]
 
@@ -246,7 +279,7 @@ class Model(DBTSource):
 
         if self.materialization == 'incremental':
             identifier = self.name
-            ctx['this'] =  '"{}"."{}"'.format(schema, identifier)
+            ctx['this'] =  This(schema, identifier)
             if 'sql_where' not in model_config:
                 raise RuntimeError("sql_where not specified in model materialized as incremental: {}".format(self))
             raw_sql_where = model_config['sql_where']
@@ -255,7 +288,7 @@ class Model(DBTSource):
             unique_key = model_config.get('unique_key', None)
         else:
             identifier = self.tmp_name()
-            ctx['this'] =  '"{}"."{}"'.format(schema, identifier)
+            ctx['this'] = This(schema, identifier)
             sql_where = None
             unique_key = None
 
@@ -268,7 +301,9 @@ class Model(DBTSource):
             "sort_qualifier": sort_qualifier,
             "sql_where": sql_where,
             "prologue": self.get_prologue_string(),
-            "unique_key" : unique_key
+            "unique_key" : unique_key,
+            "pre-hooks" : self.config['pre-hook'],
+            "post-hooks" : self.config['post-hook']
         }
 
         return create_template.wrap(opts)
@@ -308,14 +343,14 @@ class TestModel(Model):
     @property
     def fqn(self):
         "fully-qualified name for model. Includes all subdirs below 'models' path and the filename"
-        parts = self.filepath.split("/")
+        parts = split_path(self.filepath)
         name, _ = os.path.splitext(parts[-1])
         test_name = DryCreateTemplate.model_name(name)
         return [self.own_project['name']] + parts[1:-1] + [test_name]
 
     @property
     def original_fqn(self):
-        parts = self.filepath.split("/")
+        parts = split_path(self.filepath)
         name, _ = os.path.splitext(parts[-1])
         return [self.project['name']] + parts[1:-1] + [name]
 
@@ -336,7 +371,7 @@ class SchemaTest(DBTSource):
 
     @property
     def fqn(self):
-        parts = self.filepath.split("/")
+        parts = split_path(self.filepath)
         name, _ = os.path.splitext(parts[-1])
         return [self.project['name']] + parts[1:-1] + ['schema',  self.get_filename()]
 

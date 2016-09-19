@@ -2,6 +2,18 @@
 import os
 import dbt.project
 
+class This(object):
+    def __init__(self, schema, table):
+        self.schema = schema
+        self.table = table
+        self.grant_name = self.schema_table(self.schema, "{}__dbt_tmp".format(self.table))
+
+    def schema_table(self, schema, table):
+        return '"{}"."{}"'.format(schema, table)
+
+    def __repr__(self):
+        return self.schema_table(self.schema, self.table)
+
 def find_model_by_name(models, name, package_namespace=None):
     found = []
     for model in models:
@@ -30,3 +42,7 @@ def dependency_projects(project):
         full_obj = os.path.join(project['modules-path'], obj)
         if os.path.isdir(full_obj):
             yield dbt.project.read_project(os.path.join(full_obj, 'dbt_project.yml'))
+
+def split_path(path):
+    norm = os.path.normpath(path)
+    return path.split(os.sep)

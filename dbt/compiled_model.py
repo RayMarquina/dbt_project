@@ -1,3 +1,4 @@
+import hashlib
 
 class CompiledModel(object):
     def __init__(self, fqn, data):
@@ -10,9 +11,17 @@ class CompiledModel(object):
         self.target = None
 
         self.skip = False
+        self._contents = None
 
     def __getitem__(self, key):
         return self.data[key]
+
+    def hashed_name(self):
+        fqn_string = ".".join(self.fqn)
+        return hashlib.md5(fqn_string.encode('utf-8')).hexdigest()
+
+    def hashed_contents(self):
+        return hashlib.md5(self.contents.encode('utf-8')).hexdigest()
 
     def do_skip(self):
         self.skip = True
@@ -25,8 +34,10 @@ class CompiledModel(object):
 
     @property
     def contents(self):
-        with open(self.data['build_path']) as fh:
-            return fh.read()
+        if self._contents is None:
+            with open(self.data['build_path']) as fh:
+                self._contents = fh.read()
+        return self._contents
 
     @property
     def materialization(self):

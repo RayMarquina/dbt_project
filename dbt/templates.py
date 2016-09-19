@@ -38,11 +38,40 @@ delete from "{schema}"."{identifier}" where  ({unique_key}) in (
 );
 """
 
+    extras_template = """
+{prologue}
+
+{pre_hooks}
+
+{sql}
+
+{post_hooks}
+"""
+
     label = "build"
 
     @classmethod
     def model_name(cls, base_name):
         return base_name
+
+    def add_extras(self, opts, sql):
+        pre_hooks = ';\n'.join(opts['pre-hooks'])
+        post_hooks = ';\n'.join(opts['post-hooks'])
+
+        if len(pre_hooks) > 0:
+            pre_hooks = pre_hooks + ';'
+
+        if len(post_hooks) > 0:
+            post_hooks = post_hooks + ';'
+
+        extras = {
+            'prologue': opts['prologue'],
+            'pre_hooks': pre_hooks,
+            'sql': sql,
+            'post_hooks': post_hooks,
+        }
+
+        return self.extras_template.format(**extras)
 
     def wrap(self, opts):
         sql = ""
@@ -63,7 +92,8 @@ delete from "{schema}"."{identifier}" where  ({unique_key}) in (
         else:
             raise RuntimeError("Invalid materialization parameter ({})".format(opts['materialization']))
 
-        return "{}\n\n{}".format(opts['prologue'], sql)
+        return self.add_extras(opts, sql)
+
 
 class DryCreateTemplate(object):
     base_template = """
@@ -116,7 +146,7 @@ delete from "{schema}"."{identifier}" where  ({unique_key}) in (
         if opts['materialization'] in ('table', 'view'):
             sql = self.base_template.format(**opts)
         elif opts['materialization'] == 'incremental':
-            if 'unique_key' in opts:
+            if opts.get('unique_key') is not None:
                 delete_sql = self.incremental_delete_template.format(**opts)
             else:
                 delete_sql = "-- no unique key provided... skipping delete"

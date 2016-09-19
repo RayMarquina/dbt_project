@@ -5,8 +5,9 @@ import jinja2
 from collections import defaultdict
 import dbt.project
 from dbt.source import Source
-from dbt.utils import find_model_by_fqn, find_model_by_name, dependency_projects
+from dbt.utils import find_model_by_fqn, find_model_by_name, dependency_projects, split_path, This
 from dbt.linker import Linker
+import time
 import sqlparse
 
 class Compiler(object):
@@ -102,7 +103,9 @@ class Compiler(object):
                 ref_fqn = ".".join(other_model_fqn)
                 raise RuntimeError("Model '{}' depends on model '{}' which is disabled in the project config".format(src_fqn, ref_fqn))
 
-            linker.dependency(source_model, other_model_fqn)
+            # this creates a trivial cycle -- should this be a compiler error?
+            if source_model != other_model_fqn:
+                linker.dependency(source_model, other_model_fqn)
 
             if other_model.is_ephemeral:
                 linker.inject_cte(model, other_model)
@@ -124,11 +127,22 @@ class Compiler(object):
 
     def compile_model(self, linker, model, models):
         jinja = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath=model.root_dir))
-        template = jinja.get_template(model.rel_filepath)
+
+        # this is a dumb jinja2 bug -- on windows, forward slashes are EXPECTED
+        posix_filepath = '/'.join(split_path(model.rel_filepath))
+        template = jinja.get_template(posix_filepath)
 
         context = self.project.context()
         context['ref'] = self.__ref(linker, context, model, models)
         context['config'] = self.__model_config(model, linker)
+        context['this'] = This(context['env']['schema'], model.name)
+        context['compiled_at'] = time.strftime('%Y-%m-%d %H:%M:%S')
+
+        hook_keys = ['pre-hook', 'post-hook']
+        for key in hook_keys:
+            hooks = model.config.get(key, [])
+            rendered_hooks = [jinja2.Environment().from_string(hook).render(context) for hook in hooks]
+            model.update_in_model_config({key: rendered_hooks}, force=True)
 
         rendered = template.render(context)
         return rendered
