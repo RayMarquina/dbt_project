@@ -4,6 +4,7 @@ import yaml
 import jinja2
 import re
 from dbt.templates import BaseCreateTemplate, DryCreateTemplate
+from dbt.utils import split_path
 import dbt.schema_tester
 import dbt.project
 from dbt.utils import This
@@ -177,7 +178,7 @@ class DBTSource(object):
     @property
     def fqn(self):
         "fully-qualified name for model. Includes all subdirs below 'models' path and the filename"
-        parts = self.filepath.split("/")
+        parts = split_path(self.filepath)
         name, _ = os.path.splitext(parts[-1])
         return [self.own_project['name']] + parts[1:-1] + [name]
 
@@ -339,14 +340,14 @@ class TestModel(Model):
     @property
     def fqn(self):
         "fully-qualified name for model. Includes all subdirs below 'models' path and the filename"
-        parts = self.filepath.split("/")
+        parts = split_path(self.filepath)
         name, _ = os.path.splitext(parts[-1])
         test_name = DryCreateTemplate.model_name(name)
         return [self.own_project['name']] + parts[1:-1] + [test_name]
 
     @property
     def original_fqn(self):
-        parts = self.filepath.split("/")
+        parts = split_path(self.filepath)
         name, _ = os.path.splitext(parts[-1])
         return [self.project['name']] + parts[1:-1] + [name]
 
@@ -367,7 +368,7 @@ class SchemaTest(DBTSource):
 
     @property
     def fqn(self):
-        parts = self.filepath.split("/")
+        parts = split_path(self.filepath)
         name, _ = os.path.splitext(parts[-1])
         return [self.project['name']] + parts[1:-1] + ['schema',  self.get_filename()]
 

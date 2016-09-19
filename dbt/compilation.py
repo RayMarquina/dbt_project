@@ -5,7 +5,7 @@ import jinja2
 from collections import defaultdict
 import dbt.project
 from dbt.source import Source
-from dbt.utils import find_model_by_fqn, find_model_by_name, dependency_projects, This
+from dbt.utils import find_model_by_fqn, find_model_by_name, dependency_projects, split_path, This
 from dbt.linker import Linker
 import sqlparse
 
@@ -126,7 +126,10 @@ class Compiler(object):
 
     def compile_model(self, linker, model, models):
         jinja = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath=model.root_dir))
-        template = jinja.get_template(model.rel_filepath)
+
+        # this is a dumb jinja2 bug -- on windows, forward slashes are EXPECTED
+        posix_filepath = '/'.join(split_path(model.rel_filepath))
+        template = jinja.get_template(posix_filepath)
 
         context = self.project.context()
         context['ref'] = self.__ref(linker, context, model, models)
