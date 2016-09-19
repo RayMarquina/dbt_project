@@ -30,3 +30,7 @@ def dependency_projects(project):
         full_obj = os.path.join(project['modules-path'], obj)
         if os.path.isdir(full_obj):
             yield dbt.project.read_project(os.path.join(full_obj, 'dbt_project.yml'))
+
+def split_path(path):
+    norm = os.path.normpath(path)
+    return path.split(os.sep)

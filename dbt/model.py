@@ -4,12 +4,9 @@ import yaml
 import jinja2
 import re
 from dbt.templates import BaseCreateTemplate, DryCreateTemplate
+from dbt.utils import split_path
 import dbt.schema_tester
 import dbt.project
-
-def split_path(path):
-    norm = os.path.normpath(path)
-    return path.split(os.sep)
 
 class SourceConfig(object):
     Materializations = ['view', 'table', 'incremental', 'ephemeral']
