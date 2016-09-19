@@ -6,9 +6,13 @@ class This(object):
     def __init__(self, schema, table):
         self.schema = schema
         self.table = table
+        self.grant_name = self.schema_table(self.schema, "{}__dbt_tmp".format(self.table))
+
+    def schema_table(self, schema, table):
+        return '"{}"."{}"'.format(schema, table)
 
     def __repr__(self):
-        return '"{}"."{}"'.format(self.schema, self.table)
+        return self.schema_table(self.schema, self.table)
 
 def find_model_by_name(models, name, package_namespace=None):
     found = []
