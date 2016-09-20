@@ -135,7 +135,7 @@ class Compiler(object):
         context = self.project.context()
         context['ref'] = self.__ref(linker, context, model, models)
         context['config'] = self.__model_config(model, linker)
-        context['this'] = This(context['env']['schema'], model.name)
+        context['this'] = This(context['env']['schema'], model.immediate_name, model.name)
         context['compiled_at'] = time.strftime('%Y-%m-%d %H:%M:%S')
 
         hook_keys = ['pre-hook', 'post-hook']

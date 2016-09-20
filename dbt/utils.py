@@ -3,10 +3,10 @@ import os
 import dbt.project
 
 class This(object):
-    def __init__(self, schema, table):
+    def __init__(self, schema, table, name=None):
         self.schema = schema
         self.table = table
-        self.grant_name = self.schema_table(self.schema, "{}__dbt_tmp".format(self.table))
+        self.name = table if name is None else name
 
     def schema_table(self, schema, table):
         return '"{}"."{}"'.format(schema, table)

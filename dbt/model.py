@@ -279,7 +279,7 @@ class Model(DBTSource):
 
         if self.materialization == 'incremental':
             identifier = self.name
-            ctx['this'] =  This(schema, identifier)
+            ctx['this'] =  This(schema, identifier, self.name)
             if 'sql_where' not in model_config:
                 raise RuntimeError("sql_where not specified in model materialized as incremental: {}".format(self))
             raw_sql_where = model_config['sql_where']
@@ -288,7 +288,7 @@ class Model(DBTSource):
             unique_key = model_config.get('unique_key', None)
         else:
             identifier = self.tmp_name()
-            ctx['this'] = This(schema, identifier)
+            ctx['this'] = This(schema, identifier, self.name)
             sql_where = None
             unique_key = None
 
@@ -307,7 +307,14 @@ class Model(DBTSource):
         }
 
         return create_template.wrap(opts)
-    
+
+    @property
+    def immediate_name(self):
+        if self.materialization == 'incremental':
+            return self.name
+        else:
+            return self.tmp_name()
+
     @property
     def cte_name(self):
         return "__dbt__CTE__{}".format(self.name)
