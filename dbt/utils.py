@@ -1,6 +1,21 @@
 
 import os
 import dbt.project
+import pprint
+import json
+
+DBTConfigKeys = [
+    'enabled',
+    'materialized',
+    'dist',
+    'sort',
+    'sql_where',
+    'unique_key',
+    'sort_type',
+    'pre-hook',
+    'post-hook',
+    'vars'
+]
 
 class This(object):
     def __init__(self, schema, table, name=None):
@@ -13,6 +28,28 @@ class This(object):
 
     def __repr__(self):
         return self.schema_table(self.schema, self.table)
+
+class Var(object):
+    UndefinedVarError = "Required var '{}' not found in config:\nVars supplied to {} = {}"
+
+    def __init__(self, model):
+        self.model = model
+        self.local_vars = model.config.get('vars', {})
+
+    def compiler_error(self, model, msg):
+        raise RuntimeError("Compilation error while compiling model {}\n{}".format(model.nice_name, msg))
+
+    def pretty_dict(self, data):
+        return json.dumps(data, sort_keys=True, indent=4)
+
+    def __call__(self, var_name, default=None):
+        if var_name not in self.local_vars and default is None:
+            pretty_vars = self.pretty_dict(self.local_vars)
+            self.compiler_error(self.model, self.UndefinedVarError.format(var_name, self.model.nice_name, pretty_vars))
+        elif var_name in self.local_vars:
+            return self.local_vars[var_name]
+        else:
+            return default
 
 def find_model_by_name(models, name, package_namespace=None):
     found = []

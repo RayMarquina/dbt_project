@@ -7,11 +7,11 @@ from dbt.templates import BaseCreateTemplate, DryCreateTemplate
 from dbt.utils import split_path
 import dbt.schema_tester
 import dbt.project
-from dbt.utils import This
+from dbt.utils import This, DBTConfigKeys
 
 class SourceConfig(object):
     Materializations = ['view', 'table', 'incremental', 'ephemeral']
-    ConfigKeys = ['enabled', 'materialized', 'dist', 'sort', 'sql_where', 'unique_key', 'sort_type', 'pre-hook', 'post-hook']
+    ConfigKeys = DBTConfigKeys
 
     def __init__(self, active_project, own_project, fqn):
         self.active_project = active_project
@@ -201,6 +201,9 @@ class DBTSource(object):
 
         return 'alter table "{schema}"."{tmp_name}" rename to "{final_name}"'.format(**opts)
 
+    @property
+    def nice_name(self):
+        return "{}.{}".format(self.fqn[0], self.fqn[-1])
 
 class Model(DBTSource):
     dbt_run_type = 'run'
