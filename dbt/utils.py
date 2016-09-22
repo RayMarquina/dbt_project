@@ -58,7 +58,7 @@ def deep_merge(destination, source):
                 merge(value, node)
             elif isinstance(value, tuple) or isinstance(value, list):
                 if key in destination:
-                    destination[key].extend(value)
+                    destination[key] = list(value) + list(destination[key])
                 else:
                     destination[key] = value
             else:
