@@ -20,14 +20,15 @@ def __parse_version(contents):
         return version
 
 def get_version():
-    dbt_dir = os.path.dirname(os.path.dirname(__file__))
-    version_cfg = os.path.join(dbt_dir, ".bumpversion.cfg")
-    if not os.path.exists(version_cfg):
-        return "???"
-    else:
-        with open(version_cfg) as fh:
-            contents = fh.read()
-            return __parse_version(contents)
+    return __version__
+    #dbt_dir = os.path.dirname(os.path.dirname(__file__))
+    #version_cfg = os.path.join(dbt_dir, ".bumpversion.cfg")
+    #if not os.path.exists(version_cfg):
+    #    return "???"
+    #else:
+    #    with open(version_cfg) as fh:
+    #        contents = fh.read()
+    #        return __parse_version(contents)
 
 def get_latest_version():
     f = urlopen(REMOTE_VERISON_FILE)
@@ -57,6 +58,7 @@ def get_version_information():
 def is_latest():
     return installed == latest
 
+__version__ = '0.4.9'
 installed = get_version()
 latest = get_latest_version()
 

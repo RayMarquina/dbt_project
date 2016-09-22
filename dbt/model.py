@@ -309,7 +309,14 @@ class Model(DBTSource):
         }
 
         return create_template.wrap(opts)
-    
+
+    @property
+    def immediate_name(self):
+        if self.materialization == 'incremental':
+            return self.name
+        else:
+            return self.tmp_name()
+
     @property
     def cte_name(self):
         return "__dbt__CTE__{}".format(self.name)
