@@ -46,3 +46,21 @@ def dependency_projects(project):
 def split_path(path):
     norm = os.path.normpath(path)
     return path.split(os.sep)
+
+# influenced by: http://stackoverflow.com/questions/20656135/python-deep-merge-dictionary-data
+def deep_merge(destination, source):
+    destination = destination.copy()
+    source = source.copy()
+    if isinstance(source, dict):
+        for key, value in source.items():
+            if isinstance(value, dict):
+                node = destination.setdefault(key, {})
+                merge(value, node)
+            elif isinstance(value, tuple) or isinstance(value, list):
+                if key in destination:
+                    destination[key].extend(value)
+                else:
+                    destination[key] = value
+            else:
+                destination[key] = value
+        return destination

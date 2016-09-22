@@ -125,25 +125,21 @@ class Compiler(object):
 
         return wrapped_do_ref
 
+    def get_context(self, linker, model,  models):
+        context = self.project.context()
+        context['ref'] = self.__ref(linker, context, model, models)
+        context['config'] = self.__model_config(model, linker)
+        context['this'] = This(context['env']['schema'], model.name)
+        context['compiled_at'] = time.strftime('%Y-%m-%d %H:%M:%S')
+        return context
+
     def compile_model(self, linker, model, models):
         jinja = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath=model.root_dir))
 
         # this is a dumb jinja2 bug -- on windows, forward slashes are EXPECTED
         posix_filepath = '/'.join(split_path(model.rel_filepath))
         template = jinja.get_template(posix_filepath)
-
-        context = self.project.context()
-        context['ref'] = self.__ref(linker, context, model, models)
-        context['config'] = self.__model_config(model, linker)
-        context['this'] = This(context['env']['schema'], model.name)
-        context['compiled_at'] = time.strftime('%Y-%m-%d %H:%M:%S')
-
-        hook_keys = ['pre-hook', 'post-hook']
-        for key in hook_keys:
-            hooks = model.config.get(key, [])
-            rendered_hooks = [jinja2.Environment().from_string(hook).render(context) for hook in hooks]
-            model.update_in_model_config({key: rendered_hooks}, force=True)
-
+        context = self.get_context(linker, model, models)
         rendered = template.render(context)
         return rendered
 
@@ -225,7 +221,8 @@ class Compiler(object):
         written_models = []
         for model in sorted_models:
             injected_stmt = self.add_cte_to_rendered_query(linker, model, compiled_models)
-            wrapped_stmt = model.compile(injected_stmt, self.project, self.create_template)
+            context = self.get_context(linker, model, models)
+            wrapped_stmt = model.compile(injected_stmt, self.project, self.create_template, context)
 
             serialized = model.serialize()
             linker.update_node_data(tuple(model.fqn), serialized)
