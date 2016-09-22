@@ -52,6 +52,14 @@ class SourceConfig(object):
             return self._merge(defaults, own_config, self.in_model_config, active_config)
 
     def update_in_model_config(self, config):
+        config = config.copy()
+
+        # make sure we're not clobbering an array of hooks with a single hook string
+        hook_fields = ['pre-hook', 'post-hook']
+        for hook_field in hook_fields:
+            if hook_field in config:
+                config[hook_field] = self.__get_hooks(config, hook_field)
+
         self.in_model_config.update(config)
 
     def __get_hooks(self, relevant_configs, key):
