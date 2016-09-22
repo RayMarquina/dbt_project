@@ -92,7 +92,7 @@ def deep_merge(destination, source):
         for key, value in source.items():
             if isinstance(value, dict):
                 node = destination.setdefault(key, {})
-                merge(value, node)
+                deep_merge(value, node)
             elif isinstance(value, tuple) or isinstance(value, list):
                 if key in destination:
                     destination[key] = list(value) + list(destination[key])
