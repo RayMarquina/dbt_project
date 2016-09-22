@@ -266,6 +266,13 @@ class Model(DBTSource):
         env = jinja2.Environment()
         return env.from_string(string).render(ctx)
 
+    def get_hooks(self, ctx, hook_key):
+        hooks = self.config.get(hook_key, [])
+        if type(hooks) == str:
+            hooks = [hooks]
+
+        return [self.compile_string(ctx, hook) for hook in hooks]
+
     def compile(self, rendered_query, project, create_template, ctx):
         model_config = self.config
 
@@ -291,8 +298,8 @@ class Model(DBTSource):
             sql_where = None
             unique_key = None
 
-        pre_hooks  = [self.compile_string(ctx, hook) for hook in self.config['pre-hook']]
-        post_hooks = [self.compile_string(ctx, hook) for hook in self.config['post-hook']]
+        pre_hooks  = self.get_hooks(ctx, 'pre-hook')
+        post_hooks = self.get_hooks(ctx, 'post-hook')
 
         opts = {
             "materialization": self.materialization,
