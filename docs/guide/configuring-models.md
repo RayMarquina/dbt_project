@@ -93,13 +93,7 @@ dbt applies this `WHERE` condition automatically, so it shouldn't be present in 
 WHERE session_end_timestamp >= (select max(session_end_timestamp) from {{this}})
 ```
 
-Additionally, it is possible to write the following:
-
-```SQL
-{{this}} --returns "schema"."table"
-{{this.schema}} --returns schema
-{{this.table}} --returns table
-```
+See [environment variables](environment-variables/) for more information on `this`.
 
 #### unique_key
 
@@ -108,3 +102,17 @@ Additionally, it is possible to write the following:
 ## Database-specific configuration
 
 In addition to the configuration parameters that apply to all database adapters, there are certain configuration options that apply only to specific databases. See the page on [database-specific optimizations](database-optimizations/).
+
+## Hooks
+
+dbt provides the ability to run arbitrary commands against the database before and after a model is run. These are known as pre- and post-model hooks and configured as such:
+
+```YAML
+models:
+  project-name:
+    pre-hook:       # arbitrary SQL
+    post-hook:      # arbitrary SQL
+
+```
+
+Hooks are extremely powerful, allowing model authors to perform tasks such as inserting records into audit tables, executing `GRANT` statements, and running `VACUUM` commands, among others. To learn more about hooks and see examples, see [using hooks](using-hooks/).
