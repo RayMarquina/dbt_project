@@ -1,7 +1,9 @@
 
 from dbt import version as dbt_version
 from snowplow_tracker import Subject, Tracker, AsyncEmitter, logger as sp_logger
-from snowplow_tracker import SelfDescribingJson
+from snowplow_tracker import SelfDescribingJson, disable_contracts
+disable_contracts()
+
 import platform
 import uuid
 import yaml
@@ -140,7 +142,10 @@ def track(*args, **kwargs):
         return
     else:
         #logger.debug("Sending event: {}".format(kwargs))
-        tracker.track_struct_event(*args, **kwargs)
+        try:
+            tracker.track_struct_event(*args, **kwargs)
+        except Exception as e:
+            logger.exception("An error was encountered while trying to send an event")
 
 def track_invocation_start(project=None, args=None):
     invocation_context = get_invocation_start_context(invocation_id, user, project, args)
