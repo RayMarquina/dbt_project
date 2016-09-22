@@ -5,7 +5,7 @@ import jinja2
 from collections import defaultdict
 import dbt.project
 from dbt.source import Source
-from dbt.utils import find_model_by_fqn, find_model_by_name, dependency_projects, split_path, This
+from dbt.utils import find_model_by_fqn, find_model_by_name, dependency_projects, split_path, This, Var
 from dbt.linker import Linker
 import time
 import sqlparse
@@ -130,6 +130,7 @@ class Compiler(object):
         context['ref'] = self.__ref(linker, context, model, models)
         context['config'] = self.__model_config(model, linker)
         context['this'] = This(context['env']['schema'], model.immediate_name, model.name)
+        context['var'] = Var(model)
         context['compiled_at'] = time.strftime('%Y-%m-%d %H:%M:%S')
         return context
 
