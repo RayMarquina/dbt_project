@@ -135,7 +135,9 @@ class Compiler(object):
             try:
                 return do_ref(*args)
             except RuntimeError as e:
-                print("Compiler error in {}".format(model.filepath))
+                root = os.path.relpath(model.root_dir, model.project['project-root'])
+                filepath = os.path.join(root, model.rel_filepath)
+                print("Compiler error in {}".format(filepath))
                 print("Enabled models:")
                 for m in all_models:
                     print(" - {}".format(".".join(m.fqn)))
