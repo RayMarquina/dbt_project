@@ -82,6 +82,15 @@ class Compiler(object):
             return ""
         return do_config
 
+    def model_can_reference(self, src_model, other_model):
+        """returns True if the src_model can reference the other_model. Models can access
+        other models in their package and dependency models, but a dependency model cannot
+        access models "up" the dependency chain"""
+
+        # hack for now b/c we don't support recursive dependencies
+        return other_model.own_project['name'] == src_model.own_project['name'] \
+                or src_model.own_project['name'] == src_model.project['name']
+
     def __ref(self, linker, ctx, model, all_models):
         schema = ctx['env']['schema']
 
@@ -96,15 +105,24 @@ class Compiler(object):
                 other_model_package, other_model_name = args
                 other_model_name = self.create_template.model_name(other_model_name)
                 other_model = find_model_by_name(all_models, other_model_name, package_namespace=other_model_package)
+            else:
+                compiler_error(model, "ref() takes at most two arguments ({} given)".format(len(args)))
 
             other_model_fqn = tuple(other_model.fqn[:-1] + [other_model_name])
+            src_fqn = ".".join(source_model)
+            ref_fqn = ".".join(other_model_fqn)
+
+            if not self.model_can_reference(model, other_model):
+                compiler_error(model, "Model '{}' exists but cannot be referenced from dependency model '{}'".format(ref_fqn, src_fqn))
+
             if not other_model.is_enabled:
-                src_fqn = ".".join(source_model)
-                ref_fqn = ".".join(other_model_fqn)
                 raise RuntimeError("Model '{}' depends on model '{}' which is disabled in the project config".format(src_fqn, ref_fqn))
 
             # this creates a trivial cycle -- should this be a compiler error?
-            if source_model != other_model_fqn:
+            # we can still interpolate the name w/o making a self-cycle
+            if source_model == other_model_fqn:
+                pass
+            else:
                 linker.dependency(source_model, other_model_fqn)
 
             if other_model.is_ephemeral:
