@@ -29,6 +29,9 @@ class This(object):
     def __repr__(self):
         return self.schema_table(self.schema, self.table)
 
+def compiler_error(model, msg):
+    raise RuntimeError("Compilation error while compiling model {}\n{}".format(model.nice_name, msg))
+
 class Var(object):
     UndefinedVarError = "Required var '{}' not found in config:\nVars supplied to {} = {}"
 
@@ -36,8 +39,6 @@ class Var(object):
         self.model = model
         self.local_vars = model.config.get('vars', {})
 
-    def compiler_error(self, model, msg):
-        raise RuntimeError("Compilation error while compiling model {}\n{}".format(model.nice_name, msg))
 
     def pretty_dict(self, data):
         return json.dumps(data, sort_keys=True, indent=4)
@@ -45,7 +46,7 @@ class Var(object):
     def __call__(self, var_name, default=None):
         if var_name not in self.local_vars and default is None:
             pretty_vars = self.pretty_dict(self.local_vars)
-            self.compiler_error(self.model, self.UndefinedVarError.format(var_name, self.model.nice_name, pretty_vars))
+            compiler_error(self.model, self.UndefinedVarError.format(var_name, self.model.nice_name, pretty_vars))
         elif var_name in self.local_vars:
             return self.local_vars[var_name]
         else:
@@ -86,13 +87,11 @@ def split_path(path):
 
 # influenced by: http://stackoverflow.com/questions/20656135/python-deep-merge-dictionary-data
 def deep_merge(destination, source):
-    destination = destination.copy()
-    source = source.copy()
     if isinstance(source, dict):
         for key, value in source.items():
             if isinstance(value, dict):
                 node = destination.setdefault(key, {})
-                deep_merge(value, node)
+                deep_merge(node, value)
             elif isinstance(value, tuple) or isinstance(value, list):
                 if key in destination:
                     destination[key] = list(value) + list(destination[key])

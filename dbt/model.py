@@ -7,7 +7,7 @@ from dbt.templates import BaseCreateTemplate, DryCreateTemplate
 from dbt.utils import split_path
 import dbt.schema_tester
 import dbt.project
-from dbt.utils import This, deep_merge, DBTConfigKeys
+from dbt.utils import This, deep_merge, DBTConfigKeys, compiler_error
 
 class SourceConfig(object):
     Materializations = ['view', 'table', 'incremental', 'ephemeral']
@@ -23,7 +23,7 @@ class SourceConfig(object):
     def _merge(self, *configs):
         merged_config = {}
         for config in configs:
-            intermediary_merged = deep_merge(merged_config, config)
+            intermediary_merged = deep_merge(merged_config.copy(), config.copy())
             merged_config.update(intermediary_merged)
         return merged_config
 
@@ -106,8 +106,8 @@ class SourceConfig(object):
                 config[key].extend([h for h in new_hooks if h not in config[key]])
 
             for key in extend_dict_fields:
-                if key in relevant_configs:
-                    config[key].update(relevant_configs[key])
+                dict_val = relevant_configs.get(key, {})
+                config[key].update(dict_val)
 
             clobber_configs = {k:v for (k,v) in relevant_configs.items() if k not in append_list_fields and k not in extend_dict_fields}
             config.update(clobber_configs)
@@ -284,8 +284,11 @@ class Model(DBTSource):
         return os.path.join(*path_parts)
 
     def compile_string(self, ctx, string):
-        env = jinja2.Environment()
-        return env.from_string(string).render(ctx)
+        try:
+            env = jinja2.Environment()
+            return env.from_string(string).render(ctx)
+        except jinja2.exceptions.TemplateSyntaxError as e:
+            compiler_error(self, str(e))
 
     def get_hooks(self, ctx, hook_key):
         hooks = self.config.get(hook_key, [])

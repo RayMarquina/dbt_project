@@ -5,7 +5,7 @@ import jinja2
 from collections import defaultdict
 import dbt.project
 from dbt.source import Source
-from dbt.utils import find_model_by_fqn, find_model_by_name, dependency_projects, split_path, This, Var
+from dbt.utils import find_model_by_fqn, find_model_by_name, dependency_projects, split_path, This, Var, compiler_error
 from dbt.linker import Linker
 import time
 import sqlparse
@@ -135,13 +135,18 @@ class Compiler(object):
         return context
 
     def compile_model(self, linker, model, models):
-        jinja = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath=model.root_dir))
+        try:
+            jinja = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath=model.root_dir))
 
-        # this is a dumb jinja2 bug -- on windows, forward slashes are EXPECTED
-        posix_filepath = '/'.join(split_path(model.rel_filepath))
-        template = jinja.get_template(posix_filepath)
-        context = self.get_context(linker, model, models)
-        rendered = template.render(context)
+            # this is a dumb jinja2 bug -- on windows, forward slashes are EXPECTED
+            posix_filepath = '/'.join(split_path(model.rel_filepath))
+            template = jinja.get_template(posix_filepath)
+            context = self.get_context(linker, model, models)
+
+            rendered = template.render(context)
+        except jinja2.exceptions.TemplateSyntaxError as e:
+            compiler_error(model, str(e))
+
         return rendered
 
     def write_graph_file(self, linker):
