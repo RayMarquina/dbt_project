@@ -16,7 +16,16 @@ class DepsTask:
         self.args = args
         self.project = project
 
-    def __pull_repo(self, repo):
+    def __checkout_branch(self, branch, full_path):
+        print("  checking out branch {}".format(branch))
+        proc = subprocess.Popen(
+            ['git', 'checkout', branch],
+            cwd=full_path,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE)
+        out, err = proc.communicate()
+
+    def __pull_repo(self, repo, branch=None):
         proc = subprocess.Popen(
             ['git', 'clone', repo],
             cwd=self.project['modules-path'],
@@ -43,28 +52,51 @@ class DepsTask:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE)
             out, err = proc.communicate()
+            if branch is not None:
+                self.__checkout_branch(branch, full_path)
         else:
             matches = re.match("Cloning into '(.+)'", err.decode('utf-8'))
             folder = matches.group(1)
+            full_path = os.path.join(self.project['modules-path'], folder)
             print("pulled new dependency {}".format(folder))
+            if branch is not None:
+                self.__checkout_branch(branch, full_path)
 
         return folder
 
-    def __pull_deps_recursive(self, repos, processed_repos = set()):
-        for repo in repos:
+    def __split_at_branch(self, repo):
+        last_slash = repo.rfind('/') + 1
+        end = repo[last_slash:]
+
+        res = re.search('^([^@]*)(\.git)?@?(.*)$', end)
+
+        if res is None:
+            raise RuntimeError("Invalid dep specified: '{}' -- not a repo we can clone".format(repo))
+
+        repo, _, branch = res.groups()
+        repo = repo.replace('.git', '')
+        if branch == '':
+            branch = None
+
+        return repo, branch
+
+    def __pull_deps_recursive(self, repos, processed_repos = set(), i=0):
+        for repo_string in repos:
+            repo, branch = self.__split_at_branch(repo_string)
             repo_folder = folder_from_git_remote(repo)
+
             try:
                 if repo_folder in processed_repos:
                     print("skipping already processed dependency {}".format(repo_folder))
                 else:
-                    dep_folder = self.__pull_repo(repo)
+                    dep_folder = self.__pull_repo(repo, branch)
                     dep_project = project.read_project(
                         os.path.join(self.project['modules-path'],
                                      dep_folder,
                                      'dbt_project.yml')
                     )
                     processed_repos.add(dep_folder)
-                    self.__pull_deps_recursive(dep_project['repositories'], processed_repos)
+                    self.__pull_deps_recursive(dep_project['repositories'], processed_repos, i+1)
             except IOError as e:
                 if e.errno == errno.ENOENT:
                     print("'{}' is not a valid dbt project - dbt_project.yml not found".format(repo))
