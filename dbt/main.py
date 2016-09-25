@@ -137,4 +137,4 @@ def handle(args):
         dbt.tracking.track_invocation_end(project=proj, args=parsed, result_type="ok", result=None)
     except Exception as e:
         dbt.tracking.track_invocation_end(project=proj, args=parsed, result_type="error", result=str(e))
-        raise e
+        raise

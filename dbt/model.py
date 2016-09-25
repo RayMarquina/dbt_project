@@ -93,6 +93,9 @@ class SourceConfig(object):
 
         model_configs = project['models']
 
+        if model_configs is None:
+            return config
+
         fqn = self.fqn[:]
         for level in fqn:
             level_config = model_configs.get(level, None)
