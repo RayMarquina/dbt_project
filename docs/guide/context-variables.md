@@ -9,8 +9,10 @@ dbt makes available certain variables for developers to use to control a model's
 ```Python
 this            #returns "schema"."table"
 this.schema     #returns schema
-this.table      #returns temporary table name (dbt creates temp tables before dropping the originals)
-this.name       #returns table
+this.table      #returns the name of the table that is being operated on in the database transaction.
+                #sometimes dbt creates temporary tables; if that is true in this instance,
+                #the temporary table name will be returned.
+this.name       #returns the logical table name (ignores temporary tables)
 ```
 
 In most cases, the correct choice will be to simply use `this`, although at times the other derivatives will be useful. Developers are left to choose what is most appropriate.

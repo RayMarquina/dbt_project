@@ -110,8 +110,8 @@ dbt provides the ability to run arbitrary commands against the database before a
 ```YAML
 models:
   project-name:
-    pre-hook:       # arbitrary SQL
-    post-hook:      # arbitrary SQL
+    pre-hook:       # custom SQL
+    post-hook:      # custom SQL
 
 ```
 

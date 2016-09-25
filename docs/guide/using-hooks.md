@@ -5,8 +5,8 @@ dbt provides the ability to run arbitrary commands against the database before a
 ```YAML
 models:
   project-name:
-    pre-hook:       # arbitrary SQL
-    post-hook:      # arbitrary SQL
+    pre-hook:       # custom SQL
+    post-hook:      # custom SQL
 
 ```
 
@@ -14,7 +14,11 @@ Hooks are extremely powerful, allowing model authors to perform tasks such as in
 
 `pre-hook` and `post-hook` configuration options apply, like all configuration options, to the scope in which they are defined in the model hierarchy. The example above defines them at the level of the entire project; they can also be specified within a given directory of that project or for an individual model.
 
-Multiple instances of `pre-hook` and `post-hook` may be defined. In this case, dbt will run each pre-hook and post-hook (in some order to be determined revisit this).
+Multiple instances of `pre-hook` and `post-hook` may be defined. In this case, dbt will run each pre-hook and post-hook using the following ordering:
+
+- Hooks from dependent packages will be run before hooks in the active package.
+- Hooks defined within the model itself will be run before hooks defined in `dbt_project.yml`.
+- Hooks within a given context will be run in the order in which they are defined.
 
 ## Using hooks to create an audit table
 
