@@ -41,10 +41,13 @@ delete from "{schema}"."{identifier}" where  ({unique_key}) in (
     extras_template = """
 {prologue}
 
+-- Pre-model hooks
 {pre_hooks}
 
+-- Model SQL
 {sql}
 
+-- Post-model hooks
 {post_hooks}
 """
 
@@ -55,8 +58,8 @@ delete from "{schema}"."{identifier}" where  ({unique_key}) in (
         return base_name
 
     def add_extras(self, opts, sql):
-        pre_hooks = ';\n'.join(opts['pre-hooks'])
-        post_hooks = ';\n'.join(opts['post-hooks'])
+        pre_hooks = ';\n\n'.join(opts['pre-hooks'])
+        post_hooks = ';\n\n'.join(opts['post-hooks'])
 
         if len(pre_hooks) > 0:
             pre_hooks = pre_hooks + ';'
