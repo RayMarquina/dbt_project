@@ -64,19 +64,26 @@ class DepsTask:
 
         return folder
 
-    def __split_at_branch(self, repo):
-        last_slash = repo.rfind('/') + 1
-        end = repo[last_slash:]
+    def __split_at_branch(self, repo_spec):
+        parts = repo_spec.split("@")
+        error = RuntimeError("Invalid dep specified: '{}' -- not a repo we can clone".format(repo_spec))
 
-        res = re.search('^([^@]*)(\.git)?@?(.*)$', end)
+        repo = None
+        if repo_spec.startswith("git@"):
+            if len(parts) == 1:
+                raise error
+            if len(parts) == 2:
+                repo, branch = repo_spec, None
+            elif len(parts) == 3:
+                repo, branch = "@".join(parts[:2]), parts[2]
+        else:
+            if len(parts) == 1:
+                repo, branch = parts[0], None
+            elif len(parts) == 2:
+                repo, branch = parts
 
-        if res is None:
-            raise RuntimeError("Invalid dep specified: '{}' -- not a repo we can clone".format(repo))
-
-        repo, _, branch = res.groups()
-        repo = repo.replace('.git', '')
-        if branch == '':
-            branch = None
+        if repo is None:
+            raise error
 
         return repo, branch
 
