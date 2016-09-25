@@ -46,8 +46,9 @@ class DepsTask:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE)
             out, err = proc.communicate()
+            remote_branch = 'origin/master' if branch is None else 'origin/{}'.format(branch)
             proc = subprocess.Popen(
-                ['git', 'reset', '--hard', 'origin/master'],
+                ['git', 'reset', '--hard', remote_branch],
                 cwd=full_path,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE)
