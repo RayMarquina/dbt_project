@@ -54,3 +54,7 @@ Note that `dbt run` already includes this compilation step. As such, it is not n
 ## Clean
 
 `dbt clean` is a utility function that deletes all compiled files in the `target` directory.
+
+## Version
+
+`dbt --version` is a utility function to check the version of your installed dbt client.
