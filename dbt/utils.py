@@ -35,10 +35,10 @@ def compiler_error(model, msg):
 class Var(object):
     UndefinedVarError = "Required var '{}' not found in config:\nVars supplied to {} = {}"
 
-    def __init__(self, model):
+    def __init__(self, model, context):
         self.model = model
+        self.context = context
         self.local_vars = model.config.get('vars', {})
-
 
     def pretty_dict(self, data):
         return json.dumps(data, sort_keys=True, indent=4)
@@ -48,7 +48,9 @@ class Var(object):
             pretty_vars = self.pretty_dict(self.local_vars)
             compiler_error(self.model, self.UndefinedVarError.format(var_name, self.model.nice_name, pretty_vars))
         elif var_name in self.local_vars:
-            return self.local_vars[var_name]
+            raw = self.local_vars[var_name]
+            compiled = self.model.compile_string(self.context, raw)
+            return compiled
         else:
             return default
 
