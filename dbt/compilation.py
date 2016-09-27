@@ -201,10 +201,10 @@ class Compiler(object):
         # these newlines are important -- comments could otherwise interfere w/ query
         cte_stmts = [" {} as (\n{}\n)".format(name, contents) for (name, contents) in cte_mapping]
 
-        cte_text = ", ".join(cte_stmts)
+        cte_text = sqlparse.sql.Token(sqlparse.tokens.Keyword, ", ".join(cte_stmts))
         parsed.insert_after(with_stmt, cte_text)
 
-        return sqlparse.format(str(parsed), keyword_case='lower', reindent=True)
+        return str(parsed)
 
     def __recursive_add_ctes(self, linker, model):
         if model not in linker.cte_map:
