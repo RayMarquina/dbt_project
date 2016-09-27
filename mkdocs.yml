@@ -10,8 +10,10 @@ pages:
   - Configuring Models: guide/configuring-models.md
   - Database Optimizations: guide/database-optimizations.md
   - Testing: guide/testing.md
-  - Best Practices: guide/best-practices.md
+  - Context Variables: guide/context-variables.md
+  - Using Hooks: guide/using-hooks.md
   - Package Management: guide/package-management.md
+  - Best Practices: guide/best-practices.md  
   - Upgrading: guide/upgrading.md
 - About:
   - Overview: about/overview.md
