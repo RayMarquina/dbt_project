@@ -112,8 +112,8 @@ class Compiler(object):
             src_fqn = ".".join(source_model)
             ref_fqn = ".".join(other_model_fqn)
 
-            if not self.model_can_reference(model, other_model):
-                compiler_error(model, "Model '{}' exists but cannot be referenced from dependency model '{}'".format(ref_fqn, src_fqn))
+            #if not self.model_can_reference(model, other_model):
+            #    compiler_error(model, "Model '{}' exists but cannot be referenced from dependency model '{}'".format(ref_fqn, src_fqn))
 
             if not other_model.is_enabled:
                 raise RuntimeError("Model '{}' depends on model '{}' which is disabled in the project config".format(src_fqn, ref_fqn))
