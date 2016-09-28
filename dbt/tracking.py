@@ -155,7 +155,7 @@ def track_invocation_start(project=None, args=None):
 def track_model_run(options):
     context = [SelfDescribingJson(RUN_MODEL_SPEC, options)]
     model_id = options['model_id']
-    track(category="dbt", action='run_model', label=model_id, context=context)
+    track(category="dbt", action='run_model', label=invocation_id, context=context)
 
 def track_invocation_end(project=None, args=None, result_type=None, result=None):
     invocation_context = get_invocation_end_context(invocation_id, user, project, args, result_type, result)

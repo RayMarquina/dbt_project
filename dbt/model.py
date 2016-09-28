@@ -7,11 +7,11 @@ from dbt.templates import BaseCreateTemplate, DryCreateTemplate
 from dbt.utils import split_path
 import dbt.schema_tester
 import dbt.project
-from dbt.utils import This, deep_merge
+from dbt.utils import This, deep_merge, DBTConfigKeys, compiler_error
 
 class SourceConfig(object):
     Materializations = ['view', 'table', 'incremental', 'ephemeral']
-    ConfigKeys = ['enabled', 'materialized', 'dist', 'sort', 'sql_where', 'unique_key', 'sort_type', 'pre-hook', 'post-hook']
+    ConfigKeys = DBTConfigKeys
 
     def __init__(self, active_project, own_project, fqn):
         self.active_project = active_project
@@ -23,7 +23,7 @@ class SourceConfig(object):
     def _merge(self, *configs):
         merged_config = {}
         for config in configs:
-            intermediary_merged = deep_merge(merged_config, config)
+            intermediary_merged = deep_merge(merged_config.copy(), config.copy())
             merged_config.update(intermediary_merged)
         return merged_config
 
@@ -82,10 +82,19 @@ class SourceConfig(object):
 
     def get_project_config(self, project):
         # most configs are overwritten by a more specific config, but pre/post hooks are appended!
-        hook_fields = ['pre-hook', 'post-hook']
-        config = {k:[] for k in hook_fields} 
+        append_list_fields = ['pre-hook', 'post-hook']
+        extend_dict_fields = ['vars']
+
+        config = {}
+        for k in append_list_fields:
+            config[k] = []
+        for k in extend_dict_fields:
+            config[k] = {}
 
         model_configs = project['models']
+
+        if model_configs is None:
+            return config
 
         fqn = self.fqn[:]
         for level in fqn:
@@ -95,11 +104,15 @@ class SourceConfig(object):
 
             relevant_configs = {key: level_config[key] for key in level_config if key in self.ConfigKeys}
 
-            for key in hook_fields:
+            for key in append_list_fields:
                 new_hooks = self.__get_hooks(relevant_configs, key)
                 config[key].extend([h for h in new_hooks if h not in config[key]])
 
-            clobber_configs = {k:v for (k,v) in relevant_configs.items() if k not in hook_fields}
+            for key in extend_dict_fields:
+                dict_val = relevant_configs.get(key, {})
+                config[key].update(dict_val)
+
+            clobber_configs = {k:v for (k,v) in relevant_configs.items() if k not in append_list_fields and k not in extend_dict_fields}
             config.update(clobber_configs)
             model_configs = model_configs[level]
 
@@ -207,6 +220,9 @@ class DBTSource(object):
 
         return 'alter table "{schema}"."{tmp_name}" rename to "{final_name}"'.format(**opts)
 
+    @property
+    def nice_name(self):
+        return "{}.{}".format(self.fqn[0], self.fqn[-1])
 
 class Model(DBTSource):
     dbt_run_type = 'run'
@@ -271,8 +287,11 @@ class Model(DBTSource):
         return os.path.join(*path_parts)
 
     def compile_string(self, ctx, string):
-        env = jinja2.Environment()
-        return env.from_string(string).render(ctx)
+        try:
+            env = jinja2.Environment()
+            return env.from_string(string).render(ctx)
+        except jinja2.exceptions.TemplateSyntaxError as e:
+            compiler_error(self, str(e))
 
     def get_hooks(self, ctx, hook_key):
         hooks = self.config.get(hook_key, [])
