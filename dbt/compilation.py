@@ -14,6 +14,7 @@ class Compiler(object):
     def __init__(self, project, create_template_class):
         self.project = project
         self.create_template = create_template_class()
+        self.macro_generator = None
 
     def initialize(self):
         if not os.path.exists(self.project['target-path']):
@@ -158,6 +159,10 @@ class Compiler(object):
         context['this'] = This(context['env']['schema'], model.immediate_name, model.name)
         context['compiled_at'] = time.strftime('%Y-%m-%d %H:%M:%S')
         context['var'] = Var(model, context=context)
+
+        for macro_name, macro in self.macro_generator(context):
+            context[macro_name] = macro
+
         return context
 
     def compile_model(self, linker, model, models):
@@ -304,6 +309,15 @@ class Compiler(object):
 
         return written_tests
 
+    def generate_macros(self, all_macros):
+        def do_gen(ctx):
+            macros = []
+            for macro in all_macros:
+                new_macros = macro.get_macros(ctx)
+                macros.extend(new_macros)
+            return macros
+        return do_gen
+
     def compile(self, dry=False):
         linker = Linker()
 
@@ -314,7 +328,7 @@ class Compiler(object):
             all_models.extend(self.model_sources(this_project=self.project, own_project=project))
             all_macros.extend(self.get_macros(this_project=self.project, own_project=project))
 
-        macro_dirs = list(set([m.root_dir for m in all_macros]))
+        self.macro_generator = self.generate_macros(all_macros)
 
         enabled_models = [model for model in all_models if model.is_enabled]
 

@@ -288,8 +288,10 @@ class Model(DBTSource):
 
     def compile_string(self, ctx, string):
         try:
-            env = jinja2.Environment()
-            return env.from_string(string).render(ctx)
+            fs_loader = jinja2.FileSystemLoader(searchpath=self.project['macro-paths'])
+            env = jinja2.Environment(loader=fs_loader)
+            template = env.from_string(string, globals=ctx)
+            return template.render(ctx)
         except jinja2.exceptions.TemplateSyntaxError as e:
             compiler_error(self, str(e))
 
@@ -553,9 +555,15 @@ class Csv(DBTSource):
 class Macro(DBTSource):
     def __init__(self, project, target_dir, rel_filepath, own_project):
         super(Macro, self).__init__(project, target_dir, rel_filepath, own_project)
+        self.filepath = os.path.join(self.root_dir, self.rel_filepath)
 
-    def inject_contained_macros(self):
-        pass
+    def get_macros(self, ctx):
+        env = jinja2.Environment()
+        template = env.from_string(self.contents, globals=ctx)
+
+        for key, item in template.module.__dict__.items():
+            if type(item) == jinja2.runtime.Macro:
+                yield key, item
 
     def __repr__(self):
         return "<Macro {}.{}: {}>".format(self.project['name'], self.name, self.filepath)

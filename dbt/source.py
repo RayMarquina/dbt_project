@@ -55,7 +55,7 @@ class Source(object):
         return csvs
 
     def get_macros(self, macro_dirs):
-        "Get CSV files"
+        "Get Macro files"
         pattern = "[!.#~]*.sql"
         macros = [Macro(*macro) for macro in self.find(macro_dirs, pattern)]
         return macros
