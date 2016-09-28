@@ -38,6 +38,12 @@ class Compiler(object):
         else:
             raise RuntimeError("unexpected create template type: '{}'".format(self.create_template.label))
 
+    def get_macros(self, this_project, own_project=None):
+        if own_project is None:
+            own_project = this_project
+        paths = own_project.get('macro-paths', [])
+        return Source(this_project, own_project=own_project).get_macros(paths)
+
     def project_schemas(self):
         source_paths = self.project.get('source-paths', [])
         return Source(self.project).get_schemas(source_paths)
@@ -156,7 +162,8 @@ class Compiler(object):
 
     def compile_model(self, linker, model, models):
         try:
-            jinja = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath=model.root_dir))
+            fs_loader = jinja2.FileSystemLoader(searchpath=model.root_dir)
+            jinja = jinja2.Environment(loader=fs_loader)
 
             # this is a dumb jinja2 bug -- on windows, forward slashes are EXPECTED
             posix_filepath = '/'.join(split_path(model.rel_filepath))
@@ -301,9 +308,13 @@ class Compiler(object):
         linker = Linker()
 
         all_models = self.model_sources(this_project=self.project)
+        all_macros = self.get_macros(this_project=self.project)
 
         for project in dependency_projects(self.project):
             all_models.extend(self.model_sources(this_project=self.project, own_project=project))
+            all_macros.extend(self.get_macros(this_project=self.project, own_project=project))
+
+        macro_dirs = list(set([m.root_dir for m in all_macros]))
 
         enabled_models = [model for model in all_models if model.is_enabled]
 

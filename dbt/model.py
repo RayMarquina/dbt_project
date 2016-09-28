@@ -549,3 +549,15 @@ class Csv(DBTSource):
 
     def __repr__(self):
         return "<Csv {}.{}: {}>".format(self.project['name'], self.model_name, self.filepath)
+
+class Macro(DBTSource):
+    def __init__(self, project, target_dir, rel_filepath, own_project):
+        super(Macro, self).__init__(project, target_dir, rel_filepath, own_project)
+
+    def inject_contained_macros(self):
+        pass
+
+    def __repr__(self):
+        return "<Macro {}.{}: {}>".format(self.project['name'], self.name, self.filepath)
+
+
