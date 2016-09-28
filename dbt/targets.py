@@ -14,7 +14,7 @@ BAD_THREADS_ERROR = """Invalid value given for "threads" in active run-target.
 Value given was {supplied} but it should be an int between {min_val} and {max_val}"""
 
 class RedshiftTarget:
-    def __init__(self, cfg):
+    def __init__(self, cfg, threads=None):
         assert cfg['type'] == 'redshift'
         self.host = cfg['host']
         self.user = cfg['user']
@@ -22,7 +22,8 @@ class RedshiftTarget:
         self.port = cfg['port']
         self.dbname = cfg['dbname']
         self.schema = cfg['schema']
-        self.threads = self.__get_threads(cfg)
+
+        self.threads = self.__get_threads(cfg, threads)
 
         #self.ssh_host = cfg.get('ssh-host', None)
         self.ssh_host = None
@@ -73,8 +74,11 @@ class RedshiftTarget:
         #    self.ssh_tunnel.stop()
         pass
 
-    def __get_threads(self, cfg):
-        supplied = cfg.get('threads', 1)
+    def __get_threads(self, cfg, cli_threads=None):
+        if cli_threads is None:
+            supplied = cfg.get('threads', 1)
+        else:
+            supplied = cli_threads
 
         bad_threads_error = RuntimeError(BAD_THREADS_ERROR.format(supplied=supplied, min_val=THREAD_MIN, max_val=THREAD_MAX))
 

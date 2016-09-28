@@ -198,13 +198,13 @@ class TestRunner(ModelRunner):
         return row[0]
 
 class RunManager(object):
-    def __init__(self, project, target_path, graph_type):
+    def __init__(self, project, target_path, graph_type, threads):
         self.logger = logging.getLogger(__name__)
         self.project = project
         self.target_path = target_path
         self.graph_type = graph_type
 
-        self.target = RedshiftTarget(self.project.run_environment())
+        self.target = RedshiftTarget(self.project.run_environment(), threads)
 
         if self.target.should_open_tunnel():
             print("Opening ssh tunnel to host {}... ".format(self.target.ssh_host), end="")
