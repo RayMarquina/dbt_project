@@ -1,4 +1,6 @@
 import hashlib
+import jinja2
+from dbt.utils import compiler_error
 
 class CompiledModel(object):
     def __init__(self, fqn, data):
@@ -12,6 +14,7 @@ class CompiledModel(object):
 
         self.skip = False
         self._contents = None
+        self.compiled_contents = None
 
     def __getitem__(self, key):
         return self.data[key]
@@ -38,6 +41,15 @@ class CompiledModel(object):
             with open(self.data['build_path']) as fh:
                 self._contents = fh.read()
         return self._contents
+
+    def compile(self, context):
+        contents = self.contents
+        try:
+            env = jinja2.Environment()
+            self.compiled_contents = env.from_string(contents).render(context)
+            return self.compiled_contents
+        except jinja2.exceptions.TemplateSyntaxError as e:
+            compiler_error(self, str(e))
 
     @property
     def materialization(self):
