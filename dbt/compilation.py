@@ -158,6 +158,8 @@ class Compiler(object):
         context['config'] = self.__model_config(model, linker)
         context['this'] = This(context['env']['schema'], model.immediate_name, model.name)
         context['compiled_at'] = time.strftime('%Y-%m-%d %H:%M:%S')
+        context['run_started_at'] = '{{ run_started_at }}' # jinjaception
+        context['invocation_id']  = '{{ invocation_id }}'
         context['var'] = Var(model, context=context)
 
         for macro_name, macro in self.macro_generator(context):

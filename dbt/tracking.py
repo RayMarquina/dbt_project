@@ -55,9 +55,6 @@ def get_user():
 
     return user
 
-def get_invocation_id():
-    pass
-
 def get_options(args):
     exclude = ['cls', 'target', 'profile']
     options = {k:v for (k, v) in args.__dict__.items() if k not in exclude}

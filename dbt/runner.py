@@ -6,6 +6,7 @@ import os, sys
 import logging
 import time
 import itertools
+from datetime import datetime
 
 from dbt.compilation import Compiler
 from dbt.linker import Linker
@@ -100,7 +101,7 @@ class ModelRunner(BaseRunner):
         if model.tmp_drop_type is not None:
             schema.drop(target.schema, model.tmp_drop_type, model.tmp_name)
 
-        status = schema.execute_and_handle_permissions(model.contents, model.name)
+        status = schema.execute_and_handle_permissions(model.compiled_contents, model.name)
 
         if model.final_drop_type is not None:
             schema.drop(target.schema, model.final_drop_type, model.name)
@@ -214,6 +215,12 @@ class RunManager(object):
 
 
         self.schema = dbt.schema.Schema(self.project, self.target)
+
+        self.context = {
+            "run_started_at": datetime.now(),
+            "invocation_id": dbt.tracking.invocation_id,
+        }
+
 
     def deserialize_graph(self):
         linker = Linker()
@@ -368,6 +375,10 @@ class RunManager(object):
         linker = self.deserialize_graph()
         compiled_models = [make_compiled_model(fqn, linker.get_node(fqn)) for fqn in linker.nodes()]
         relevant_compiled_models = [m for m in compiled_models if m.is_type(runner.run_type)]
+
+        for m in relevant_compiled_models:
+            if m.should_execute():
+                m.compile(self.context)
 
         schema_name = self.target.schema
 
