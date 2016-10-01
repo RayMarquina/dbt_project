@@ -233,7 +233,8 @@ class Model(DBTSource):
         super(Model, self).__init__(project, model_dir, rel_filepath, own_project)
 
     def add_to_prologue(self, s):
-        self.prologue.append(s)
+        safe_string = s.replace('{{', 'DBT_EXPR(').replace('}}', ')')
+        self.prologue.append(safe_string)
 
     def get_prologue_string(self):
         blob = "\n".join("-- {}".format(s) for s in self.prologue)

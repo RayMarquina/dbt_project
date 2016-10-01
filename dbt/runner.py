@@ -188,7 +188,7 @@ class TestRunner(ModelRunner):
         return info
 
     def execute(self, schema, target, model):
-        rows = schema.execute_and_fetch(model.contents)
+        rows = schema.execute_and_fetch(model.compiled_contents)
         if len(rows) > 1:
             raise RuntimeError("Bad test {name}: Returned {num_rows} rows instead of 1".format(name=model.name, num_rows=len(rows)))
 
