@@ -13,10 +13,16 @@ We welcome PRs! We recommend that you log any feature requests as issues and dis
 
 We welcome PRs with updated documentation! All documentation for dbt is written in markdown using [mkdocs](http://www.mkdocs.org/). Please follow installation instructions there to set up mkdocs on your local environment.
 
+## Design Constraints
+
+All contributions to dbt must adhere to the following design constraints:
+
+- All data models are a single `SELECT` statement. All decisions about how the results of that statement are materialized in the database must be user-controlled via configuration.
+- The target schema must always be able to be regenerated from scratch—i.e. if a user performs a `DROP SCHEMA [target] CASCADE` and then runs `dbt run --target [target]`, all data will be re-built exactly as before.
 
 ## Design Principles
 
-When enhancing dbt, it's critical to keep the core project goal in mind:
+When contributing to dbt, please keep the core project goal in mind:
 
 **dbt (data build tool) is a productivity tool that helps analysts get more done and produce higher quality results.**
 
