@@ -7,6 +7,7 @@ import hashlib
 
 default_project_cfg = {
     'source-paths': ['models'],
+    'macro-paths': ['macros'],
     'data-paths': ['data'],
     'test-paths': ['test'],
     'target-path': 'target',

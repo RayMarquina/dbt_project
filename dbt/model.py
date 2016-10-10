@@ -233,7 +233,8 @@ class Model(DBTSource):
         super(Model, self).__init__(project, model_dir, rel_filepath, own_project)
 
     def add_to_prologue(self, s):
-        self.prologue.append(s)
+        safe_string = s.replace('{{', 'DBT_EXPR(').replace('}}', ')')
+        self.prologue.append(safe_string)
 
     def get_prologue_string(self):
         blob = "\n".join("-- {}".format(s) for s in self.prologue)
@@ -288,8 +289,10 @@ class Model(DBTSource):
 
     def compile_string(self, ctx, string):
         try:
-            env = jinja2.Environment()
-            return env.from_string(string).render(ctx)
+            fs_loader = jinja2.FileSystemLoader(searchpath=self.project['macro-paths'])
+            env = jinja2.Environment(loader=fs_loader)
+            template = env.from_string(string, globals=ctx)
+            return template.render(ctx)
         except jinja2.exceptions.TemplateSyntaxError as e:
             compiler_error(self, str(e))
 
@@ -549,3 +552,21 @@ class Csv(DBTSource):
 
     def __repr__(self):
         return "<Csv {}.{}: {}>".format(self.project['name'], self.model_name, self.filepath)
+
+class Macro(DBTSource):
+    def __init__(self, project, target_dir, rel_filepath, own_project):
+        super(Macro, self).__init__(project, target_dir, rel_filepath, own_project)
+        self.filepath = os.path.join(self.root_dir, self.rel_filepath)
+
+    def get_macros(self, ctx):
+        env = jinja2.Environment()
+        template = env.from_string(self.contents, globals=ctx)
+
+        for key, item in template.module.__dict__.items():
+            if type(item) == jinja2.runtime.Macro:
+                yield key, item
+
+    def __repr__(self):
+        return "<Macro {}.{}: {}>".format(self.project['name'], self.name, self.filepath)
+
+
