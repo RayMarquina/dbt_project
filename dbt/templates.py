@@ -165,3 +165,71 @@ delete from "{schema}"."{identifier}" where  ({unique_key}) in (
             raise RuntimeError("Invalid materialization parameter ({})".format(opts['materialization']))
 
         return "{}\n\n{}".format(opts['prologue'], sql)
+
+
+
+SCDArchiveTemplate = """
+    with current_data as (
+
+        select *,
+            {{ table.updated_at }} as dbt_updated_at,
+            {{ table.unique_key }} as dbt_pk
+        from "{{ archive.source_schema }}"."{{ table.source_table }}"
+
+    ),
+
+    archived_data as (
+
+        select *,
+            {{ table.updated_at }} as dbt_updated_at,
+            {{ table.unique_key }} as dbt_pk
+        from "{{ archive.target_schema }}"."{{ table.dest_table }}"
+
+    ),
+
+    combined as (
+
+        select
+        {% for (col, type) in columns.items() %}
+            "{{ col }}",
+        {% endfor %}
+        dbt_updated_at,
+        dbt_pk
+        from current_data
+
+            union all
+
+        select
+        {% for (col, type) in columns.items() %}
+            "{{ col }}",
+        {% endfor %}
+        dbt_updated_at,
+        dbt_pk
+        from archived_data
+
+    ),
+
+    merged as (
+
+        select
+        distinct
+            combined.*,
+            least(combined.dbt_updated_at, current_data.dbt_updated_at) as valid_from,
+            case when combined.dbt_updated_at = current_data.dbt_updated_at then null
+                else current_data.dbt_updated_at
+            end as valid_to
+        from current_data
+        left outer join combined
+             on combined.dbt_pk = current_data.dbt_pk
+            and current_data.dbt_updated_at >= combined.dbt_updated_at
+
+    ),
+    with_id as (
+        select *,
+            row_number() over (partition by dbt_pk order by dbt_updated_at asc) as dbt_archive_id
+        from merged
+    )
+
+    select md5(dbt_pk || '|' || dbt_archive_id) as scd_id, *
+    from with_id
+"""
