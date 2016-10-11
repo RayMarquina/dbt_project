@@ -172,9 +172,9 @@ SCDArchiveTemplate = """
     with current_data as (
 
         select *,
-            {{ table.updated_at }} as dbt_updated_at,
-            {{ table.unique_key }} as dbt_pk
-        from "{{ archive.source_schema }}"."{{ table.source_table }}"
+            {{ updated_at }} as dbt_updated_at,
+            {{ unique_key }} as dbt_pk
+        from "{{ source_schema }}"."{{ source_table }}"
 
     ),
 
@@ -184,9 +184,9 @@ SCDArchiveTemplate = """
             {% for (col, type) in columns %}
                 "{{ col }}",
             {% endfor %}
-            {{ table.updated_at }} as dbt_updated_at,
-            {{ table.unique_key }} as dbt_pk
-        from "{{ archive.target_schema }}"."{{ table.dest_table }}"
+            {{ updated_at }} as dbt_updated_at,
+            {{ unique_key }} as dbt_pk
+        from "{{ target_schema }}"."{{ dest_table }}"
 
     ),
 
@@ -252,6 +252,9 @@ SCDArchiveTemplate = """
 
 
 class ArchiveInsertTemplate(object):
+
+    label = "archive"
+
     archival_template = """
 create temporary table "{identifier}__dbt_archival_tmp" as (
     with dbt_archive_sbq as (

@@ -7,6 +7,7 @@ from dbt.templates import BaseCreateTemplate, DryCreateTemplate
 from dbt.utils import split_path
 import dbt.schema_tester
 import dbt.project
+import dbt.archival
 from dbt.utils import This, deep_merge, DBTConfigKeys, compiler_error
 
 class SourceConfig(object):
@@ -570,3 +571,35 @@ class Macro(DBTSource):
         return "<Macro {}.{}: {}>".format(self.project['name'], self.name, self.filepath)
 
 
+class ArchiveModel(DBTSource):
+    def __init__(self, project, create_template, source_schema, target_schema, source_table, dest_table, unique_key, updated_at):
+
+        self.create_template = create_template
+
+        self.source_schema = source_schema
+        self.target_schema = target_schema
+        self.source_table  = source_table
+        self.dest_table    = dest_table
+        self.unique_key    = unique_key
+        self.updated_at    = updated_at
+
+        target_dir = self.create_template.label
+        rel_filepath = os.path.join(self.target_schema, self.dest_table)
+
+        super(ArchiveModel, self).__init__(project, target_dir, rel_filepath, project)
+
+    def compile(self):
+        archival = dbt.archival.Archival(self.project, self)
+        query = archival.compile()
+
+        sql = self.create_template.wrap(self.target_schema, self.dest_table, query, self.unique_key)
+        return sql
+
+    def build_path(self):
+        build_dir = self.create_template.label
+        filename = "{}.sql".format(self.name)
+        path_parts = [build_dir] + self.fqn[:-1] + [filename]
+        return os.path.join(*path_parts)
+
+    def __repr__(self):
+        return "<ArchiveModel {} --> {} unique:{} updated_at:{}>".format(self.source_table, self.dest_table, self.unique_key, self.updated_at)

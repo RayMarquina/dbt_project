@@ -8,6 +8,7 @@ from dbt.source import Source
 from dbt.utils import find_model_by_fqn, find_model_by_name, dependency_projects, split_path, This, Var, compiler_error
 from dbt.linker import Linker
 import dbt.targets
+import dbt.templates
 import time
 import sqlparse
 
@@ -46,6 +47,10 @@ class Compiler(object):
             own_project = this_project
         paths = own_project.get('macro-paths', [])
         return Source(this_project, own_project=own_project).get_macros(paths)
+
+    def get_archives(self, project):
+        archive_template = dbt.templates.ArchiveInsertTemplate()
+        return Source(project, own_project=project).get_archives(archive_template)
 
     def project_schemas(self):
         source_paths = self.project.get('source-paths', [])
@@ -192,8 +197,8 @@ class Compiler(object):
 
         return rendered
 
-    def write_graph_file(self, linker):
-        filename = 'graph-{}.yml'.format(self.create_template.label)
+    def write_graph_file(self, linker, label):
+        filename = 'graph-{}.yml'.format(label)
         graph_path = os.path.join(self.project['target-path'], filename)
         linker.write_graph(graph_path)
 
@@ -329,7 +334,20 @@ class Compiler(object):
             return macros
         return do_gen
 
+    def compile_archives(self):
+        linker = Linker()
+        all_archives = self.get_archives(self.project)
+
+        for archive in all_archives:
+            sql = archive.compile()
+            self.__write(archive.build_path(), sql)
+
+        self.write_graph_file(linker, 'archive')
+        return all_archives
+
     def compile(self, dry=False):
+        compiled_archives = [] if dry else self.compile_archives() 
+
         linker = Linker()
 
         all_models = self.model_sources(this_project=self.project)
@@ -345,16 +363,17 @@ class Compiler(object):
 
         compiled_models, written_models = self.compile_models(linker, enabled_models)
 
+
         # TODO : only compile schema tests for enabled models
         written_schema_tests = self.compile_schema_tests(linker)
 
         self.validate_models_unique(compiled_models)
         self.validate_models_unique(written_schema_tests)
-        self.write_graph_file(linker)
+        self.write_graph_file(linker, self.create_template.label)
 
         if self.create_template.label != 'test':
             written_analyses = self.compile_analyses(linker, compiled_models)
         else:
             written_analyses = []
 
-        return len(written_models), len(written_schema_tests), len(written_analyses)
+        return len(written_models), len(written_schema_tests), len(compiled_archives), len(written_analyses)

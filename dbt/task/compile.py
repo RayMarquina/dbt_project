@@ -16,6 +16,6 @@ class CompileTask:
 
         compiler = Compiler(self.project, create_template)
         compiler.initialize()
-        created_models, created_tests, created_analyses = compiler.compile(dry=self.args.dry)
+        created_models, created_tests, created_archives, created_analyses = compiler.compile(dry=self.args.dry)
 
-        print("Compiled {} models, {} tests and {} analyses".format(created_models, created_tests, created_analyses))
+        print("Compiled {} models, {} tests, {} archives and {} analyses".format(created_models, created_tests, created_archives, created_analyses))

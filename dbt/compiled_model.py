@@ -110,6 +110,22 @@ class CompiledTest(CompiledModel):
     def __repr__(self):
         return "<CompiledModel {}.{}: {}>".format(self.data['project_name'], self.name, self.data['build_path'])
 
+class CompiledArchive(CompiledModel):
+    def __init__(self, fqn, data):
+        super(CompiledArchive, self).__init__(fqn, data)
+
+    def should_rename(self):
+        return False
+
+    def should_execute(self):
+        return True
+
+    def prepare(self, existing, target):
+        self.target = target
+
+    def __repr__(self):
+        return "<CompiledArchive {}.{}: {}>".format(self.data['project_name'], self.name, self.data['build_path'])
+
 def make_compiled_model(fqn, data):
     run_type = data['dbt_run_type']
 
@@ -117,6 +133,8 @@ def make_compiled_model(fqn, data):
         return CompiledModel(fqn, data)
     elif run_type == 'test':
         return CompiledTest(fqn, data)
+    elif run_type == 'archive':
+        return CompiledArchive(fqn, data)
     else:
         raise RuntimeError("invalid run_type given: {}".format(run_type))
 
