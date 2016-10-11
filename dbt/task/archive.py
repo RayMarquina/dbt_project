@@ -53,7 +53,16 @@ class ArchiveTask:
                     raise RuntimeError('Source table "{}"."{}" does not exist'.format(source_schema.source_schema, table.source_table))
 
                 # create archive table if not exists! TODO: Sort & Dist keys! Hmmmm
-                self.schema.create_table(source_schema.target_schema, table.dest_table, columns, sort=table.updated_at, dist=table.unique_key)
+
+                extra_cols = [
+                    ("valid_from", "timestamp"),
+                    ("valid_to", "timestamp"),
+                    ("scd_id","text"),
+                    ("dbt_updated_at","timestamp")
+                ]
+
+                dest_columns = columns + extra_cols
+                self.schema.create_table(source_schema.target_schema, table.dest_table, dest_columns, sort=table.updated_at, dist=table.unique_key)
 
                 env = jinja2.Environment()
 
@@ -67,5 +76,8 @@ class ArchiveTask:
                 template = env.from_string(base_query, globals=ctx)
                 rendered = template.render(ctx)
 
-                status = self.schema.execute(rendered)
-                print("STATUS: ", status)
+                template = dbt.templates.ArchiveInsertTemplate()
+                transaction = template.wrap(source_schema.target_schema, table.dest_table, rendered, table.unique_key)
+
+                print(transaction)
+                #self.schema.execute_and_handle_permissions(transaction, table.dest_table)

@@ -180,7 +180,10 @@ SCDArchiveTemplate = """
 
     archived_data as (
 
-        select *,
+        select
+            {% for (col, type) in columns %}
+                "{{ col }}",
+            {% endfor %}
             {{ table.updated_at }} as dbt_updated_at,
             {{ table.unique_key }} as dbt_pk
         from "{{ archive.target_schema }}"."{{ table.dest_table }}"
@@ -190,7 +193,7 @@ SCDArchiveTemplate = """
     combined as (
 
         select
-        {% for (col, type) in columns.items() %}
+        {% for (col, type) in columns %}
             "{{ col }}",
         {% endfor %}
         dbt_updated_at,
@@ -200,7 +203,7 @@ SCDArchiveTemplate = """
             union all
 
         select
-        {% for (col, type) in columns.items() %}
+        {% for (col, type) in columns %}
             "{{ col }}",
         {% endfor %}
         dbt_updated_at,
@@ -226,10 +229,47 @@ SCDArchiveTemplate = """
     ),
     with_id as (
         select *,
-            row_number() over (partition by dbt_pk order by dbt_updated_at asc) as dbt_archive_id
+            row_number() over (partition by dbt_pk order by dbt_updated_at asc) as dbt_archive_id,
+            count(*) over (partition by dbt_pk) as num_changes
         from merged
     )
 
-    select md5(dbt_pk || '|' || dbt_archive_id) as scd_id, *
+    --
+    -- TODO : The order of scd_id and dbt_updated_at depends
+    --        on the order of col injections in archive.py
+    select
+        {% for (col, type) in columns %}
+           "{{ col }}",
+        {% endfor %}
+           valid_from,
+           valid_to,
+           md5(dbt_pk || '|' || dbt_archive_id) as scd_id,
+           dbt_updated_at
+
     from with_id
+    where num_changes > 1
 """
+
+
+class ArchiveInsertTemplate(object):
+    archival_template = """
+create temporary table "{identifier}__dbt_archival_tmp" as (
+    with dbt_archive_sbq as (
+        {query}
+    )
+    select * from dbt_archive_sbq
+);
+
+delete from "{schema}"."{identifier}" where ({unique_key}) in (
+    select ({unique_key}) from "{identifier}__dbt_archival_tmp"
+);
+
+insert into "{schema}"."{identifier}" (
+    select * from "{identifier}__dbt_archival_tmp"
+);
+"""
+
+    def wrap(self, schema, table, query, unique_key):
+        sql = self.archival_template.format(schema=schema, identifier=table, query=query, unique_key=unique_key)
+        return sql
+

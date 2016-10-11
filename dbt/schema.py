@@ -108,7 +108,7 @@ class Schema(object):
         sql = self.target.sql_columns_in_table(schema_name, table_name)
         self.logger.debug("getting columns in table %s.%s", schema_name, table_name)
         results = self.execute_and_fetch(sql)
-        columns = {column: data_type for (column, data_type) in results}
+        columns = [(column, data_type) for (column, data_type) in results]
         self.logger.debug("Found columns: %s", columns)
         return columns
 
@@ -118,9 +118,10 @@ class Schema(object):
         self.execute_and_handle_permissions(rename_query, from_name)
         self.logger.info("renamed model %s.%s --> %s.%s", schema, from_name, schema, to_name)
 
-    def create_table(self, schema, table, columns_dict, sort, dist):
-        fields = ['"{field}" {data_type}'.format(field=field, data_type=data_type) for (field, data_type) in columns_dict.items()]
+    def create_table(self, schema, table, columns, sort, dist):
+        fields = ['"{field}" {data_type}'.format(field=field, data_type=data_type) for (field, data_type) in columns]
         fields_csv = ",\n  ".join(fields)
+        # TODO : Sort and Dist keys??
         sql = 'create table if not exists "{schema}"."{table}" (\n  {fields}\n);'.format(schema=schema, table=table, fields=fields_csv)
         self.logger.info('creating table "%s"."%s"'.format(schema, table))
         self.execute_and_handle_permissions(sql, table)
