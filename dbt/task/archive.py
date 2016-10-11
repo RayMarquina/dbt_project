@@ -79,5 +79,4 @@ class ArchiveTask:
                 template = dbt.templates.ArchiveInsertTemplate()
                 transaction = template.wrap(source_schema.target_schema, table.dest_table, rendered, table.unique_key)
 
-                print(transaction)
-                #self.schema.execute_and_handle_permissions(transaction, table.dest_table)
+                self.schema.execute_and_handle_permissions(transaction, table.dest_table)
