@@ -167,6 +167,9 @@ delete from "{schema}"."{identifier}" where  ({unique_key}) in (
         return "{}\n\n{}".format(opts['prologue'], sql)
 
 
+SCDGetColumnsInTable = """
+"""
+
 
 SCDArchiveTemplate = """
     with current_data as (
@@ -181,9 +184,11 @@ SCDArchiveTemplate = """
     archived_data as (
 
         select
-            {% for (col, type) in columns %}
-                "{{ col }}",
-            {% endfor %}
+            {% raw %}
+                {% for (col, type) in get_columns_in_table(source_schema, source_table) %}
+                    "{{ col }}" {% if not loop.last %},{% endif %}
+                {% endfor %},
+            {% endraw %}
             {{ updated_at }} as dbt_updated_at,
             {{ unique_key }} as dbt_pk
         from "{{ target_schema }}"."{{ dest_table }}"
@@ -193,22 +198,26 @@ SCDArchiveTemplate = """
     combined as (
 
         select
-        {% for (col, type) in columns %}
-            "{{ col }}",
-        {% endfor %}
-        dbt_updated_at,
-        dbt_pk
-        from current_data
+            {% raw %}
+                {% for (col, type) in get_columns_in_table(source_schema, source_table) %}
+                    "{{ col }}" {% if not loop.last %},{% endif %}
+                {% endfor %},
+            {% endraw %}
+            dbt_updated_at,
+            dbt_pk
+            from current_data
 
             union all
 
         select
-        {% for (col, type) in columns %}
-            "{{ col }}",
-        {% endfor %}
-        dbt_updated_at,
-        dbt_pk
-        from archived_data
+            {% raw %}
+                {% for (col, type) in get_columns_in_table(source_schema, source_table) %}
+                    "{{ col }}" {% if not loop.last %},{% endif %}
+                {% endfor %},
+            {% endraw %}
+            dbt_updated_at,
+            dbt_pk
+            from archived_data
 
     ),
 
@@ -234,17 +243,8 @@ SCDArchiveTemplate = """
         from merged
     )
 
-    --
-    -- TODO : The order of scd_id and dbt_updated_at depends
-    --        on the order of col injections in archive.py
-    select
-        {% for (col, type) in columns %}
-           "{{ col }}",
-        {% endfor %}
-           valid_from,
-           valid_to,
-           md5(dbt_pk || '|' || dbt_archive_id) as scd_id,
-           dbt_updated_at
+    select *,
+          md5(dbt_pk || '|' || dbt_archive_id) as scd_id
 
     from with_id
     where num_changes > 1
@@ -255,7 +255,22 @@ class ArchiveInsertTemplate(object):
 
     label = "archive"
 
+    alter_template = """
+{% for (col, dtype) in get_missing_columns(source_schema, source_table, target_schema, dest_table).items() %}
+    alter table "{{ target_schema }}"."{{ dest_table }}" add column "{{ col }}" {{ dtype }};
+{% endfor %}
+"""
+
+    dest_cols = """
+{% for (col, type) in get_columns_in_table(target_schema, dest_table) %}
+    "{{ col }}" {% if not loop.last %},{% endif %}
+{% endfor %}
+"""
+
     archival_template = """
+
+{alter_template}
+
 create temporary table "{identifier}__dbt_archival_tmp" as (
     with dbt_archive_sbq as (
         {query}
@@ -268,11 +283,12 @@ delete from "{schema}"."{identifier}" where ({unique_key}) in (
 );
 
 insert into "{schema}"."{identifier}" (
-    select * from "{identifier}__dbt_archival_tmp"
-);
+    {dest_cols}
+)
+select {dest_cols} from "{identifier}__dbt_archival_tmp";
 """
 
     def wrap(self, schema, table, query, unique_key):
-        sql = self.archival_template.format(schema=schema, identifier=table, query=query, unique_key=unique_key)
+        sql = self.archival_template.format(schema=schema, identifier=table, query=query, unique_key=unique_key, alter_template=self.alter_template, dest_cols=self.dest_cols)
         return sql
 

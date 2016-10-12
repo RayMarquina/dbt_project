@@ -6,6 +6,7 @@ class CompiledModel(object):
     def __init__(self, fqn, data):
         self.fqn = fqn
         self.data = data
+        self.nice_name = ".".join(fqn)
 
         # these are set just before the models are executed
         self.tmp_drop_type = None
@@ -22,6 +23,9 @@ class CompiledModel(object):
     def hashed_name(self):
         fqn_string = ".".join(self.fqn)
         return hashlib.md5(fqn_string.encode('utf-8')).hexdigest()
+
+    def context(self):
+        return self.data
 
     def hashed_contents(self):
         return hashlib.md5(self.contents.encode('utf-8')).hexdigest()

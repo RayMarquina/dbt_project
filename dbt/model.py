@@ -572,6 +572,8 @@ class Macro(DBTSource):
 
 
 class ArchiveModel(DBTSource):
+    dbt_run_type = 'archive'
+
     def __init__(self, project, create_template, source_schema, target_schema, source_table, dest_table, unique_key, updated_at):
 
         self.create_template = create_template
@@ -587,6 +589,21 @@ class ArchiveModel(DBTSource):
         rel_filepath = os.path.join(self.target_schema, self.dest_table)
 
         super(ArchiveModel, self).__init__(project, target_dir, rel_filepath, project)
+
+    def serialize(self):
+        data = DBTSource.serialize(self).copy()
+
+        serialized = {
+            "source_schema" : self.source_schema,
+            "target_schema" : self.target_schema,
+            "source_table"  : self.source_table,
+            "dest_table"    : self.dest_table,
+            "unique_key"    : self.unique_key,
+            "updated_at"    : self.updated_at
+        }
+
+        data.update(serialized)
+        return data
 
     def compile(self):
         archival = dbt.archival.Archival(self.project, self)

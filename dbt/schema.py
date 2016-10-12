@@ -118,6 +118,15 @@ class Schema(object):
         self.execute_and_handle_permissions(rename_query, from_name)
         self.logger.info("renamed model %s.%s --> %s.%s", schema, from_name, schema, to_name)
 
+    def get_missing_columns(self, from_schema, from_table, to_schema, to_table):
+        "Returns dict of {column:type} for columns in from_table that are missing from to_table"
+        from_columns = {col:dtype for (col,dtype) in self.get_columns_in_table(from_schema, from_table)}
+        to_columns = {col:dtype for (col,dtype) in self.get_columns_in_table(to_schema, to_table)}
+
+        missing_columns = set(from_columns.keys()) - set(to_columns.keys())
+
+        return {col:dtype for (col, dtype) in from_columns.items() if col in missing_columns}
+
     def create_table(self, schema, table, columns, sort, dist):
         fields = ['"{field}" {data_type}'.format(field=field, data_type=data_type) for (field, data_type) in columns]
         fields_csv = ",\n  ".join(fields)

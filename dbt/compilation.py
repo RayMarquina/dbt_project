@@ -39,6 +39,8 @@ class Compiler(object):
             return Source(this_project, own_project=own_project).get_models(paths, self.create_template)
         elif self.create_template.label == 'test':
             return Source(this_project, own_project=own_project).get_test_models(paths, self.create_template)
+        elif self.create_template.label == 'archive':
+            return []
         else:
             raise RuntimeError("unexpected create template type: '{}'".format(self.create_template.label))
 
@@ -340,14 +342,14 @@ class Compiler(object):
 
         for archive in all_archives:
             sql = archive.compile()
+            fqn = tuple(archive.fqn)
+            linker.update_node_data(fqn, archive.serialize())
             self.__write(archive.build_path(), sql)
 
         self.write_graph_file(linker, 'archive')
         return all_archives
 
     def compile(self, dry=False):
-        compiled_archives = [] if dry else self.compile_archives() 
-
         linker = Linker()
 
         all_models = self.model_sources(this_project=self.project)
@@ -363,7 +365,6 @@ class Compiler(object):
 
         compiled_models, written_models = self.compile_models(linker, enabled_models)
 
-
         # TODO : only compile schema tests for enabled models
         written_schema_tests = self.compile_schema_tests(linker)
 
@@ -371,9 +372,12 @@ class Compiler(object):
         self.validate_models_unique(written_schema_tests)
         self.write_graph_file(linker, self.create_template.label)
 
-        if self.create_template.label != 'test':
+        if self.create_template.label not in ['test', 'archive']:
             written_analyses = self.compile_analyses(linker, compiled_models)
         else:
             written_analyses = []
+
+
+        compiled_archives = self.compile_archives()
 
         return len(written_models), len(written_schema_tests), len(compiled_archives), len(written_analyses)

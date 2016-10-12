@@ -5,6 +5,7 @@ import dbt.schema
 import dbt.templates
 import jinja2
 
+
 class Archival(object):
 
     def __init__(self, project, archive_model):
@@ -50,7 +51,7 @@ class Archival(object):
             "source_schema" : source_schema,
             "source_table"  : source_table,
             "target_schema" : target_schema,
-            "dest_table"    : dest_table,
+            "dest_table"    : dest_table
         }
 
         base_query = dbt.templates.SCDArchiveTemplate 
