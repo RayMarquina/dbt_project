@@ -19,7 +19,7 @@ class Archival(object):
         source_schema = self.archive_model.source_schema
         target_schema = self.archive_model.target_schema
         source_table  = self.archive_model.source_table
-        dest_table    = self.archive_model.dest_table
+        target_table    = self.archive_model.target_table
         unique_key    = self.archive_model.unique_key
         updated_at    = self.archive_model.updated_at
 
@@ -40,7 +40,7 @@ class Archival(object):
         ]
 
         dest_columns = source_columns + extra_cols
-        self.schema.create_table(target_schema, dest_table, dest_columns, sort=updated_at, dist=unique_key)
+        self.schema.create_table(target_schema, target_table, dest_columns, sort=updated_at, dist=unique_key)
 
         env = jinja2.Environment()
 
@@ -51,7 +51,7 @@ class Archival(object):
             "source_schema" : source_schema,
             "source_table"  : source_table,
             "target_schema" : target_schema,
-            "dest_table"    : dest_table
+            "target_table"  : target_table
         }
 
         base_query = dbt.templates.SCDArchiveTemplate 

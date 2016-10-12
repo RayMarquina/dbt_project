@@ -196,7 +196,7 @@ SCDArchiveTemplate = """
             {{ unique_key }} as dbt_pk,
             valid_from,
             valid_to as tmp_valid_to
-        from "{{ target_schema }}"."{{ dest_table }}"
+        from "{{ target_schema }}"."{{ target_table }}"
 
     ),
 
@@ -245,16 +245,16 @@ class ArchiveInsertTemplate(object):
     label = "archive"
 
 
-    # missing_columns : columns in source_table that are missing from dest_table (used for the ALTER)
+    # missing_columns : columns in source_table that are missing from target_table (used for the ALTER)
     # dest_columns    : columns in the dest table (post-alter!)
     definitions = """
-{% set missing_columns = get_missing_columns(source_schema, source_table, target_schema, dest_table) %}
-{% set dest_columns = get_columns_in_table(target_schema, dest_table) + missing_columns %}
+{% set missing_columns = get_missing_columns(source_schema, source_table, target_schema, target_table) %}
+{% set dest_columns = get_columns_in_table(target_schema, target_table) + missing_columns %}
 """
 
     alter_template = """
 {% for (col, dtype) in missing_columns %}
-    alter table "{{ target_schema }}"."{{ dest_table }}" add column "{{ col }}" {{ dtype }};
+    alter table "{{ target_schema }}"."{{ target_table }}" add column "{{ col }}" {{ dtype }};
 {% endfor %}
 """
 

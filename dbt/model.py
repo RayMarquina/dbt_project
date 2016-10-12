@@ -574,19 +574,19 @@ class Macro(DBTSource):
 class ArchiveModel(DBTSource):
     dbt_run_type = 'archive'
 
-    def __init__(self, project, create_template, source_schema, target_schema, source_table, dest_table, unique_key, updated_at):
+    def __init__(self, project, create_template, source_schema, target_schema, source_table, target_table, unique_key, updated_at):
 
         self.create_template = create_template
 
         self.source_schema = source_schema
         self.target_schema = target_schema
         self.source_table  = source_table
-        self.dest_table    = dest_table
+        self.target_table    = target_table
         self.unique_key    = unique_key
         self.updated_at    = updated_at
 
         target_dir = self.create_template.label
-        rel_filepath = os.path.join(self.target_schema, self.dest_table)
+        rel_filepath = os.path.join(self.target_schema, self.target_table)
 
         super(ArchiveModel, self).__init__(project, target_dir, rel_filepath, project)
 
@@ -597,7 +597,7 @@ class ArchiveModel(DBTSource):
             "source_schema" : self.source_schema,
             "target_schema" : self.target_schema,
             "source_table"  : self.source_table,
-            "dest_table"    : self.dest_table,
+            "target_table"    : self.target_table,
             "unique_key"    : self.unique_key,
             "updated_at"    : self.updated_at
         }
@@ -609,7 +609,7 @@ class ArchiveModel(DBTSource):
         archival = dbt.archival.Archival(self.project, self)
         query = archival.compile()
 
-        sql = self.create_template.wrap(self.target_schema, self.dest_table, query, self.unique_key)
+        sql = self.create_template.wrap(self.target_schema, self.target_table, query, self.unique_key)
         return sql
 
     def build_path(self):
@@ -619,4 +619,4 @@ class ArchiveModel(DBTSource):
         return os.path.join(*path_parts)
 
     def __repr__(self):
-        return "<ArchiveModel {} --> {} unique:{} updated_at:{}>".format(self.source_table, self.dest_table, self.unique_key, self.updated_at)
+        return "<ArchiveModel {} --> {} unique:{} updated_at:{}>".format(self.source_table, self.target_table, self.unique_key, self.updated_at)
