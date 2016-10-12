@@ -60,4 +60,8 @@ class Archival(object):
 
         return rendered
 
+    def runtime_compile(self, compiled_model):
+        context = self.context.copy()
+        context.update(model.context())
+        model.compile(context)
 

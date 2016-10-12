@@ -12,6 +12,8 @@ import dbt.templates
 import time
 import sqlparse
 
+CompilableEntities = ["models", "tests", "archives", "analyses"]
+
 class Compiler(object):
     def __init__(self, project, create_template_class):
         self.project = project
@@ -380,4 +382,9 @@ class Compiler(object):
 
         compiled_archives = self.compile_archives()
 
-        return len(written_models), len(written_schema_tests), len(compiled_archives), len(written_analyses)
+        return {
+            "models": len(written_models),
+            "tests" : len(written_schema_tests),
+            "archives": len(compiled_archives),
+            "analyses" : len(written_analyses)
+        }

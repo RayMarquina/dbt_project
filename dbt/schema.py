@@ -23,6 +23,20 @@ class Schema(object):
         self.target = target
         self.logger = logging.getLogger(__name__)
 
+        self.schema_cache = {}
+
+    def cache_table_columns(self, schema, table, columns):
+        tid = (schema, table)
+
+        if tid not in self.schema_cache:
+            self.schema_cache[tid] = columns
+
+        return tid
+
+    def get_table_columns_if_cached(self, schema, table):
+        tid = (schema, table)
+        return self.schema_cache.get(tid, None)
+
     def get_schemas(self):
         existing = []
         results = self.execute_and_fetch('select nspname from pg_catalog.pg_namespace')
@@ -105,10 +119,19 @@ class Schema(object):
         self.logger.info("dropped %s %s.%s", relation_type, schema, relation)
 
     def get_columns_in_table(self, schema_name, table_name):
-        sql = self.target.sql_columns_in_table(schema_name, table_name)
         self.logger.debug("getting columns in table %s.%s", schema_name, table_name)
+
+        columns = self.get_table_columns_if_cached(schema_name, table_name)
+        if columns is not None:
+            self.logger.debug("Found columns (in cache): %s", columns)
+            return columns
+
+        sql = self.target.sql_columns_in_table(schema_name, table_name)
         results = self.execute_and_fetch(sql)
         columns = [(column, data_type) for (column, data_type) in results]
+
+        self.cache_table_columns(schema_name, table_name, columns)
+
         self.logger.debug("Found columns: %s", columns)
         return columns
 
@@ -125,7 +148,7 @@ class Schema(object):
 
         missing_columns = set(from_columns.keys()) - set(to_columns.keys())
 
-        return {col:dtype for (col, dtype) in from_columns.items() if col in missing_columns}
+        return [(col, dtype) for (col, dtype) in from_columns.items() if col in missing_columns]
 
     def create_table(self, schema, table, columns, sort, dist):
         fields = ['"{field}" {data_type}'.format(field=field, data_type=data_type) for (field, data_type) in columns]

@@ -12,7 +12,8 @@ class ArchiveTask:
     def compile(self):
         compiler = Compiler(self.project, self.create_template)
         compiler.initialize()
-        compiler.compile_archives()
+        compiled = compiler.compile_archives()
+        print("Compiled {} archives".format(len(compiled)))
 
     def run(self):
         self.compile()

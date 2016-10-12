@@ -231,7 +231,6 @@ class ArchiveRunner(BaseRunner):
         return result.status
 
     def execute(self, schema, target, model):
-        print(model.compiled_contents)
         status = schema.execute_and_handle_permissions(model.compiled_contents, model.name)
         return status
 

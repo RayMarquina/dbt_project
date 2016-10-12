@@ -172,11 +172,14 @@ SCDGetColumnsInTable = """
 
 
 SCDArchiveTemplate = """
+
     with current_data as (
 
         select *,
             {{ updated_at }} as dbt_updated_at,
-            {{ unique_key }} as dbt_pk
+            {{ unique_key }} as dbt_pk,
+            {{ updated_at }} as valid_from,
+            null::timestamp as tmp_valid_to
         from "{{ source_schema }}"."{{ source_table }}"
 
     ),
@@ -190,64 +193,50 @@ SCDArchiveTemplate = """
                 {% endfor %},
             {% endraw %}
             {{ updated_at }} as dbt_updated_at,
-            {{ unique_key }} as dbt_pk
+            {{ unique_key }} as dbt_pk,
+            valid_from,
+            valid_to as tmp_valid_to
         from "{{ target_schema }}"."{{ dest_table }}"
 
     ),
 
-    combined as (
+    insertions as (
 
         select
-            {% raw %}
-                {% for (col, type) in get_columns_in_table(source_schema, source_table) %}
-                    "{{ col }}" {% if not loop.last %},{% endif %}
-                {% endfor %},
-            {% endraw %}
-            dbt_updated_at,
-            dbt_pk
-            from current_data
+            current_data.*,
+            null::timestamp as valid_to
+        from current_data
+        left outer join archived_data on archived_data.dbt_pk = current_data.dbt_pk
+        where archived_data.dbt_pk is null or (
+          archived_data.dbt_pk is not null and
+          current_data.dbt_updated_at > archived_data.dbt_updated_at and
+          archived_data.tmp_valid_to is null
+        )
+    ),
 
-            union all
+    updates as (
 
         select
-            {% raw %}
-                {% for (col, type) in get_columns_in_table(source_schema, source_table) %}
-                    "{{ col }}" {% if not loop.last %},{% endif %}
-                {% endfor %},
-            {% endraw %}
-            dbt_updated_at,
-            dbt_pk
-            from archived_data
-
+            archived_data.*,
+            current_data.dbt_updated_at as valid_to
+        from current_data
+        left outer join archived_data on archived_data.dbt_pk = current_data.dbt_pk
+        where archived_data.dbt_pk is not null
+          and archived_data.dbt_updated_at < current_data.dbt_updated_at
+          and archived_data.tmp_valid_to is null
     ),
 
     merged as (
 
-        select
-        distinct
-            combined.*,
-            least(combined.dbt_updated_at, current_data.dbt_updated_at) as valid_from,
-            case when combined.dbt_updated_at = current_data.dbt_updated_at then null
-                else current_data.dbt_updated_at
-            end as valid_to
-        from current_data
-        left outer join combined
-             on combined.dbt_pk = current_data.dbt_pk
-            and current_data.dbt_updated_at >= combined.dbt_updated_at
+      select *, 'update' as change_type from updates
+      union all
+      select *, 'insert' as change_type from insertions
 
-    ),
-    with_id as (
-        select *,
-            row_number() over (partition by dbt_pk order by dbt_updated_at asc) as dbt_archive_id,
-            count(*) over (partition by dbt_pk) as num_changes
-        from merged
     )
 
     select *,
-          md5(dbt_pk || '|' || dbt_archive_id) as scd_id
-
-    from with_id
-    where num_changes > 1
+        md5(dbt_pk || '|' || dbt_updated_at) as scd_id
+    from merged
 """
 
 
@@ -255,19 +244,29 @@ class ArchiveInsertTemplate(object):
 
     label = "archive"
 
+
+    # missing_columns : columns in source_table that are missing from dest_table (used for the ALTER)
+    # dest_columns    : columns in the dest table (post-alter!)
+    definitions = """
+{% set missing_columns = get_missing_columns(source_schema, source_table, target_schema, dest_table) %}
+{% set dest_columns = get_columns_in_table(target_schema, dest_table) + missing_columns %}
+"""
+
     alter_template = """
-{% for (col, dtype) in get_missing_columns(source_schema, source_table, target_schema, dest_table).items() %}
+{% for (col, dtype) in missing_columns %}
     alter table "{{ target_schema }}"."{{ dest_table }}" add column "{{ col }}" {{ dtype }};
 {% endfor %}
 """
 
     dest_cols = """
-{% for (col, type) in get_columns_in_table(target_schema, dest_table) %}
+{% for (col, type) in dest_columns %}
     "{{ col }}" {% if not loop.last %},{% endif %}
 {% endfor %}
 """
 
     archival_template = """
+
+{definitions}
 
 {alter_template}
 
@@ -278,17 +277,19 @@ create temporary table "{identifier}__dbt_archival_tmp" as (
     select * from dbt_archive_sbq
 );
 
-delete from "{schema}"."{identifier}" where ({unique_key}) in (
-    select ({unique_key}) from "{identifier}__dbt_archival_tmp"
-);
+update "{schema}"."{identifier}" as archive set valid_to = tmp.valid_to
+from "{identifier}__dbt_archival_tmp" as tmp
+where tmp.scd_id = archive.scd_id
+  and change_type = 'update';
 
 insert into "{schema}"."{identifier}" (
     {dest_cols}
 )
-select {dest_cols} from "{identifier}__dbt_archival_tmp";
+select {dest_cols} from "{identifier}__dbt_archival_tmp"
+where change_type = 'insert';
 """
 
     def wrap(self, schema, table, query, unique_key):
-        sql = self.archival_template.format(schema=schema, identifier=table, query=query, unique_key=unique_key, alter_template=self.alter_template, dest_cols=self.dest_cols)
+        sql = self.archival_template.format(schema=schema, identifier=table, query=query, unique_key=unique_key, alter_template=self.alter_template, dest_cols=self.dest_cols, definitions=self.definitions)
         return sql
 
