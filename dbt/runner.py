@@ -339,7 +339,7 @@ class RunManager(object):
 
         num_models = len(flat_models)
         if num_models == 0:
-            print("WARNING: No models to run in '{}'. Try checking your model configs and running `dbt compile`".format(self.target_path))
+            print("WARNING: Nothing to do. Try checking your model configs and running `dbt compile`".format(self.target_path))
             return []
 
         num_threads = self.target.threads

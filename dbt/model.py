@@ -574,21 +574,37 @@ class Macro(DBTSource):
 class ArchiveModel(DBTSource):
     dbt_run_type = 'archive'
 
-    def __init__(self, project, create_template, source_schema, target_schema, source_table, target_table, unique_key, updated_at):
+    def __init__(self, project, create_template, archive_data):
 
         self.create_template = create_template
 
-        self.source_schema = source_schema
-        self.target_schema = target_schema
-        self.source_table  = source_table
-        self.target_table    = target_table
-        self.unique_key    = unique_key
-        self.updated_at    = updated_at
+        self.validate(archive_data)
+
+        self.source_schema = archive_data['source_schema']
+        self.target_schema = archive_data['target_schema']
+        self.source_table  = archive_data['source_table']
+        self.target_table  = archive_data['target_table']
+        self.unique_key    = archive_data['unique_key']
+        self.updated_at    = archive_data['updated_at']
 
         target_dir = self.create_template.label
         rel_filepath = os.path.join(self.target_schema, self.target_table)
 
         super(ArchiveModel, self).__init__(project, target_dir, rel_filepath, project)
+
+    def validate(self, data):
+        required = [
+            'source_schema',
+            'target_schema',
+            'source_table',
+            'target_table',
+            'unique_key',
+            'updated_at',
+        ]
+
+        for key in required:
+            if data.get(key, None) is None:
+                raise RuntimeError("Invalid archive config: missing required field '{}'".format(key))
 
     def serialize(self):
         data = DBTSource.serialize(self).copy()

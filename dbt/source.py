@@ -77,7 +77,7 @@ class Source(object):
             for table in tables:
                 fields = table.copy()
                 fields.update(schema)
-                archives.append(ArchiveModel(self.project, create_template, **fields))
+                archives.append(ArchiveModel(self.project, create_template, fields))
         return archives
 
 
