@@ -103,11 +103,13 @@ class ModelRunner(BaseRunner):
         if model.tmp_drop_type is not None:
             schema.drop(target.schema, model.tmp_drop_type, model.tmp_name)
 
-        parts = re.split(r'-- DBT_OPERATION (.*)', model.compiled_contents)
+        parts = re.split(r'-- (DBT_OPERATION .*)', model.compiled_contents)
         handle = None
         for i, part in enumerate(parts):
-            if re.match(r'^{.*}$', part) is not None:
-                instruction = yaml.safe_load(part)
+            matches = re.match(r'^DBT_OPERATION ({.*})$', part)
+            if matches is not None:
+                instruction_string = matches.groups()[0]
+                instruction = yaml.safe_load(instruction_string)
                 function = instruction['function']
                 kwargs = instruction['args']
 
