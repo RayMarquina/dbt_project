@@ -237,18 +237,17 @@ class Schema(object):
         return status
 
     def expand_column_types_if_needed(self, temp_table, to_schema, to_table):
-        source_columns = self.get_columns_in_table(None, temp_table)
-        dest_columns   = self.get_columns_in_table(to_schema, to_table)
+        source_columns = {k:v for (k,v) in self.get_columns_in_table(None, temp_table)}
+        dest_columns   = {k:v for (k,v) in self.get_columns_in_table(to_schema, to_table)}
 
-        if len(source_columns) != len(dest_columns):
-            raise RuntimeError("Staging table and model table have different numbers of columns. staging={}, dest={}".format(temp_table, to_table))
+        for column_name, source_type in source_columns.items():
+            dest_type = dest_columns.get(column_name)
 
-        for (source_col, dest_col) in zip(source_columns, dest_columns):
-            source_name, source_type = source_col
-            dest_name, dest_type = dest_col
+            if dest_type is None:
+                continue
 
             if source_type != dest_type:
                 new_type = self.expand_column_to_type(source_type, dest_type)
                 if new_type is not None:
-                    self.alter_column_type(to_schema, to_table, dest_name, new_type)
+                    self.alter_column_type(to_schema, to_table, column_name, new_type)
 

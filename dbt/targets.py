@@ -139,7 +139,7 @@ class PostgresTarget(BaseSQLTarget):
                 select column_name,
                 -- conform to redshift pg_table_def output
                 case when data_type = 'character varying' then
-                  data_type || '(' || character_maximum_length || ')'
+                  data_type || '(' || coalesce(character_maximum_length, 255) || ')'
                 else
                   data_type
                 end as data_type

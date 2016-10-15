@@ -128,6 +128,7 @@ create temporary table "{identifier}__dbt_incremental_tmp" as (
     limit 0
 );
 
+-- DBT_OPERATION {{ function: expand_column_types_if_needed, args: {{ temp_table: "{identifier}__dbt_incremental_tmp", to_schema: "{schema}", to_table: "{identifier}"}} }}
 
 {incremental_delete_statement}
 
@@ -167,10 +168,6 @@ delete from "{schema}"."{identifier}" where  ({unique_key}) in (
             raise RuntimeError("Invalid materialization parameter ({})".format(opts['materialization']))
 
         return "{}\n\n{}".format(opts['prologue'], sql)
-
-
-SCDGetColumnsInTable = """
-"""
 
 
 SCDArchiveTemplate = """
@@ -278,6 +275,8 @@ create temporary table "{identifier}__dbt_archival_tmp" as (
     )
     select * from dbt_archive_sbq
 );
+
+-- DBT_OPERATION {{ function: expand_column_types_if_needed, args: {{ temp_table: "{identifier}__dbt_archival_tmp", to_schema: "{schema}", to_table: "{identifier}"}} }}
 
 update "{schema}"."{identifier}" as archive set valid_to = tmp.valid_to
 from "{identifier}__dbt_archival_tmp" as tmp

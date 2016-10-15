@@ -65,6 +65,30 @@ class BaseRunner(object):
     def status(self, result):
         raise NotImplementedError("not implemented")
 
+    def execute_contents(self, schema, target, model):
+        parts = re.split(r'-- (DBT_OPERATION .*)', model.compiled_contents)
+        handle = None
+
+        status = 'None'
+        for i, part in enumerate(parts):
+            matches = re.match(r'^DBT_OPERATION ({.*})$', part)
+            if matches is not None:
+                instruction_string = matches.groups()[0]
+                instruction = yaml.safe_load(instruction_string)
+                function = instruction['function']
+                kwargs = instruction['args']
+
+                func_map = {
+                    'expand_column_types_if_needed': lambda kwargs: schema.expand_column_types_if_needed(**kwargs),
+                }
+
+                func_map[function](kwargs)
+            else:
+                handle, status = schema.execute_without_auto_commit(part, handle)
+
+        handle.commit()
+        return status
+
 class ModelRunner(BaseRunner):
     run_type = 'run'
     def pre_run_msg(self, model):
@@ -103,25 +127,7 @@ class ModelRunner(BaseRunner):
         if model.tmp_drop_type is not None:
             schema.drop(target.schema, model.tmp_drop_type, model.tmp_name)
 
-        parts = re.split(r'-- (DBT_OPERATION .*)', model.compiled_contents)
-        handle = None
-        for i, part in enumerate(parts):
-            matches = re.match(r'^DBT_OPERATION ({.*})$', part)
-            if matches is not None:
-                instruction_string = matches.groups()[0]
-                instruction = yaml.safe_load(instruction_string)
-                function = instruction['function']
-                kwargs = instruction['args']
-
-                func_map = {
-                    'expand_column_types_if_needed': lambda kwargs: schema.expand_column_types_if_needed(**kwargs),
-                }
-
-                func_map[function](kwargs)
-            else:
-                handle, status = schema.execute_without_auto_commit(part, handle)
-
-        handle.commit()
+        status = self.execute_contents(schema, target, model)
 
         if model.final_drop_type is not None:
             schema.drop(target.schema, model.final_drop_type, model.name)
@@ -251,7 +257,7 @@ class ArchiveRunner(BaseRunner):
         return result.status
 
     def execute(self, schema, target, model):
-        status = schema.execute_and_handle_permissions(model.compiled_contents, model.name)
+        status = self.execute_contents(schema, target, model)
         return status
 
 class RunManager(object):
