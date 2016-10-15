@@ -2,6 +2,7 @@
 import psycopg2
 import logging
 import time
+import re
 
 SCHEMA_PERMISSION_DENIED_MESSAGE = """The user '{user}' does not have sufficient permissions to create the schema '{schema}'.
 Either create the schema  manually, or adjust the permissions of the '{user}' user."""
@@ -139,11 +140,11 @@ class Schema(object):
         self.execute_and_handle_permissions(sql, relation)
         self.logger.info("dropped %s %s.%s", relation_type, schema, relation)
 
-    def get_columns_in_table(self, schema_name, table_name):
+    def get_columns_in_table(self, schema_name, table_name, use_cached=True):
         self.logger.debug("getting columns in table %s.%s", schema_name, table_name)
 
         columns = self.get_table_columns_if_cached(schema_name, table_name)
-        if columns is not None:
+        if columns is not None and use_cached:
             self.logger.debug("Found columns (in cache): %s", columns)
             return columns
 
@@ -185,7 +186,69 @@ class Schema(object):
         if schema_name not in schemas:
             self.create_schema(schema_name)
 
-    def expand_column_types_if_needed(self, from_table, to_schema, to_table):
-        "The hard part!"
-        pass
+    def get_varchar_size(self, column_type):
+        if column_type == 'text':
+            return 255
+        matches = re.match(r'character varying\((\d+)\)', column_type)
+        if matches is None:
+            return None
+        else:
+            return int(matches.groups()[0])
+
+    def is_varchar_field(self, dtype):
+        return dtype.startswith('character') or dtype == 'text'
+
+    def expand_column_to_type(self, source_type, dest_type):
+        if not self.is_varchar_field(source_type) or not self.is_varchar_field(dest_type):
+            return None
+
+        source_size = self.get_varchar_size(source_type)
+        dest_size   = self.get_varchar_size(dest_type)
+
+        if source_size is not None and dest_size is not None and source_size > dest_size:
+            return 'character varying({})'.format(source_size)
+        else:
+            return None
+
+    def alter_column_type(self, schema, table, column_name, new_column_type):
+        """
+        1. Create a new column (w/ temp name and correct type)
+        2. Copy data over to it
+        3. Drop the existing column
+        4. Rename the new column to existing column
+        """
+
+        opts = {
+            "schema": schema,
+            "table": table,
+            "old_column": column_name,
+            "tmp_column": "{}__dbt_alter".format(column_name),
+            "dtype": new_column_type
+        }
+
+        sql = """
+        alter table "{schema}"."{table}" add column "{tmp_column}" {dtype};
+        update "{schema}"."{table}" set "{tmp_column}" = "{old_column}";
+        alter table "{schema}"."{table}" drop column "{old_column}";
+        alter table "{schema}"."{table}" rename column "{tmp_column}" to "{old_column}";
+        """.format(**opts)
+
+        status = self.execute(sql)
+        return status
+
+    def expand_column_types_if_needed(self, temp_table, to_schema, to_table):
+        source_columns = self.get_columns_in_table(None, temp_table)
+        dest_columns   = self.get_columns_in_table(to_schema, to_table)
+
+        if len(source_columns) != len(dest_columns):
+            raise RuntimeError("Staging table and model table have different numbers of columns. staging={}, dest={}".format(temp_table, to_table))
+
+        for (source_col, dest_col) in zip(source_columns, dest_columns):
+            source_name, source_type = source_col
+            dest_name, dest_type = dest_col
+
+            if source_type != dest_type:
+                new_type = self.expand_column_to_type(source_type, dest_type)
+                if new_type is not None:
+                    self.alter_column_type(to_schema, to_table, dest_name, new_type)
 

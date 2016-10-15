@@ -25,7 +25,7 @@ create temporary table "{identifier}__dbt_incremental_tmp" as (
     where ({sql_where}) or ({sql_where}) is null
 );
 
--- DBT_OPERATION {{ function: expand_column_types_if_needed, args: {{ from_table: "{identifier}__dbt_incremental_tmp", to_schema: "{schema}", to_table: "{identifier}"}} }}
+-- DBT_OPERATION {{ function: expand_column_types_if_needed, args: {{ temp_table: "{identifier}__dbt_incremental_tmp", to_schema: "{schema}", to_table: "{identifier}"}} }}
 
 {incremental_delete_statement}
 

@@ -116,11 +116,13 @@ class RedshiftTarget(BaseSQLTarget):
 
 
     def sql_columns_in_table(self, schema_name, table_name):
-        return """
+        sql = """
                 select "column" as column_name, "type" as "data_type"
                 from pg_table_def
-                where schemaname = '{schema_name}' and tablename = '{table_name}'
-               """.format(schema_name=schema_name, table_name=table_name).strip()
+                where tablename = '{table_name}'""".format(table_name=table_name).strip()
+        if schema_name is not None:
+            sql += " AND schemaname = '{schema_name}'".format(schema_name)
+        return sql
 
     @property
     def context(self):
@@ -133,11 +135,21 @@ class PostgresTarget(BaseSQLTarget):
         super(PostgresTarget, self).__init__(cfg)
 
     def sql_columns_in_table(self, schema_name, table_name):
-        return """
-                select column_name, data_type
+        sql = """
+                select column_name,
+                -- conform to redshift pg_table_def output
+                case when data_type = 'character varying' then
+                  data_type || '(' || character_maximum_length || ')'
+                else
+                  data_type
+                end as data_type
                 from information_schema.columns
-                where table_schema = '{schema_name}' and table_name = '{table_name}'
-               """.format(schema_name=schema_name, table_name=table_name).strip()
+                where table_name = '{table_name}'""".format(table_name=table_name).strip()
+
+        if schema_name is not None:
+            sql += " AND table_schema = '{schema_name}'".format(schema_name=schema_name)
+
+        return sql
 
     @property
     def context(self):
