@@ -6,6 +6,8 @@ import os, sys
 import logging
 import time
 import itertools
+import re
+import yaml
 from datetime import datetime
 
 from dbt.compilation import Compiler
@@ -101,7 +103,23 @@ class ModelRunner(BaseRunner):
         if model.tmp_drop_type is not None:
             schema.drop(target.schema, model.tmp_drop_type, model.tmp_name)
 
-        status = schema.execute_and_handle_permissions(model.compiled_contents, model.name)
+        parts = re.split(r'-- DBT_OPERATION (.*)', model.compiled_contents)
+        handle = None
+        for i, part in enumerate(parts):
+            if re.match(r'^{.*}$', part) is not None:
+                instruction = yaml.safe_load(part)
+                function = instruction['function']
+                kwargs = instruction['args']
+
+                func_map = {
+                    'expand_column_types_if_needed': lambda kwargs: schema.expand_column_types_if_needed(**kwargs),
+                }
+
+                func_map[function](kwargs)
+            else:
+                handle, status = schema.execute_without_auto_commit(part, handle)
+
+        handle.commit()
 
         if model.final_drop_type is not None:
             schema.drop(target.schema, model.final_drop_type, model.name)
@@ -473,4 +491,5 @@ class RunManager(object):
     def run_archive(self):
         runner = ArchiveRunner()
         return self.safe_run_from_graph(runner, None)
+
 

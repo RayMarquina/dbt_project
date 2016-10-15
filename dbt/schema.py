@@ -112,6 +112,27 @@ class Schema(object):
             else:
                 raise e
 
+    def execute_without_auto_commit(self, sql, handle=None):
+        if handle is None:
+            handle = self.target.get_handle()
+
+        cursor = handle.cursor()
+
+        try:
+            self.logger.debug("SQL: %s", sql)
+            pre = time.time()
+            cursor.execute(sql)
+            post = time.time()
+            self.logger.debug("SQL status: %s in %0.2f seconds", cursor.statusmessage, post-pre)
+            return handle, cursor.statusmessage
+        except Exception as e:
+            self.target.rollback()
+            self.logger.exception("Error running SQL: %s", sql)
+            self.logger.debug("rolling back connection")
+            raise e
+        finally:
+            cursor.close()
+
     def drop(self, schema, relation_type, relation):
         sql = 'drop {relation_type} if exists "{schema}"."{relation}" cascade'.format(schema=schema, relation_type=relation_type, relation=relation)
         self.logger.info("dropping %s %s.%s", relation_type, schema, relation)
@@ -163,4 +184,8 @@ class Schema(object):
 
         if schema_name not in schemas:
             self.create_schema(schema_name)
+
+    def expand_column_types_if_needed(self, from_table, to_schema, to_table):
+        "The hard part!"
+        pass
 
