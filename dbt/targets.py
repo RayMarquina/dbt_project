@@ -14,7 +14,7 @@ BAD_THREADS_ERROR = """Invalid value given for "threads" in active run-target.
 Value given was {supplied} but it should be an int between {min_val} and {max_val}"""
 
 class BaseSQLTarget:
-    def __init__(self, cfg):
+    def __init__(self, cfg, threads):
         self.target_type = cfg['type']
         self.host = cfg['host']
         self.user = cfg['user']
@@ -22,7 +22,8 @@ class BaseSQLTarget:
         self.port = cfg['port']
         self.dbname = cfg['dbname']
         self.schema = cfg['schema']
-        self.threads = self.__get_threads(cfg)
+
+        self.threads = self.__get_threads(cfg, threads)
 
         #self.ssh_host = cfg.get('ssh-host', None)
         self.ssh_host = None
@@ -73,8 +74,11 @@ class BaseSQLTarget:
         #    self.ssh_tunnel.stop()
         pass
 
-    def __get_threads(self, cfg):
-        supplied = cfg.get('threads', 1)
+    def __get_threads(self, cfg, cli_threads=None):
+        if cli_threads is None:
+            supplied = cfg.get('threads', 1)
+        else:
+            supplied = cli_threads
 
         bad_threads_error = RuntimeError(BAD_THREADS_ERROR.format(supplied=supplied, min_val=THREAD_MIN, max_val=THREAD_MAX))
 
@@ -111,8 +115,8 @@ class BaseSQLTarget:
         return self.target_type
 
 class RedshiftTarget(BaseSQLTarget):
-    def __init__(self, cfg):
-        super(RedshiftTarget, self).__init__(cfg)
+    def __init__(self, cfg, threads):
+        super(RedshiftTarget, self).__init__(cfg, threads)
 
     @property
     def context(self):
@@ -121,8 +125,8 @@ class RedshiftTarget(BaseSQLTarget):
         }
 
 class PostgresTarget(BaseSQLTarget):
-    def __init__(self, cfg):
-        super(PostgresTarget, self).__init__(cfg)
+    def __init__(self, cfg, threads):
+        super(PostgresTarget, self).__init__(cfg, threads)
 
     @property
     def context(self):
@@ -135,11 +139,11 @@ target_map = {
     'redshift': RedshiftTarget
 }
 
-def get_target(cfg):
+def get_target(cfg, threads=1):
     target_type = cfg['type']
     if target_type in target_map:
         klass = target_map[target_type]
-        return klass(cfg)
+        return klass(cfg, threads)
     else:
         valid_csv = ", ".join(["'{}'".format(t) for t in target_map])
         raise RuntimeError("Invalid target type provided: '{}'. Must be one of {}".format(target_type, valid_csv))
