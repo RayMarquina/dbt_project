@@ -7,6 +7,7 @@ import dbt.project
 from dbt.source import Source
 from dbt.utils import find_model_by_fqn, find_model_by_name, dependency_projects, split_path, This, Var, compiler_error
 from dbt.linker import Linker
+import dbt.targets
 import time
 import sqlparse
 
@@ -15,6 +16,7 @@ class Compiler(object):
         self.project = project
         self.create_template = create_template_class()
         self.macro_generator = None
+        self.target = self.get_target()
 
     def initialize(self):
         if not os.path.exists(self.project['target-path']):
@@ -25,7 +27,7 @@ class Compiler(object):
 
     def get_target(self):
         target_cfg = self.project.run_environment()
-        return RedshiftTarget(target_cfg)
+        return dbt.targets.get_target(target_cfg)
 
     def model_sources(self, this_project, own_project=None):
         if own_project is None:
@@ -154,16 +156,21 @@ class Compiler(object):
 
     def get_context(self, linker, model,  models):
         context = self.project.context()
+
+        # built-ins
         context['ref'] = self.__ref(linker, context, model, models)
         context['config'] = self.__model_config(model, linker)
         context['this'] = This(context['env']['schema'], model.immediate_name, model.name)
+        context['var'] = Var(model, context=context)
 
         # these get re-interpolated at runtime!
         context['run_started_at'] = '{{ run_started_at }}'
         context['invocation_id']  = '{{ invocation_id }}'
 
-        context['var'] = Var(model, context=context)
+        # add in context from run target
+        context.update(self.target.context)
 
+        # add in macros (can we cache these somehow?)
         for macro_name, macro in self.macro_generator(context):
             context[macro_name] = macro
 
