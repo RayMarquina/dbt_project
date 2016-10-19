@@ -11,7 +11,7 @@ from datetime import datetime
 from dbt.compilation import Compiler
 from dbt.linker import Linker
 from dbt.templates import BaseCreateTemplate
-from dbt.targets import RedshiftTarget
+import dbt.targets
 from dbt.source import Source
 from dbt.utils import find_model_by_fqn, find_model_by_name, dependency_projects
 from dbt.compiled_model import make_compiled_model
@@ -205,7 +205,7 @@ class RunManager(object):
         self.target_path = target_path
         self.graph_type = graph_type
 
-        self.target = RedshiftTarget(self.project.run_environment())
+        self.target = dbt.targets.get_target(self.project.run_environment())
 
         if self.target.should_open_tunnel():
             print("Opening ssh tunnel to host {}... ".format(self.target.ssh_host), end="")
