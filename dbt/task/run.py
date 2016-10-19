@@ -27,7 +27,7 @@ class RunTask:
     def run(self):
         graph_type = self.compile()
 
-        runner = RunManager(self.project, self.project['target-path'], graph_type)
+        runner = RunManager(self.project, self.project['target-path'], graph_type, self.args.threads)
 
         if self.args.dry:
             results = runner.dry_run(self.args.models)
