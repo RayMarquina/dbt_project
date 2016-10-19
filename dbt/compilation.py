@@ -7,6 +7,7 @@ import dbt.project
 from dbt.source import Source
 from dbt.utils import find_model_by_fqn, find_model_by_name, dependency_projects, split_path, This, Var, compiler_error
 from dbt.linker import Linker
+import dbt.targets
 import time
 import sqlparse
 
@@ -14,6 +15,8 @@ class Compiler(object):
     def __init__(self, project, create_template_class):
         self.project = project
         self.create_template = create_template_class()
+        self.macro_generator = None
+        self.target = self.get_target()
 
     def initialize(self):
         if not os.path.exists(self.project['target-path']):
@@ -24,7 +27,7 @@ class Compiler(object):
 
     def get_target(self):
         target_cfg = self.project.run_environment()
-        return RedshiftTarget(target_cfg)
+        return dbt.targets.get_target(target_cfg)
 
     def model_sources(self, this_project, own_project=None):
         if own_project is None:
@@ -37,6 +40,12 @@ class Compiler(object):
             return Source(this_project, own_project=own_project).get_test_models(paths, self.create_template)
         else:
             raise RuntimeError("unexpected create template type: '{}'".format(self.create_template.label))
+
+    def get_macros(self, this_project, own_project=None):
+        if own_project is None:
+            own_project = this_project
+        paths = own_project.get('macro-paths', [])
+        return Source(this_project, own_project=own_project).get_macros(paths)
 
     def project_schemas(self):
         source_paths = self.project.get('source-paths', [])
@@ -147,16 +156,30 @@ class Compiler(object):
 
     def get_context(self, linker, model,  models):
         context = self.project.context()
+
+        # built-ins
         context['ref'] = self.__ref(linker, context, model, models)
         context['config'] = self.__model_config(model, linker)
         context['this'] = This(context['env']['schema'], model.immediate_name, model.name)
-        context['compiled_at'] = time.strftime('%Y-%m-%d %H:%M:%S')
         context['var'] = Var(model, context=context)
+
+        # these get re-interpolated at runtime!
+        context['run_started_at'] = '{{ run_started_at }}'
+        context['invocation_id']  = '{{ invocation_id }}'
+
+        # add in context from run target
+        context.update(self.target.context)
+
+        # add in macros (can we cache these somehow?)
+        for macro_name, macro in self.macro_generator(context):
+            context[macro_name] = macro
+
         return context
 
     def compile_model(self, linker, model, models):
         try:
-            jinja = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath=model.root_dir))
+            fs_loader = jinja2.FileSystemLoader(searchpath=model.root_dir)
+            jinja = jinja2.Environment(loader=fs_loader)
 
             # this is a dumb jinja2 bug -- on windows, forward slashes are EXPECTED
             posix_filepath = '/'.join(split_path(model.rel_filepath))
@@ -297,13 +320,26 @@ class Compiler(object):
 
         return written_tests
 
+    def generate_macros(self, all_macros):
+        def do_gen(ctx):
+            macros = []
+            for macro in all_macros:
+                new_macros = macro.get_macros(ctx)
+                macros.extend(new_macros)
+            return macros
+        return do_gen
+
     def compile(self, dry=False):
         linker = Linker()
 
         all_models = self.model_sources(this_project=self.project)
+        all_macros = self.get_macros(this_project=self.project)
 
         for project in dependency_projects(self.project):
             all_models.extend(self.model_sources(this_project=self.project, own_project=project))
+            all_macros.extend(self.get_macros(this_project=self.project, own_project=project))
+
+        self.macro_generator = self.generate_macros(all_macros)
 
         enabled_models = [model for model in all_models if model.is_enabled]
 

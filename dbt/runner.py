@@ -6,11 +6,12 @@ import os, sys
 import logging
 import time
 import itertools
+from datetime import datetime
 
 from dbt.compilation import Compiler
 from dbt.linker import Linker
 from dbt.templates import BaseCreateTemplate
-from dbt.targets import RedshiftTarget
+import dbt.targets
 from dbt.source import Source
 from dbt.utils import find_model_by_fqn, find_model_by_name, dependency_projects
 from dbt.compiled_model import make_compiled_model
@@ -100,7 +101,7 @@ class ModelRunner(BaseRunner):
         if model.tmp_drop_type is not None:
             schema.drop(target.schema, model.tmp_drop_type, model.tmp_name)
 
-        status = schema.execute_and_handle_permissions(model.contents, model.name)
+        status = schema.execute_and_handle_permissions(model.compiled_contents, model.name)
 
         if model.final_drop_type is not None:
             schema.drop(target.schema, model.final_drop_type, model.name)
@@ -187,7 +188,7 @@ class TestRunner(ModelRunner):
         return info
 
     def execute(self, schema, target, model):
-        rows = schema.execute_and_fetch(model.contents)
+        rows = schema.execute_and_fetch(model.compiled_contents)
         if len(rows) > 1:
             raise RuntimeError("Bad test {name}: Returned {num_rows} rows instead of 1".format(name=model.name, num_rows=len(rows)))
 
@@ -204,7 +205,7 @@ class RunManager(object):
         self.target_path = target_path
         self.graph_type = graph_type
 
-        self.target = RedshiftTarget(self.project.run_environment(), threads)
+        self.target = dbt.targets.get_target(self.project.run_environment(), threads)
 
         if self.target.should_open_tunnel():
             print("Opening ssh tunnel to host {}... ".format(self.target.ssh_host), end="")
@@ -214,6 +215,12 @@ class RunManager(object):
 
 
         self.schema = dbt.schema.Schema(self.project, self.target)
+
+        self.context = {
+            "run_started_at": datetime.now(),
+            "invocation_id": dbt.tracking.invocation_id,
+        }
+
 
     def deserialize_graph(self):
         linker = Linker()
@@ -381,6 +388,10 @@ class RunManager(object):
         linker = self.deserialize_graph()
         compiled_models = [make_compiled_model(fqn, linker.get_node(fqn)) for fqn in linker.nodes()]
         relevant_compiled_models = [m for m in compiled_models if m.is_type(runner.run_type)]
+
+        for m in relevant_compiled_models:
+            if m.should_execute():
+                m.compile(self.context)
 
         schema_name = self.target.schema
 
