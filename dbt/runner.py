@@ -261,13 +261,13 @@ class ArchiveRunner(BaseRunner):
         return status
 
 class RunManager(object):
-    def __init__(self, project, target_path, graph_type):
+    def __init__(self, project, target_path, graph_type, threads):
         self.logger = logging.getLogger(__name__)
         self.project = project
         self.target_path = target_path
         self.graph_type = graph_type
 
-        self.target = dbt.targets.get_target(self.project.run_environment())
+        self.target = dbt.targets.get_target(self.project.run_environment(), threads)
 
         if self.target.should_open_tunnel():
             print("Opening ssh tunnel to host {}... ".format(self.target.ssh_host), end="")
@@ -393,37 +393,50 @@ class RunManager(object):
 
             models_to_execute = [model for model in model_list if not model.should_skip()]
 
-            for i, model in enumerate(models_to_execute):
-                msg = runner.pre_run_msg(model)
-                self.print_fancy_output_line(msg, 'RUN', get_idx(model), num_models)
+            threads = self.target.threads
+            num_models_this_batch = len(models_to_execute)
+            model_index = 0
 
-            wrapped_models_to_execute = [{"runner": runner, "model": model} for model in models_to_execute]
-            run_model_results = pool.map(self.safe_execute_model, wrapped_models_to_execute)
+            def on_complete(run_model_results):
+                for run_model_result in run_model_results:
+                    model_results.append(run_model_result)
 
-            for i, run_model_result in enumerate(run_model_results):
-                model_results.append(run_model_result)
+                    msg = runner.post_run_msg(run_model_result)
+                    status = runner.status(run_model_result)
+                    index = get_idx(run_model_result.model)
+                    self.print_fancy_output_line(msg, status, index, num_models, run_model_result.execution_time)
 
-                msg = runner.post_run_msg(run_model_result)
-                status = runner.status(run_model_result)
-                index = get_idx(run_model_result.model)
-                self.print_fancy_output_line(msg, status, index, num_models, run_model_result.execution_time)
+                    dbt.tracking.track_model_run({
+                        "invocation_id": dbt.tracking.invocation_id,
+                        "index": index,
+                        "total": num_models,
+                        "execution_time": run_model_result.execution_time,
+                        "run_status": run_model_result.status,
+                        "run_skipped": run_model_result.skip,
+                        "run_error": run_model_result.error,
+                        "model_materialization": run_model_result.model['materialized'],
+                        "model_id": run_model_result.model.hashed_name(),
+                        "hashed_contents": run_model_result.model.hashed_contents(),
+                    })
 
-                dbt.tracking.track_model_run({
-                    "invocation_id": dbt.tracking.invocation_id,
-                    "index": index,
-                    "total": num_models,
-                    "execution_time": run_model_result.execution_time,
-                    "run_status": run_model_result.status,
-                    "run_skipped": run_model_result.skip,
-                    "run_error": run_model_result.error,
-                    "model_materialization": run_model_result.model['materialized'],
-                    "model_id": run_model_result.model.hashed_name(),
-                    "hashed_contents": run_model_result.model.hashed_contents(),
-                })
+                    if run_model_result.errored:
+                        on_failure(run_model_result.model)
+                        print(run_model_result.error)
 
-                if run_model_result.errored:
-                    on_failure(run_model_result.model)
-                    print(run_model_result.error)
+            while model_index < num_models_this_batch:
+                local_models = []
+                for i in range(model_index, min(model_index + threads, num_models_this_batch)):
+                    model = models_to_execute[i]
+                    local_models.append(model)
+                    msg = runner.pre_run_msg(model)
+                    self.print_fancy_output_line(msg, 'RUN', get_idx(model), num_models)
+
+                wrapped_models_to_execute = [{"runner": runner, "model": model} for model in local_models]
+                map_result = pool.map_async(self.safe_execute_model, wrapped_models_to_execute, callback=on_complete)
+                map_result.wait()
+                run_model_results = map_result.get()
+
+                model_index += threads
 
         pool.close()
         pool.join()
