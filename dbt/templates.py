@@ -187,7 +187,7 @@ SCDArchiveTemplate = """
 
         select
             {% raw %}
-                {% for (col, type) in get_columns_in_table(source_schema, source_table) %}
+                {% for col in get_columns_in_table(source_schema, source_table) %}
                     "{{ col }}" {% if not loop.last %},{% endif %}
                 {% endfor %},
             {% endraw %}
@@ -252,14 +252,14 @@ class ArchiveInsertTemplate(object):
 """
 
     alter_template = """
-{% for (col, dtype) in missing_columns %}
-    alter table "{{ target_schema }}"."{{ target_table }}" add column "{{ col }}" {{ dtype }};
+{% for col in missing_columns %}
+    alter table "{{ target_schema }}"."{{ target_table }}" add column "{{ col.name }}" {{ col.data_type }};
 {% endfor %}
 """
 
     dest_cols = """
-{% for (col, type) in dest_columns %}
-    "{{ col }}" {% if not loop.last %},{% endif %}
+{% for col in dest_columns %}
+    "{{ col.name }}" {% if not loop.last %},{% endif %}
 {% endfor %}
 """
 

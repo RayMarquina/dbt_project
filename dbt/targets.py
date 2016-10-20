@@ -118,16 +118,6 @@ class RedshiftTarget(BaseSQLTarget):
     def __init__(self, cfg, threads):
         super(RedshiftTarget, self).__init__(cfg, threads)
 
-
-    def sql_columns_in_table(self, schema_name, table_name):
-        sql = """
-                select "column" as column_name, "type" as "data_type"
-                from pg_table_def
-                where tablename = '{table_name}'""".format(table_name=table_name).strip()
-        if schema_name is not None:
-            sql += " AND schemaname = '{schema_name}'".format(schema_name)
-        return sql
-
     @property
     def context(self):
         return {
@@ -138,22 +128,6 @@ class PostgresTarget(BaseSQLTarget):
     def __init__(self, cfg, threads):
         super(PostgresTarget, self).__init__(cfg, threads)
 
-    def sql_columns_in_table(self, schema_name, table_name):
-        sql = """
-                select column_name,
-                -- conform to redshift pg_table_def output
-                case when data_type = 'character varying' then
-                  data_type || '(' || coalesce(character_maximum_length, 255) || ')'
-                else
-                  data_type
-                end as data_type
-                from information_schema.columns
-                where table_name = '{table_name}'""".format(table_name=table_name).strip()
-
-        if schema_name is not None:
-            sql += " AND table_schema = '{schema_name}'".format(schema_name=schema_name)
-
-        return sql
 
     @property
     def context(self):
