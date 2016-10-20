@@ -30,8 +30,6 @@ class Archival(object):
         if len(source_columns) == 0:
             raise RuntimeError('Source table "{}"."{}" does not exist'.format(source_schema, source_table))
 
-        # create archive table if not exists! TODO: Sort & Dist keys! Hmmmm
-
         extra_cols = [
             dbt.schema.Column("valid_from", "timestamp", None),
             dbt.schema.Column("valid_to", "timestamp", None),

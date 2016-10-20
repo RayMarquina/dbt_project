@@ -235,8 +235,9 @@ class Schema(object):
     def create_table(self, schema, table, columns, sort, dist):
         fields = ['"{field}" {data_type}'.format(field=column.name, data_type=column.data_type) for column in columns]
         fields_csv = ",\n  ".join(fields)
-        # TODO : Sort and Dist keys??
-        sql = 'create table if not exists "{schema}"."{table}" (\n  {fields}\n);'.format(schema=schema, table=table, fields=fields_csv)
+        dist = self.target.dist_qualifier(dist)
+        sort = self.target.sort_qualifier('compound', sort)
+        sql = 'create table if not exists "{schema}"."{table}" (\n  {fields}\n) {dist} {sort};'.format(schema=schema, table=table, fields=fields_csv, sort=sort, dist=dist)
         self.logger.info('creating table "%s"."%s"'.format(schema, table))
         self.execute_and_handle_permissions(sql, table)
 
