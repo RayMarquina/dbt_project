@@ -281,5 +281,6 @@ class Schema(object):
 
             if dest_column is not None and dest_column.can_expand_to(source_column):
                 new_type = Column.string_type(source_column.string_size())
+                self.logger.debug("Changing col type from %s to %s in table %s.%s", dest_column.data_type, new_type, to_schema, to_table)
                 self.alter_column_type(to_schema, to_table, column_name, new_type)
 
