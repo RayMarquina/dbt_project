@@ -118,30 +118,43 @@ class RedshiftTarget(BaseSQLTarget):
     def __init__(self, cfg, threads):
         super(RedshiftTarget, self).__init__(cfg, threads)
 
-
-    def sql_columns_in_table(self, schema_name, table_name):
-        return """
-                select "column" as column_name, "type" as "data_type"
-                from pg_table_def
-                where schemaname = '{schema_name}' and tablename = '{table_name}'
-               """.format(schema_name=schema_name, table_name=table_name).strip()
-
     @property
     def context(self):
         return {
             "sql_now": "getdate()"
         }
 
+    def sort_qualifier(self, sort_type, sort_keys):
+
+        valid_sort_types = ['compound', 'interleaved']
+        if sort_type not in valid_sort_types:
+            raise RuntimeError("Invalid sort_type given: {} -- must be one of {}".format(sort_type, valid_sort_types))
+
+        if type(sort_keys) == str:
+            sort_keys = [sort_keys]
+
+        formatted_sort_keys = ['"{}"'.format(sort_key) for sort_key in sort_keys]
+        keys_csv = ', '.join(formatted_sort_keys)
+
+        return "{sort_type} sortkey({keys_csv})".format(sort_type=sort_type, keys_csv=keys_csv)
+
+    def dist_qualifier(self, dist_key):
+        dist_key = dist_key.strip().lower()
+
+        if dist_key in ['all', 'even']:
+            return 'diststyle({})'.format(dist_key)
+        else:
+            return 'diststyle key distkey("{}")'.format(dist_key)
+
 class PostgresTarget(BaseSQLTarget):
     def __init__(self, cfg, threads):
         super(PostgresTarget, self).__init__(cfg, threads)
 
-    def sql_columns_in_table(self, schema_name, table_name):
-        return """
-                select column_name, data_type
-                from information_schema.columns
-                where table_schema = '{schema_name}' and table_name = '{table_name}'
-               """.format(schema_name=schema_name, table_name=table_name).strip()
+    def dist_qualifier(self, dist_key):
+        return ''
+
+    def sort_qualifier(self, sort_type, sort_keys):
+        return ''
 
     @property
     def context(self):

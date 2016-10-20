@@ -73,6 +73,7 @@ def handle(args):
     sub.set_defaults(cls=deps_task.DepsTask, which='deps')
 
     sub = subs.add_parser('archive', parents=[base_subparser])
+    sub.add_argument('--threads', type=int, required=False, help="Specify number of threads to use while archiving tables. Overrides settings in profiles.yml")
     sub.set_defaults(cls=archive_task.ArchiveTask, which='archive')
 
     sub = subs.add_parser('run', parents=[base_subparser])

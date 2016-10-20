@@ -25,6 +25,8 @@ create temporary table "{identifier}__dbt_incremental_tmp" as (
     where ({sql_where}) or ({sql_where}) is null
 );
 
+-- DBT_OPERATION {{ function: expand_column_types_if_needed, args: {{ temp_table: "{identifier}__dbt_incremental_tmp", to_schema: "{schema}", to_table: "{identifier}"}} }}
+
 {incremental_delete_statement}
 
 insert into "{schema}"."{identifier}" (
@@ -126,6 +128,7 @@ create temporary table "{identifier}__dbt_incremental_tmp" as (
     limit 0
 );
 
+-- DBT_OPERATION {{ function: expand_column_types_if_needed, args: {{ temp_table: "{identifier}__dbt_incremental_tmp", to_schema: "{schema}", to_table: "{identifier}"}} }}
 
 {incremental_delete_statement}
 
@@ -167,15 +170,16 @@ delete from "{schema}"."{identifier}" where  ({unique_key}) in (
         return "{}\n\n{}".format(opts['prologue'], sql)
 
 
-SCDGetColumnsInTable = """
-"""
-
-
 SCDArchiveTemplate = """
 
     with current_data as (
 
-        select *,
+        select
+            {% raw %}
+                {% for col in get_columns_in_table(source_schema, source_table) %}
+                    "{{ col.name }}" {% if not loop.last %},{% endif %}
+                {% endfor %},
+            {% endraw %}
             {{ updated_at }} as dbt_updated_at,
             {{ unique_key }} as dbt_pk,
             {{ updated_at }} as valid_from,
@@ -188,8 +192,8 @@ SCDArchiveTemplate = """
 
         select
             {% raw %}
-                {% for (col, type) in get_columns_in_table(source_schema, source_table) %}
-                    "{{ col }}" {% if not loop.last %},{% endif %}
+                {% for col in get_columns_in_table(source_schema, source_table) %}
+                    "{{ col.name }}" {% if not loop.last %},{% endif %}
                 {% endfor %},
             {% endraw %}
             {{ updated_at }} as dbt_updated_at,
@@ -253,14 +257,14 @@ class ArchiveInsertTemplate(object):
 """
 
     alter_template = """
-{% for (col, dtype) in missing_columns %}
-    alter table "{{ target_schema }}"."{{ target_table }}" add column "{{ col }}" {{ dtype }};
+{% for col in missing_columns %}
+    alter table "{{ target_schema }}"."{{ target_table }}" add column "{{ col.name }}" {{ col.data_type }};
 {% endfor %}
 """
 
     dest_cols = """
-{% for (col, type) in dest_columns %}
-    "{{ col }}" {% if not loop.last %},{% endif %}
+{% for col in dest_columns %}
+    "{{ col.name }}" {% if not loop.last %},{% endif %}
 {% endfor %}
 """
 
@@ -277,9 +281,11 @@ create temporary table "{identifier}__dbt_archival_tmp" as (
     select * from dbt_archive_sbq
 );
 
-update "{schema}"."{identifier}" as archive set valid_to = tmp.valid_to
+-- DBT_OPERATION {{ function: expand_column_types_if_needed, args: {{ temp_table: "{identifier}__dbt_archival_tmp", to_schema: "{schema}", to_table: "{identifier}"}} }}
+
+update "{schema}"."{identifier}" set valid_to = tmp.valid_to
 from "{identifier}__dbt_archival_tmp" as tmp
-where tmp.scd_id = archive.scd_id
+where tmp.scd_id = "{schema}"."{identifier}".scd_id
   and change_type = 'update';
 
 insert into "{schema}"."{identifier}" (

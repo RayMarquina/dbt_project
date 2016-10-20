@@ -17,7 +17,7 @@ class ArchiveTask:
 
     def run(self):
         self.compile()
-        runner = RunManager(self.project, self.project['target-path'], self.create_template.label)
+        runner = RunManager(self.project, self.project['target-path'], self.create_template.label, self.args.threads)
 
         results = runner.run_archive()
 
