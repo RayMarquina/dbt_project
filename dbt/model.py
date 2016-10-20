@@ -7,6 +7,7 @@ from dbt.templates import BaseCreateTemplate, DryCreateTemplate
 from dbt.utils import split_path
 import dbt.schema_tester
 import dbt.project
+import dbt.archival
 from dbt.utils import This, deep_merge, DBTConfigKeys, compiler_error
 
 class SourceConfig(object):
@@ -578,3 +579,68 @@ class Macro(DBTSource):
         return "<Macro {}.{}: {}>".format(self.project['name'], self.name, self.filepath)
 
 
+class ArchiveModel(DBTSource):
+    dbt_run_type = 'archive'
+
+    def __init__(self, project, create_template, archive_data):
+
+        self.create_template = create_template
+
+        self.validate(archive_data)
+
+        self.source_schema = archive_data['source_schema']
+        self.target_schema = archive_data['target_schema']
+        self.source_table  = archive_data['source_table']
+        self.target_table  = archive_data['target_table']
+        self.unique_key    = archive_data['unique_key']
+        self.updated_at    = archive_data['updated_at']
+
+        target_dir = self.create_template.label
+        rel_filepath = os.path.join(self.target_schema, self.target_table)
+
+        super(ArchiveModel, self).__init__(project, target_dir, rel_filepath, project)
+
+    def validate(self, data):
+        required = [
+            'source_schema',
+            'target_schema',
+            'source_table',
+            'target_table',
+            'unique_key',
+            'updated_at',
+        ]
+
+        for key in required:
+            if data.get(key, None) is None:
+                raise RuntimeError("Invalid archive config: missing required field '{}'".format(key))
+
+    def serialize(self):
+        data = DBTSource.serialize(self).copy()
+
+        serialized = {
+            "source_schema" : self.source_schema,
+            "target_schema" : self.target_schema,
+            "source_table"  : self.source_table,
+            "target_table"    : self.target_table,
+            "unique_key"    : self.unique_key,
+            "updated_at"    : self.updated_at
+        }
+
+        data.update(serialized)
+        return data
+
+    def compile(self):
+        archival = dbt.archival.Archival(self.project, self)
+        query = archival.compile()
+
+        sql = self.create_template.wrap(self.target_schema, self.target_table, query, self.unique_key)
+        return sql
+
+    def build_path(self):
+        build_dir = self.create_template.label
+        filename = "{}.sql".format(self.name)
+        path_parts = [build_dir] + self.fqn[:-1] + [filename]
+        return os.path.join(*path_parts)
+
+    def __repr__(self):
+        return "<ArchiveModel {} --> {} unique:{} updated_at:{}>".format(self.source_table, self.target_table, self.unique_key, self.updated_at)

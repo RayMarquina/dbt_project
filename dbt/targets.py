@@ -118,6 +118,14 @@ class RedshiftTarget(BaseSQLTarget):
     def __init__(self, cfg, threads):
         super(RedshiftTarget, self).__init__(cfg, threads)
 
+
+    def sql_columns_in_table(self, schema_name, table_name):
+        return """
+                select "column" as column_name, "type" as "data_type"
+                from pg_table_def
+                where schemaname = '{schema_name}' and tablename = '{table_name}'
+               """.format(schema_name=schema_name, table_name=table_name).strip()
+
     @property
     def context(self):
         return {
@@ -127,6 +135,13 @@ class RedshiftTarget(BaseSQLTarget):
 class PostgresTarget(BaseSQLTarget):
     def __init__(self, cfg, threads):
         super(PostgresTarget, self).__init__(cfg, threads)
+
+    def sql_columns_in_table(self, schema_name, table_name):
+        return """
+                select column_name, data_type
+                from information_schema.columns
+                where table_schema = '{schema_name}' and table_name = '{table_name}'
+               """.format(schema_name=schema_name, table_name=table_name).strip()
 
     @property
     def context(self):

@@ -165,3 +165,131 @@ delete from "{schema}"."{identifier}" where  ({unique_key}) in (
             raise RuntimeError("Invalid materialization parameter ({})".format(opts['materialization']))
 
         return "{}\n\n{}".format(opts['prologue'], sql)
+
+
+SCDGetColumnsInTable = """
+"""
+
+
+SCDArchiveTemplate = """
+
+    with current_data as (
+
+        select *,
+            {{ updated_at }} as dbt_updated_at,
+            {{ unique_key }} as dbt_pk,
+            {{ updated_at }} as valid_from,
+            null::timestamp as tmp_valid_to
+        from "{{ source_schema }}"."{{ source_table }}"
+
+    ),
+
+    archived_data as (
+
+        select
+            {% raw %}
+                {% for (col, type) in get_columns_in_table(source_schema, source_table) %}
+                    "{{ col }}" {% if not loop.last %},{% endif %}
+                {% endfor %},
+            {% endraw %}
+            {{ updated_at }} as dbt_updated_at,
+            {{ unique_key }} as dbt_pk,
+            valid_from,
+            valid_to as tmp_valid_to
+        from "{{ target_schema }}"."{{ target_table }}"
+
+    ),
+
+    insertions as (
+
+        select
+            current_data.*,
+            null::timestamp as valid_to
+        from current_data
+        left outer join archived_data on archived_data.dbt_pk = current_data.dbt_pk
+        where archived_data.dbt_pk is null or (
+          archived_data.dbt_pk is not null and
+          current_data.dbt_updated_at > archived_data.dbt_updated_at and
+          archived_data.tmp_valid_to is null
+        )
+    ),
+
+    updates as (
+
+        select
+            archived_data.*,
+            current_data.dbt_updated_at as valid_to
+        from current_data
+        left outer join archived_data on archived_data.dbt_pk = current_data.dbt_pk
+        where archived_data.dbt_pk is not null
+          and archived_data.dbt_updated_at < current_data.dbt_updated_at
+          and archived_data.tmp_valid_to is null
+    ),
+
+    merged as (
+
+      select *, 'update' as change_type from updates
+      union all
+      select *, 'insert' as change_type from insertions
+
+    )
+
+    select *,
+        md5(dbt_pk || '|' || dbt_updated_at) as scd_id
+    from merged
+"""
+
+
+class ArchiveInsertTemplate(object):
+
+    label = "archive"
+
+
+    # missing_columns : columns in source_table that are missing from target_table (used for the ALTER)
+    # dest_columns    : columns in the dest table (post-alter!)
+    definitions = """
+{% set missing_columns = get_missing_columns(source_schema, source_table, target_schema, target_table) %}
+{% set dest_columns = get_columns_in_table(target_schema, target_table) + missing_columns %}
+"""
+
+    alter_template = """
+{% for (col, dtype) in missing_columns %}
+    alter table "{{ target_schema }}"."{{ target_table }}" add column "{{ col }}" {{ dtype }};
+{% endfor %}
+"""
+
+    dest_cols = """
+{% for (col, type) in dest_columns %}
+    "{{ col }}" {% if not loop.last %},{% endif %}
+{% endfor %}
+"""
+
+    archival_template = """
+
+{definitions}
+
+{alter_template}
+
+create temporary table "{identifier}__dbt_archival_tmp" as (
+    with dbt_archive_sbq as (
+        {query}
+    )
+    select * from dbt_archive_sbq
+);
+
+update "{schema}"."{identifier}" as archive set valid_to = tmp.valid_to
+from "{identifier}__dbt_archival_tmp" as tmp
+where tmp.scd_id = archive.scd_id
+  and change_type = 'update';
+
+insert into "{schema}"."{identifier}" (
+    {dest_cols}
+)
+select {dest_cols} from "{identifier}__dbt_archival_tmp"
+where change_type = 'insert';
+"""
+
+    def wrap(self, schema, table, query, unique_key):
+        sql = self.archival_template.format(schema=schema, identifier=table, query=query, unique_key=unique_key, alter_template=self.alter_template, dest_cols=self.dest_cols, definitions=self.definitions)
+        return sql
+

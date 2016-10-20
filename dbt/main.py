@@ -16,6 +16,7 @@ import dbt.task.deps as deps_task
 import dbt.task.init as init_task
 import dbt.task.seed as seed_task
 import dbt.task.test as test_task
+import dbt.task.archive as archive_task
 import dbt.tracking
 
 
@@ -70,6 +71,9 @@ def handle(args):
 
     sub = subs.add_parser('deps', parents=[base_subparser])
     sub.set_defaults(cls=deps_task.DepsTask, which='deps')
+
+    sub = subs.add_parser('archive', parents=[base_subparser])
+    sub.set_defaults(cls=archive_task.ArchiveTask, which='archive')
 
     sub = subs.add_parser('run', parents=[base_subparser])
     sub.add_argument('--dry', action='store_true', help="'dry run' models")

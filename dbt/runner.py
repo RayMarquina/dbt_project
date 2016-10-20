@@ -198,6 +198,42 @@ class TestRunner(ModelRunner):
 
         return row[0]
 
+class ArchiveRunner(BaseRunner):
+    run_type = 'archive'
+
+    def pre_run_msg(self, model):
+        print_vars = {
+            "schema": model.target.schema,
+            "model_name": model.name,
+        }
+
+        output = "START archive table {schema}.{model_name} ".format(**print_vars)
+        return output
+
+    def post_run_msg(self, result):
+        model = result.model
+        print_vars = {
+            "schema": model.target.schema,
+            "model_name": model.name,
+            "info": "ERROR archiving" if result.errored else "OK created"
+        }
+
+        output = "{info} table {schema}.{model_name} ".format(**print_vars)
+        return output
+
+    def pre_run_all_msg(self, models):
+        return "Archiving {} tables".format(len(models))
+
+    def post_run_all_msg(self, results):
+        return "Finished archiving {} tables".format(len(results))
+
+    def status(self, result):
+        return result.status
+
+    def execute(self, schema, target, model):
+        status = schema.execute_and_handle_permissions(model.compiled_contents, model.name)
+        return status
+
 class RunManager(object):
     def __init__(self, project, target_path, graph_type, threads):
         self.logger = logging.getLogger(__name__)
@@ -218,7 +254,9 @@ class RunManager(object):
 
         self.context = {
             "run_started_at": datetime.now(),
-            "invocation_id": dbt.tracking.invocation_id,
+            "invocation_id" : dbt.tracking.invocation_id,
+            "get_columns_in_table"   : self.schema.get_columns_in_table,
+            "get_missing_columns"   : self.schema.get_missing_columns,
         }
 
 
@@ -301,7 +339,7 @@ class RunManager(object):
 
         num_models = len(flat_models)
         if num_models == 0:
-            print("WARNING: No models to run in '{}'. Try checking your model configs and running `dbt compile`".format(self.target_path))
+            print("WARNING: Nothing to do. Try checking your model configs and running `dbt compile`".format(self.target_path))
             return []
 
         num_threads = self.target.threads
@@ -391,7 +429,9 @@ class RunManager(object):
 
         for m in relevant_compiled_models:
             if m.should_execute():
-                m.compile(self.context)
+                context = self.context.copy()
+                context.update(m.context())
+                m.compile(context)
 
         schema_name = self.target.schema
 
@@ -442,4 +482,8 @@ class RunManager(object):
     def dry_run(self, limit_to=None):
         runner = DryRunner()
         return self.safe_run_from_graph(runner, limit_to)
+
+    def run_archive(self):
+        runner = ArchiveRunner()
+        return self.safe_run_from_graph(runner, None)
 

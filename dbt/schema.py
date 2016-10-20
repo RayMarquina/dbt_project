@@ -23,6 +23,20 @@ class Schema(object):
         self.target = target
         self.logger = logging.getLogger(__name__)
 
+        self.schema_cache = {}
+
+    def cache_table_columns(self, schema, table, columns):
+        tid = (schema, table)
+
+        if tid not in self.schema_cache:
+            self.schema_cache[tid] = columns
+
+        return tid
+
+    def get_table_columns_if_cached(self, schema, table):
+        tid = (schema, table)
+        return self.schema_cache.get(tid, None)
+
     def get_schemas(self):
         existing = []
         results = self.execute_and_fetch('select nspname from pg_catalog.pg_namespace')
@@ -104,6 +118,22 @@ class Schema(object):
         self.execute_and_handle_permissions(sql, relation)
         self.logger.info("dropped %s %s.%s", relation_type, schema, relation)
 
+    def get_columns_in_table(self, schema_name, table_name):
+        self.logger.debug("getting columns in table %s.%s", schema_name, table_name)
+
+        columns = self.get_table_columns_if_cached(schema_name, table_name)
+        if columns is not None:
+            self.logger.debug("Found columns (in cache): %s", columns)
+            return columns
+
+        sql = self.target.sql_columns_in_table(schema_name, table_name)
+        results = self.execute_and_fetch(sql)
+        columns = [(column, data_type) for (column, data_type) in results]
+
+        self.cache_table_columns(schema_name, table_name, columns)
+
+        self.logger.debug("Found columns: %s", columns)
+        return columns
 
     def rename(self, schema, from_name, to_name):
         rename_query =  'alter table "{schema}"."{from_name}" rename to "{to_name}"'.format(schema=schema, from_name=from_name, to_name=to_name)
@@ -111,6 +141,22 @@ class Schema(object):
         self.execute_and_handle_permissions(rename_query, from_name)
         self.logger.info("renamed model %s.%s --> %s.%s", schema, from_name, schema, to_name)
 
+    def get_missing_columns(self, from_schema, from_table, to_schema, to_table):
+        "Returns dict of {column:type} for columns in from_table that are missing from to_table"
+        from_columns = {col:dtype for (col,dtype) in self.get_columns_in_table(from_schema, from_table)}
+        to_columns = {col:dtype for (col,dtype) in self.get_columns_in_table(to_schema, to_table)}
+
+        missing_columns = set(from_columns.keys()) - set(to_columns.keys())
+
+        return [(col, dtype) for (col, dtype) in from_columns.items() if col in missing_columns]
+
+    def create_table(self, schema, table, columns, sort, dist):
+        fields = ['"{field}" {data_type}'.format(field=field, data_type=data_type) for (field, data_type) in columns]
+        fields_csv = ",\n  ".join(fields)
+        # TODO : Sort and Dist keys??
+        sql = 'create table if not exists "{schema}"."{table}" (\n  {fields}\n);'.format(schema=schema, table=table, fields=fields_csv)
+        self.logger.info('creating table "%s"."%s"'.format(schema, table))
+        self.execute_and_handle_permissions(sql, table)
 
     def create_schema_if_not_exists(self, schema_name):
         schemas = self.get_schemas()

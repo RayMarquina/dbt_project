@@ -4,7 +4,7 @@ from __future__ import print_function
 import os
 from dbt.templates import DryCreateTemplate, BaseCreateTemplate
 from dbt.runner import RunManager
-from dbt.compilation import Compiler
+from dbt.compilation import Compiler, CompilableEntities
 
 THREAD_LIMIT = 9
 
@@ -17,8 +17,10 @@ class RunTask:
         create_template = DryCreateTemplate if self.args.dry else BaseCreateTemplate
         compiler = Compiler(self.project, create_template)
         compiler.initialize()
-        created_models, created_tests, created_analyses = compiler.compile(self.args.dry)
-        print("Compiled {} models, {} tests, and {} analyses".format(created_models, created_tests, created_analyses))
+        results = compiler.compile(self.args.dry)
+
+        stat_line = ", ".join(["{} {}".format(results[k], k) for k in CompilableEntities])
+        print("Compiled {}".format(stat_line))
 
         return create_template.label
 
