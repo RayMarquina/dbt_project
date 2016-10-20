@@ -53,8 +53,7 @@ class Column(object):
         if not self.is_string() or not other_column.is_string():
             return False
 
-        if other_column.string_size() > self.string_size():
-            return True
+        return other_column.string_size() > self.string_size()
 
     @classmethod
     def string_type(cls, size):
@@ -280,7 +279,7 @@ class Schema(object):
         for column_name, source_column in source_columns.items():
             dest_column = dest_columns.get(column_name)
 
-            if dest_column is not None and source_column.can_expand_to(dest_column):
-                new_type = Column.string_type(dest_column.string_size())
+            if dest_column is not None and dest_column.can_expand_to(source_column):
+                new_type = Column.string_type(source_column.string_size())
                 self.alter_column_type(to_schema, to_table, column_name, new_type)
 
