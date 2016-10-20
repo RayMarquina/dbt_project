@@ -174,7 +174,12 @@ SCDArchiveTemplate = """
 
     with current_data as (
 
-        select *,
+        select
+            {% raw %}
+                {% for col in get_columns_in_table(source_schema, source_table) %}
+                    "{{ col.name }}" {% if not loop.last %},{% endif %}
+                {% endfor %},
+            {% endraw %}
             {{ updated_at }} as dbt_updated_at,
             {{ unique_key }} as dbt_pk,
             {{ updated_at }} as valid_from,
@@ -188,7 +193,7 @@ SCDArchiveTemplate = """
         select
             {% raw %}
                 {% for col in get_columns_in_table(source_schema, source_table) %}
-                    "{{ col }}" {% if not loop.last %},{% endif %}
+                    "{{ col.name }}" {% if not loop.last %},{% endif %}
                 {% endfor %},
             {% endraw %}
             {{ updated_at }} as dbt_updated_at,
@@ -278,9 +283,9 @@ create temporary table "{identifier}__dbt_archival_tmp" as (
 
 -- DBT_OPERATION {{ function: expand_column_types_if_needed, args: {{ temp_table: "{identifier}__dbt_archival_tmp", to_schema: "{schema}", to_table: "{identifier}"}} }}
 
-update "{schema}"."{identifier}" as archive set valid_to = tmp.valid_to
+update "{schema}"."{identifier}" set valid_to = tmp.valid_to
 from "{identifier}__dbt_archival_tmp" as tmp
-where tmp.scd_id = archive.scd_id
+where tmp.scd_id = "{schema}"."{identifier}".scd_id
   and change_type = 'update';
 
 insert into "{schema}"."{identifier}" (
