@@ -66,10 +66,11 @@ class Source(object):
         if 'archive' not in self.project:
             return []
 
-        raw_source_schemas = self.project['archive'].copy()
+        raw_source_schemas = self.project['archive']
 
         archives = []
         for schema in raw_source_schemas:
+            schema = schema.copy()
             if 'tables' not in schema:
                 continue
 
