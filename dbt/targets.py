@@ -13,7 +13,7 @@ THREAD_MAX = 8
 BAD_THREADS_ERROR = """Invalid value given for "threads" in active run-target.
 Value given was {supplied} but it should be an int between {min_val} and {max_val}"""
 
-class BaseSQLTarget:
+class BaseSQLTarget(object):
     def __init__(self, cfg, threads):
         self.target_type = cfg['type']
         self.host = cfg['host']
