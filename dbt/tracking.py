@@ -1,6 +1,6 @@
 
 from dbt import version as dbt_version
-from snowplow_tracker import Subject, Tracker, AsyncEmitter, logger as sp_logger
+from snowplow_tracker import Subject, Tracker, Emitter, logger as sp_logger
 from snowplow_tracker import SelfDescribingJson, disable_contracts
 disable_contracts()
 
@@ -24,7 +24,7 @@ INVOCATION_SPEC = "https://raw.githubusercontent.com/analyst-collective/dbt/mast
 PLATFORM_SPEC   = "https://raw.githubusercontent.com/analyst-collective/dbt/master/events/schemas/com.fishtownanalytics/platform_context.json"
 RUN_MODEL_SPEC  = "https://raw.githubusercontent.com/analyst-collective/dbt/master/events/schemas/com.fishtownanalytics/run_model_context.json"
 
-emitter = AsyncEmitter(COLLECTOR_URL, protocol=COLLECTOR_PROTOCOL, buffer_size=1)
+emitter = Emitter(COLLECTOR_URL, protocol=COLLECTOR_PROTOCOL, buffer_size=1)
 tracker = Tracker(emitter, namespace="cf", app_id="dbt")
 
 def __write_user():
