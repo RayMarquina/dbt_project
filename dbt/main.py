@@ -16,6 +16,7 @@ import dbt.task.deps as deps_task
 import dbt.task.init as init_task
 import dbt.task.seed as seed_task
 import dbt.task.test as test_task
+import dbt.task.archive as archive_task
 import dbt.tracking
 
 
@@ -71,9 +72,14 @@ def handle(args):
     sub = subs.add_parser('deps', parents=[base_subparser])
     sub.set_defaults(cls=deps_task.DepsTask, which='deps')
 
+    sub = subs.add_parser('archive', parents=[base_subparser])
+    sub.add_argument('--threads', type=int, required=False, help="Specify number of threads to use while archiving tables. Overrides settings in profiles.yml")
+    sub.set_defaults(cls=archive_task.ArchiveTask, which='archive')
+
     sub = subs.add_parser('run', parents=[base_subparser])
     sub.add_argument('--dry', action='store_true', help="'dry run' models")
     sub.add_argument('--models', required=False, nargs='+', help="Specify the models to run. All models depending on these models will also be run")
+    sub.add_argument('--threads', type=int, required=False, help="Specify number of threads to use while executing models. Overrides settings in profiles.yml")
     sub.set_defaults(cls=run_task.RunTask, which='run')
 
     sub = subs.add_parser('seed', parents=[base_subparser])
@@ -83,6 +89,7 @@ def handle(args):
     sub = subs.add_parser('test', parents=[base_subparser])
     sub.add_argument('--skip-test-creates', action='store_true', help="Don't create temporary views to validate model SQL")
     sub.add_argument('--validate', action='store_true', help='Run constraint validations from schema.yml files')
+    sub.add_argument('--threads', type=int, required=False, help="Specify number of threads to use while executing tests. Overrides settings in profiles.yml")
     sub.set_defaults(cls=test_task.TestTask, which='test')
 
     if len(args) == 0: return p.print_help()

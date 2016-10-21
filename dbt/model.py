@@ -7,11 +7,15 @@ from dbt.templates import BaseCreateTemplate, DryCreateTemplate
 from dbt.utils import split_path
 import dbt.schema_tester
 import dbt.project
+import dbt.archival
 from dbt.utils import This, deep_merge, DBTConfigKeys, compiler_error
 
 class SourceConfig(object):
     Materializations = ['view', 'table', 'incremental', 'ephemeral']
     ConfigKeys = DBTConfigKeys
+
+    AppendListFields  = ['pre-hook', 'post-hook']
+    ExtendDictFields = ['vars']
 
     def __init__(self, active_project, own_project, fqn):
         self.active_project = active_project
@@ -80,15 +84,24 @@ class SourceConfig(object):
             hooks.append(hook)
         return hooks
 
+    def smart_update(self, mutable_config, new_configs):
+        relevant_configs = {key: new_configs[key] for key in new_configs if key in self.ConfigKeys}
+        for key in SourceConfig.AppendListFields:
+            new_hooks = self.__get_hooks(relevant_configs, key)
+            mutable_config[key].extend([h for h in new_hooks if h not in mutable_config[key]])
+
+        for key in SourceConfig.ExtendDictFields:
+            dict_val = relevant_configs.get(key, {})
+            mutable_config[key].update(dict_val)
+
+        return relevant_configs
+
     def get_project_config(self, project):
         # most configs are overwritten by a more specific config, but pre/post hooks are appended!
-        append_list_fields = ['pre-hook', 'post-hook']
-        extend_dict_fields = ['vars']
-
         config = {}
-        for k in append_list_fields:
+        for k in SourceConfig.AppendListFields:
             config[k] = []
-        for k in extend_dict_fields:
+        for k in SourceConfig.ExtendDictFields:
             config[k] = {}
 
         model_configs = project['models']
@@ -96,23 +109,19 @@ class SourceConfig(object):
         if model_configs is None:
             return config
 
+        # mutates config
+        self.smart_update(config, model_configs)
+
         fqn = self.fqn[:]
         for level in fqn:
             level_config = model_configs.get(level, None)
             if level_config is None:
                 break
 
-            relevant_configs = {key: level_config[key] for key in level_config if key in self.ConfigKeys}
+            # mutates config
+            relevant_configs = self.smart_update(config, level_config)
 
-            for key in append_list_fields:
-                new_hooks = self.__get_hooks(relevant_configs, key)
-                config[key].extend([h for h in new_hooks if h not in config[key]])
-
-            for key in extend_dict_fields:
-                dict_val = relevant_configs.get(key, {})
-                config[key].update(dict_val)
-
-            clobber_configs = {k:v for (k,v) in relevant_configs.items() if k not in append_list_fields and k not in extend_dict_fields}
+            clobber_configs = {k:v for (k,v) in relevant_configs.items() if k not in SourceConfig.AppendListFields and k not in SourceConfig.ExtendDictFields}
             config.update(clobber_configs)
             model_configs = model_configs[level]
 
@@ -233,7 +242,8 @@ class Model(DBTSource):
         super(Model, self).__init__(project, model_dir, rel_filepath, own_project)
 
     def add_to_prologue(self, s):
-        self.prologue.append(s)
+        safe_string = s.replace('{{', 'DBT_EXPR(').replace('}}', ')')
+        self.prologue.append(safe_string)
 
     def get_prologue_string(self):
         blob = "\n".join("-- {}".format(s) for s in self.prologue)
@@ -288,8 +298,10 @@ class Model(DBTSource):
 
     def compile_string(self, ctx, string):
         try:
-            env = jinja2.Environment()
-            return env.from_string(string).render(ctx)
+            fs_loader = jinja2.FileSystemLoader(searchpath=self.project['macro-paths'])
+            env = jinja2.Environment(loader=fs_loader)
+            template = env.from_string(string, globals=ctx)
+            return template.render(ctx)
         except jinja2.exceptions.TemplateSyntaxError as e:
             compiler_error(self, str(e))
 
@@ -549,3 +561,86 @@ class Csv(DBTSource):
 
     def __repr__(self):
         return "<Csv {}.{}: {}>".format(self.project['name'], self.model_name, self.filepath)
+
+class Macro(DBTSource):
+    def __init__(self, project, target_dir, rel_filepath, own_project):
+        super(Macro, self).__init__(project, target_dir, rel_filepath, own_project)
+        self.filepath = os.path.join(self.root_dir, self.rel_filepath)
+
+    def get_macros(self, ctx):
+        env = jinja2.Environment()
+        template = env.from_string(self.contents, globals=ctx)
+
+        for key, item in template.module.__dict__.items():
+            if type(item) == jinja2.runtime.Macro:
+                yield key, item
+
+    def __repr__(self):
+        return "<Macro {}.{}: {}>".format(self.project['name'], self.name, self.filepath)
+
+
+class ArchiveModel(DBTSource):
+    dbt_run_type = 'archive'
+
+    def __init__(self, project, create_template, archive_data):
+
+        self.create_template = create_template
+
+        self.validate(archive_data)
+
+        self.source_schema = archive_data['source_schema']
+        self.target_schema = archive_data['target_schema']
+        self.source_table  = archive_data['source_table']
+        self.target_table  = archive_data['target_table']
+        self.unique_key    = archive_data['unique_key']
+        self.updated_at    = archive_data['updated_at']
+
+        target_dir = self.create_template.label
+        rel_filepath = os.path.join(self.target_schema, self.target_table)
+
+        super(ArchiveModel, self).__init__(project, target_dir, rel_filepath, project)
+
+    def validate(self, data):
+        required = [
+            'source_schema',
+            'target_schema',
+            'source_table',
+            'target_table',
+            'unique_key',
+            'updated_at',
+        ]
+
+        for key in required:
+            if data.get(key, None) is None:
+                raise RuntimeError("Invalid archive config: missing required field '{}'".format(key))
+
+    def serialize(self):
+        data = DBTSource.serialize(self).copy()
+
+        serialized = {
+            "source_schema" : self.source_schema,
+            "target_schema" : self.target_schema,
+            "source_table"  : self.source_table,
+            "target_table"    : self.target_table,
+            "unique_key"    : self.unique_key,
+            "updated_at"    : self.updated_at
+        }
+
+        data.update(serialized)
+        return data
+
+    def compile(self):
+        archival = dbt.archival.Archival(self.project, self)
+        query = archival.compile()
+
+        sql = self.create_template.wrap(self.target_schema, self.target_table, query, self.unique_key)
+        return sql
+
+    def build_path(self):
+        build_dir = self.create_template.label
+        filename = "{}.sql".format(self.name)
+        path_parts = [build_dir] + self.fqn[:-1] + [filename]
+        return os.path.join(*path_parts)
+
+    def __repr__(self):
+        return "<ArchiveModel {} --> {} unique:{} updated_at:{}>".format(self.source_table, self.target_table, self.unique_key, self.updated_at)

@@ -14,25 +14,20 @@ REMOTE_VERISON_FILE = 'https://raw.githubusercontent.com/analyst-collective/dbt/
 def __parse_version(contents):
     matches = re.search(r"current_version = ([\.0-9]+)", contents)
     if matches is None or len(matches.groups()) != 1:
-        return "???"
+        return "unknown"
     else:
         version = matches.groups()[0]
         return version
 
 def get_version():
     return __version__
-    #dbt_dir = os.path.dirname(os.path.dirname(__file__))
-    #version_cfg = os.path.join(dbt_dir, ".bumpversion.cfg")
-    #if not os.path.exists(version_cfg):
-    #    return "???"
-    #else:
-    #    with open(version_cfg) as fh:
-    #        contents = fh.read()
-    #        return __parse_version(contents)
 
 def get_latest_version():
-    f = urlopen(REMOTE_VERISON_FILE)
-    contents = f.read()
+    try:
+        f = urlopen(REMOTE_VERISON_FILE)
+        contents = f.read()
+    except:
+        contents = ''
     if hasattr(contents, 'decode'):
         contents = contents.decode('utf-8')
     return __parse_version(contents)
@@ -58,7 +53,7 @@ def get_version_information():
 def is_latest():
     return installed == latest
 
-__version__ = '0.5.0'
+__version__ = '0.5.1'
 installed = get_version()
 latest = get_latest_version()
 
