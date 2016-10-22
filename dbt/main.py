@@ -52,7 +52,7 @@ def handle(args):
     subs = p.add_subparsers()
 
     base_subparser = argparse.ArgumentParser(add_help=False)
-    base_subparser.add_argument('--profile', default=["user"], nargs='+', type=str, help='Which profile to load')
+    base_subparser.add_argument('--profile', required=False, type=str, help='Which profile to load (overrides profile setting in dbt_project.yml file)')
     base_subparser.add_argument('--target', default=None, type=str, help='Which run-target to load for the given profile')
 
     sub = subs.add_parser('init', parents=[base_subparser])
@@ -105,7 +105,7 @@ def handle(args):
 
     elif os.path.isfile('dbt_project.yml'):
         try:
-            proj = project.read_project('dbt_project.yml', validate=False).with_profiles(parsed.profile)
+            proj = project.read_project('dbt_project.yml', validate=False, profile_to_load=parsed.profile)
             proj.validate()
         except project.DbtProjectError as e:
             print("Encountered an error while reading the project:")

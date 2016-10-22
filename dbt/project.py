@@ -24,31 +24,31 @@ default_profiles = {
     'user': {}
 }
 
-default_active_profiles = ['user']
-
 class DbtProjectError(Exception):
     def __init__(self, message, project):
         self.project = project
         super(DbtProjectError, self).__init__(message)
 
-class Project:
+class Project(object):
 
-    def __init__(self, cfg, profiles, active_profile_names=[]):
+    def __init__(self, cfg, profiles, profile_to_load=None):
         self.cfg = default_project_cfg.copy()
         self.cfg.update(cfg)
         self.profiles = default_profiles.copy()
         self.profiles.update(profiles)
-        self.active_profile_names = active_profile_names
+        self.profile_to_load = profile_to_load
 
-        # load profile from dbt_config.yml
-        if self.cfg['profile'] is not None:
-            self.active_profile_names.append(self.cfg['profile'])
+        # load profile from dbt_config.yml if cli arg isn't supplied
+        if self.profile_to_load is None and self.cfg['profile'] is not None:
+            self.profile_to_load = self.cfg['profile']
 
-        for profile_name in active_profile_names:
-            if profile_name in self.profiles:
-                self.cfg.update(self.profiles[profile_name])
-            else:
-                raise DbtProjectError("Could not find profile named '{}'".format(profile_name), self)
+        if self.profile_to_load is None:
+            self.profile_to_load = 'user'
+
+        if self.profile_to_load in self.profiles:
+            self.cfg.update(self.profiles[self.profile_to_load])
+        else:
+            raise DbtProjectError("Could not find profile named '{}'".format(self.profile_to_load), self)
 
     def __str__(self):
         return pprint.pformat({'project': self.cfg, 'profiles': self.profiles})
@@ -78,11 +78,11 @@ class Project:
         filtered_target.pop('pass', None)
         return {'env': filtered_target}
 
-    def with_profiles(self, profiles=[]):
+    def with_profiles(self, profile):
         return Project(
             copy.deepcopy(self.cfg),
             copy.deepcopy(self.profiles),
-            profiles)
+            profile)
 
     def validate(self):
         target_cfg = self.run_environment()
@@ -122,12 +122,12 @@ def read_profiles():
 
     return profiles
 
-def read_project(filename, validate=True):
+def read_project(filename, validate=True, profile_to_load=None):
     with open(filename, 'r') as f:
         project_cfg = yaml.safe_load(f)
         project_cfg['project-root'] = os.path.dirname(os.path.abspath(filename))
         profiles = read_profiles()
-        proj = Project(project_cfg, profiles, default_active_profiles)
+        proj = Project(project_cfg, profiles, profile_to_load)
 
         if validate:
             proj.validate()
