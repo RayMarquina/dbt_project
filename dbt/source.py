@@ -48,6 +48,12 @@ class Source(object):
         schemas = [SchemaFile(*schema) for schema in self.find(model_dirs, pattern)]
         return schemas
 
+    def get_tests(self, test_dirs):
+        "Get custom test files"
+        pattern = "test_[!.#~]*.sql"
+        tests = [CustomTests(*test) for test in self.find(test_dirs, pattern)]
+        return schemas
+
     def get_csvs(self, csv_dirs):
         "Get CSV files"
         pattern = "[!.#~]*.csv"

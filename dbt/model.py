@@ -644,3 +644,19 @@ class ArchiveModel(DBTSource):
 
     def __repr__(self):
         return "<ArchiveModel {} --> {} unique:{} updated_at:{}>".format(self.source_table, self.target_table, self.unique_key, self.updated_at)
+
+class CustomTest(DBTSource):
+    dbt_run_type = 'test'
+
+    def __init__(self, project, target_dir, rel_filepath):
+        self.schema = project.context()['env']['schema']
+        super(CustomTest, self).__init__(project, target_dir, rel_filepath, project)
+
+    #@property
+    #def fqn(self):
+    #    parts = split_path(self.filepath)
+    #    name, _ = os.path.splitext(parts[-1])
+    #    return [self.project['name']] + parts[1:-1] + [self.get_filename()]
+
+    def __repr__(self):
+        return "<CustomTest {}.{}: {}>".format(self.project['name'], self.name, self.filepath)
