@@ -123,7 +123,7 @@ def handle(args):
                 proj.cfg['run-target'] = parsed.target
             else:
                 print("Encountered an error while reading the project:")
-                print("  ERROR Specified target {} is not a valid option for profile {}".format(parsed.target, parsed.profile))
+                print("  ERROR Specified target {} is not a valid option for profile {}".format(parsed.target, proj.profile_to_load))
                 print("Valid targets are: {}".format(targets))
                 dbt.tracking.track_invalid_invocation(project=proj, args=parsed, result_type="invalid_target", result="target not found")
                 return None
