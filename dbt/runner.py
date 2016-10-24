@@ -176,7 +176,7 @@ class TestRunner(ModelRunner):
 
     def pre_run_msg(self, model):
         if model.is_test_type(self.test_data_type):
-            return "DATA TEST   {name} ".format(name=model.name)
+            return "DATA TEST {name} ".format(name=model.name)
         else:
             return "SCHEMA TEST {name} ".format(name=model.name)
 
