@@ -168,11 +168,17 @@ class DryRunner(ModelRunner):
             count_dropped += 1
         print("Dropped {} dry-run models".format(count_dropped))
 
-class SchemaTestRunner(ModelRunner):
-    run_type = 'schema-test'
+class TestRunner(ModelRunner):
+    run_type = 'test'
+
+    test_data_type = 'data'
+    test_schema_type = 'schema'
 
     def pre_run_msg(self, model):
-        return "TEST {name} ".format(name=model.name)
+        if model.is_test_type(self.test_data_type):
+            return "DATA TEST   {name} ".format(name=model.name)
+        else:
+            return "SCHEMA TEST {name} ".format(name=model.name)
 
     def post_run_msg(self, result):
         model = result.model
@@ -213,24 +219,6 @@ class SchemaTestRunner(ModelRunner):
 
         return info
 
-    def execute(self, schema, target, model):
-        rows = schema.execute_and_fetch(model.compiled_contents)
-        if len(rows) > 1:
-            raise RuntimeError("Bad test {name}: Returned {num_rows} rows instead of 1".format(name=model.name, num_rows=len(rows)))
-
-        row = rows[0]
-        if len(row) > 1:
-            raise RuntimeError("Bad test {name}: Returned {num_cols} cols instead of 1".format(name=model.name, num_cols=len(row)))
-
-        return row[0]
-
-class DataTestRunner(SchemaTestRunner):
-    run_type = 'data-test'
-
-    def pre_run_all_msg(self, models):
-        return "Running {} data tests".format(len(models))
-
-    # TODO?
     def execute(self, schema, target, model):
         rows = schema.execute_and_fetch(model.compiled_contents)
         if len(rows) > 1:
@@ -513,15 +501,42 @@ class RunManager(object):
                 self.target.cleanup()
                 print("Done")
 
+
+    def run_tests_from_graph(self, test_schemas, test_data):
+        linker = self.deserialize_graph()
+        compiled_models = [make_compiled_model(fqn, linker.get_node(fqn)) for fqn in linker.nodes()]
+
+        test_runner = TestRunner()
+
+        if test_schemas:
+            schema_tests = [m for m in compiled_models if m.is_test_type(test_runner.test_schema_type)]
+        else:
+            schema_tests = []
+
+        if test_data:
+            data_tests = [m for m in compiled_models if m.is_test_type(test_runner.test_data_type)]
+        else:
+            data_tests = []
+
+        all_tests = schema_tests + data_tests
+
+        for m in all_tests:
+            if m.should_execute():
+                context = self.context.copy()
+                context.update(m.context())
+                m.compile(context)
+
+        dep_list = [schema_tests, data_tests]
+
+        on_failure = self.on_model_failure(linker, all_tests)
+        results = self.execute_models(test_runner, dep_list, on_failure)
+
+        return results
+
     # ------------------------------------
 
     def run_tests(self, test_schemas=False, test_data=False, limit_to=None):
-        if test_schemas:
-            runner = SchemaTestRunner()
-            return self.safe_run_from_graph(runner, limit_to)
-        if test_data:
-            runner = DataTestRunner()
-            return self.safe_run_from_graph(runner, limit_to)
+        return self.run_tests_from_graph(test_schemas, test_data)
 
     def run(self, limit_to=None):
         runner = ModelRunner()

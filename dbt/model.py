@@ -414,7 +414,8 @@ class TestModel(Model):
 
 class SchemaTest(DBTSource):
     test_type = "base"
-    dbt_run_type = 'schema-test'
+    dbt_run_type = 'test'
+    dbt_test_type = 'schema'
 
     def __init__(self, project, target_dir, rel_filepath, model_name, options):
         self.schema = project.context()['env']['schema']
@@ -429,6 +430,12 @@ class SchemaTest(DBTSource):
         parts = split_path(self.filepath)
         name, _ = os.path.splitext(parts[-1])
         return [self.project['name']] + parts[1:-1] + ['schema',  self.get_filename()]
+
+    def serialize(self):
+        serialized = DBTSource.serialize(self).copy()
+        serialized['dbt_test_type'] = self.dbt_test_type
+
+        return serialized
 
     def get_params(self, options):
         return {
@@ -646,7 +653,8 @@ class ArchiveModel(DBTSource):
         return "<ArchiveModel {} --> {} unique:{} updated_at:{}>".format(self.source_table, self.target_table, self.unique_key, self.updated_at)
 
 class DataTest(DBTSource):
-    dbt_run_type = 'data-test'
+    dbt_run_type = 'test'
+    dbt_test_type = 'data'
 
     def __init__(self, project, target_dir, rel_filepath, own_project):
         super(DataTest, self).__init__(project, target_dir, rel_filepath, own_project)
@@ -657,6 +665,12 @@ class DataTest(DBTSource):
         fqn_parts = self.fqn[0:1] + ['data'] + self.fqn[1:-1]
         path_parts = [build_dir] + fqn_parts + [filename]
         return os.path.join(*path_parts)
+
+    def serialize(self):
+        serialized = DBTSource.serialize(self).copy()
+        serialized['dbt_test_type'] = self.dbt_test_type
+
+        return serialized
 
     def render(self, query):
         return "select count(*) from (\n{}\n) sbq".format(query)
