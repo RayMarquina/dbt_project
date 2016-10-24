@@ -343,8 +343,9 @@ class Compiler(object):
         for data_test in tests:
             serialized = data_test.serialize()
             linker.update_node_data(tuple(data_test.fqn), serialized)
-            query = self. compile_model(linker, data_test, enabled_models, add_dependency=False)
-            self.__write(data_test.build_path(), query)
+            query = self.compile_model(linker, data_test, enabled_models, add_dependency=False)
+            wrapped = data_test.render(query)
+            self.__write(data_test.build_path(), wrapped)
             written_tests.append(data_test)
 
         return written_tests

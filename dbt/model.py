@@ -658,6 +658,9 @@ class DataTest(DBTSource):
         path_parts = [build_dir] + fqn_parts + [filename]
         return os.path.join(*path_parts)
 
+    def render(self, query):
+        return "select count(*) from (\n{}\n) sbq".format(query)
+
     @property
     def immediate_name(self):
         return self.name
