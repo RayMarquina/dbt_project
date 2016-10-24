@@ -87,8 +87,8 @@ def handle(args):
     sub.set_defaults(cls=seed_task.SeedTask, which='seed')
 
     sub = subs.add_parser('test', parents=[base_subparser])
-    sub.add_argument('--skip-test-creates', action='store_true', help="Don't create temporary views to validate model SQL")
-    sub.add_argument('--validate', action='store_true', help='Run constraint validations from schema.yml files')
+    sub.add_argument('--data', action='store_true', help='Run data tests defined in "tests" directory')
+    sub.add_argument('--schema', action='store_true', help='Run constraint validations from schema.yml files')
     sub.add_argument('--threads', type=int, required=False, help="Specify number of threads to use while executing tests. Overrides settings in profiles.yml")
     sub.set_defaults(cls=test_task.TestTask, which='test')
 

@@ -1,7 +1,7 @@
 
 import os.path
 import fnmatch
-from dbt.model import Model, Analysis, TestModel, SchemaFile, Csv, Macro, ArchiveModel
+from dbt.model import Model, Analysis, TestModel, SchemaFile, Csv, Macro, ArchiveModel, DataTest
 
 class Source(object):
     def __init__(self, project, own_project=None):
@@ -50,9 +50,9 @@ class Source(object):
 
     def get_tests(self, test_dirs):
         "Get custom test files"
-        pattern = "test_[!.#~]*.sql"
-        tests = [CustomTests(*test) for test in self.find(test_dirs, pattern)]
-        return schemas
+        pattern = "[!.#~]*.sql"
+        tests = [DataTest(*test) for test in self.find(test_dirs, pattern)]
+        return tests
 
     def get_csvs(self, csv_dirs):
         "Get CSV files"

@@ -168,8 +168,8 @@ class DryRunner(ModelRunner):
             count_dropped += 1
         print("Dropped {} dry-run models".format(count_dropped))
 
-class TestRunner(ModelRunner):
-    run_type = 'test'
+class SchemaTestRunner(ModelRunner):
+    run_type = 'schema-test'
 
     def pre_run_msg(self, model):
         return "TEST {name} ".format(name=model.name)
@@ -213,6 +213,24 @@ class TestRunner(ModelRunner):
 
         return info
 
+    def execute(self, schema, target, model):
+        rows = schema.execute_and_fetch(model.compiled_contents)
+        if len(rows) > 1:
+            raise RuntimeError("Bad test {name}: Returned {num_rows} rows instead of 1".format(name=model.name, num_rows=len(rows)))
+
+        row = rows[0]
+        if len(row) > 1:
+            raise RuntimeError("Bad test {name}: Returned {num_cols} cols instead of 1".format(name=model.name, num_cols=len(row)))
+
+        return row[0]
+
+class DataTestRunner(SchemaTestRunner):
+    run_type = 'data-test'
+
+    def pre_run_all_msg(self, models):
+        return "Running {} data tests".format(len(models))
+
+    # TODO?
     def execute(self, schema, target, model):
         rows = schema.execute_and_fetch(model.compiled_contents)
         if len(rows) > 1:
@@ -497,9 +515,13 @@ class RunManager(object):
 
     # ------------------------------------
 
-    def run_tests(self, limit_to=None):
-        runner = TestRunner()
-        return self.safe_run_from_graph(runner, limit_to)
+    def run_tests(self, test_schemas=False, test_data=False, limit_to=None):
+        if test_schemas:
+            runner = SchemaTestRunner()
+            return self.safe_run_from_graph(runner, limit_to)
+        if test_data:
+            runner = DataTestRunner()
+            return self.safe_run_from_graph(runner, limit_to)
 
     def run(self, limit_to=None):
         runner = ModelRunner()

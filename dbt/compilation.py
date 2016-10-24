@@ -12,7 +12,7 @@ import dbt.templates
 import time
 import sqlparse
 
-CompilableEntities = ["models", "tests", "archives", "analyses"]
+CompilableEntities = ["models", "data tests", "schema tests", "archives", "analyses"]
 
 class Compiler(object):
     def __init__(self, project, create_template_class):
@@ -59,6 +59,10 @@ class Compiler(object):
     def project_schemas(self):
         source_paths = self.project.get('source-paths', [])
         return Source(self.project).get_schemas(source_paths)
+
+    def project_tests(self):
+        source_paths = self.project.get('test-paths', [])
+        return Source(self.project).get_tests(source_paths)
 
     def analysis_sources(self, project):
         paths = project.get('analysis-paths', [])
@@ -109,7 +113,7 @@ class Compiler(object):
         return other_model.own_project['name'] == src_model.own_project['name'] \
                 or src_model.own_project['name'] == src_model.project['name']
 
-    def __ref(self, linker, ctx, model, all_models):
+    def __ref(self, linker, ctx, model, all_models, add_dependency=True):
         schema = ctx['env']['schema']
 
         source_model = tuple(model.fqn)
@@ -138,7 +142,7 @@ class Compiler(object):
 
             # this creates a trivial cycle -- should this be a compiler error?
             # we can still interpolate the name w/o making a self-cycle
-            if source_model == other_model_fqn:
+            if source_model == other_model_fqn or not add_dependency:
                 pass
             else:
                 linker.dependency(source_model, other_model_fqn)
@@ -163,11 +167,11 @@ class Compiler(object):
 
         return wrapped_do_ref
 
-    def get_context(self, linker, model,  models):
+    def get_context(self, linker, model,  models, add_dependency=False):
         context = self.project.context()
 
         # built-ins
-        context['ref'] = self.__ref(linker, context, model, models)
+        context['ref'] = self.__ref(linker, context, model, models, add_dependency)
         context['config'] = self.__model_config(model, linker)
         context['this'] = This(context['env']['schema'], model.immediate_name, model.name)
         context['var'] = Var(model, context=context)
@@ -185,7 +189,7 @@ class Compiler(object):
 
         return context
 
-    def compile_model(self, linker, model, models):
+    def compile_model(self, linker, model, models, add_dependency=True):
         try:
             fs_loader = jinja2.FileSystemLoader(searchpath=model.root_dir)
             jinja = jinja2.Environment(loader=fs_loader)
@@ -193,7 +197,7 @@ class Compiler(object):
             # this is a dumb jinja2 bug -- on windows, forward slashes are EXPECTED
             posix_filepath = '/'.join(split_path(model.rel_filepath))
             template = jinja.get_template(posix_filepath)
-            context = self.get_context(linker, model, models)
+            context = self.get_context(linker, model, models, add_dependency=add_dependency)
 
             rendered = template.render(context)
         except jinja2.exceptions.TemplateSyntaxError as e:
@@ -329,6 +333,22 @@ class Compiler(object):
 
         return written_tests
 
+    def compile_data_tests(self, linker):
+        tests = self.project_tests()
+
+        all_models = self.get_models()
+        enabled_models = [model for model in all_models if model.is_enabled]
+
+        written_tests = []
+        for data_test in tests:
+            serialized = data_test.serialize()
+            linker.update_node_data(tuple(data_test.fqn), serialized)
+            query = self. compile_model(linker, data_test, enabled_models, add_dependency=False)
+            self.__write(data_test.build_path(), query)
+            written_tests.append(data_test)
+
+        return written_tests
+
     def generate_macros(self, all_macros):
         def do_gen(ctx):
             macros = []
@@ -351,14 +371,20 @@ class Compiler(object):
         self.write_graph_file(linker, 'archive')
         return all_archives
 
+    def get_models(self):
+        all_models = self.model_sources(this_project=self.project)
+        for project in dependency_projects(self.project):
+            all_models.extend(self.model_sources(this_project=self.project, own_project=project))
+
+        return all_models
+
     def compile(self, dry=False):
         linker = Linker()
 
-        all_models = self.model_sources(this_project=self.project)
+        all_models = self.get_models()
         all_macros = self.get_macros(this_project=self.project)
 
         for project in dependency_projects(self.project):
-            all_models.extend(self.model_sources(this_project=self.project, own_project=project))
             all_macros.extend(self.get_macros(this_project=self.project, own_project=project))
 
         self.macro_generator = self.generate_macros(all_macros)
@@ -369,6 +395,7 @@ class Compiler(object):
 
         # TODO : only compile schema tests for enabled models
         written_schema_tests = self.compile_schema_tests(linker)
+        written_data_tests = self.compile_data_tests(linker)
 
         self.validate_models_unique(compiled_models)
         self.validate_models_unique(written_schema_tests)
@@ -384,7 +411,8 @@ class Compiler(object):
 
         return {
             "models": len(written_models),
-            "tests" : len(written_schema_tests),
+            "schema tests" : len(written_schema_tests),
+            "data tests" : len(written_data_tests),
             "archives": len(compiled_archives),
             "analyses" : len(written_analyses)
         }

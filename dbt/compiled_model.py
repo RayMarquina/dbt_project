@@ -135,7 +135,7 @@ def make_compiled_model(fqn, data):
 
     if run_type in ['run', 'dry-run']:
         return CompiledModel(fqn, data)
-    elif run_type == 'test':
+    elif run_type in ['schema-test', 'data-test']:
         return CompiledTest(fqn, data)
     elif run_type == 'archive':
         return CompiledArchive(fqn, data)
