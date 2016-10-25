@@ -27,10 +27,15 @@ create temporary table "{identifier}__dbt_incremental_tmp" as (
 
 -- DBT_OPERATION {{ function: expand_column_types_if_needed, args: {{ temp_table: "{identifier}__dbt_incremental_tmp", to_schema: "{schema}", to_table: "{identifier}"}} }}
 
+{{% set dest_columns = get_columns_in_table("{schema}", "{identifier}") %}}
+{{% set dest_cols_csv = dest_columns | map(attribute='quoted') | join(', ') %}}
+
 {incremental_delete_statement}
 
-insert into "{schema}"."{identifier}" (
-    select * from "{identifier}__dbt_incremental_tmp"
+insert into "{schema}"."{identifier}" ({{{{ dest_cols_csv }}}})
+(
+    select {{{{ dest_cols_csv }}}}
+    from "{identifier}__dbt_incremental_tmp"
 );
     """
 

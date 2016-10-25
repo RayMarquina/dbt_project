@@ -29,6 +29,10 @@ class Column(object):
         return self.column
 
     @property
+    def quoted(self):
+        return '"{}"'.format(self.column)
+
+    @property
     def data_type(self):
         if self.is_string():
             return Column.string_type(self.string_size())
