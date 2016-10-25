@@ -53,7 +53,7 @@ def get_version_information():
 def is_latest():
     return installed == latest
 
-__version__ = '0.5.1'
+__version__ = '0.5.2'
 installed = get_version()
 latest = get_latest_version()
 
