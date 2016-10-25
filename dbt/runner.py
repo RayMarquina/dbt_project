@@ -506,6 +506,16 @@ class RunManager(object):
         linker = self.deserialize_graph()
         compiled_models = [make_compiled_model(fqn, linker.get_node(fqn)) for fqn in linker.nodes()]
 
+        schema_name = self.target.schema
+
+        print("Connecting to redshift")
+        try:
+            self.schema.create_schema_if_not_exists(schema_name)
+        except psycopg2.OperationalError as e:
+            print("ERROR: Could not connect to the target database. Try `dbt debug` for more information")
+            print(str(e))
+            sys.exit(1)
+
         test_runner = TestRunner()
 
         if test_schemas:
