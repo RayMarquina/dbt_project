@@ -283,6 +283,7 @@ class RunManager(object):
             "invocation_id" : dbt.tracking.invocation_id,
             "get_columns_in_table"   : self.schema.get_columns_in_table,
             "get_missing_columns"   : self.schema.get_missing_columns,
+            "already_exists"   : self.schema.table_exists,
         }
 
 

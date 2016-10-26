@@ -5,17 +5,15 @@ create {materialization} "{schema}"."{identifier}" {dist_qualifier} {sort_qualif
     {query}
 );"""
 
-    # Distribution style, sort keys,BACKUP, and NULL properties are inherited by LIKE tables,
-    # but you cannot explicitly set them in the CREATE TABLE ... LIKE statement.
-    # via http://docs.aws.amazon.com/redshift/latest/dg/r_CREATE_TABLE_NEW.html
     incremental_template = """
-create temporary table "{identifier}__dbt_incremental_empty_tmp" {dist_qualifier} {sort_qualifier} as (
-    select * from (
-        {query}
-    ) as tmp limit 0
+{{% if not already_exists("{schema}", "{identifier}") %}}
+
+create table "{schema}"."{identifier}" {dist_qualifier} {sort_qualifier} as (
+    {query}
 );
 
-create table if not exists "{schema}"."{identifier}" (like "{identifier}__dbt_incremental_empty_tmp");
+
+{{% else %}}
 
 create temporary table "{identifier}__dbt_incremental_tmp" as (
     with dbt_incr_sbq as (
@@ -37,7 +35,10 @@ insert into "{schema}"."{identifier}" ({{{{ dest_cols_csv }}}})
     select {{{{ dest_cols_csv }}}}
     from "{identifier}__dbt_incremental_tmp"
 );
-    """
+
+{{% endif %}}
+
+"""
 
     incremental_delete_template = """
 delete from "{schema}"."{identifier}" where  ({unique_key}) in (
@@ -115,30 +116,10 @@ create view "{schema}"."{identifier}" as (
 
 
     incremental_template = """
-create temporary table "{identifier}__dbt_incremental_empty_tmp" {dist_qualifier} {sort_qualifier} as (
+create table "{schema}"."{identifier}" {dist_qualifier} {sort_qualifier} as (
     select * from (
         {query}
-    ) as tmp limit 0
-);
-
-
-create table if not exists "{schema}"."{identifier}" (like "{identifier}__dbt_incremental_empty_tmp");
-
-create temporary table "{identifier}__dbt_incremental_tmp" as (
-    with dbt_incr_sbq as (
-        {query}
-    )
-    select * from dbt_incr_sbq
-    where ({sql_where}) or ({sql_where}) is null
-    limit 0
-);
-
--- DBT_OPERATION {{ function: expand_column_types_if_needed, args: {{ temp_table: "{identifier}__dbt_incremental_tmp", to_schema: "{schema}", to_table: "{identifier}"}} }}
-
-{incremental_delete_statement}
-
-insert into "{schema}"."{identifier}" (
-    select * from "{identifier}__dbt_incremental_tmp"
+    ) s limit 0
 );
     """
 
