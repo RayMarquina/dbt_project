@@ -20,9 +20,7 @@ default_project_cfg = {
     'modules-path': 'dbt_modules'
 }
 
-default_profiles = {
-    'user': {}
-}
+default_profiles = {}
 
 class DbtProjectError(Exception):
     def __init__(self, message, project):
@@ -43,7 +41,7 @@ class Project(object):
             self.profile_to_load = self.cfg['profile']
 
         if self.profile_to_load is None:
-            self.profile_to_load = 'user'
+            raise DbtProjectError("No profile was supplied in the dbt_project.yml file, or the command line", self)
 
         if self.profile_to_load in self.profiles:
             self.cfg.update(self.profiles[self.profile_to_load])
@@ -95,14 +93,6 @@ class Project(object):
             raise DbtProjectError("Project name and version is not provided", self)
 
         required_keys = ['host', 'user', 'pass', 'schema', 'type', 'dbname', 'port']
-        print("VALIDATION DEBUG")
-        print("Target name: {}".format(target_name))
-        for key in required_keys:
-            if key == 'pass':
-                continue
-            else:
-                print("{}: {}".format(key, target_cfg.get(key)))
-        print("----------------------------------------")
         for key in required_keys:
             if key not in target_cfg or len(str(target_cfg[key])) == 0:
                 raise DbtProjectError("Expected project configuration '{}' was not supplied".format(key), self)
