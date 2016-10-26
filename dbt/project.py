@@ -95,6 +95,14 @@ class Project(object):
             raise DbtProjectError("Project name and version is not provided", self)
 
         required_keys = ['host', 'user', 'pass', 'schema', 'type', 'dbname', 'port']
+        print("VALIDATION DEBUG")
+        print("Target name: {}".format(target_name))
+        for key in required_keys:
+            if key == 'pass':
+                continue
+            else:
+                print("{}: {}".format(key, target_cfg.get(key)))
+        print("----------------------------------------")
         for key in required_keys:
             if key not in target_cfg or len(str(target_cfg[key])) == 0:
                 raise DbtProjectError("Expected project configuration '{}' was not supplied".format(key), self)
