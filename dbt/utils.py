@@ -3,6 +3,7 @@ import os
 import dbt.project
 import pprint
 import json
+import dbt.project
 
 DBTConfigKeys = [
     'enabled',
@@ -81,7 +82,11 @@ def dependency_projects(project):
     for obj in os.listdir(project['modules-path']):
         full_obj = os.path.join(project['modules-path'], obj)
         if os.path.isdir(full_obj):
-            yield dbt.project.read_project(os.path.join(full_obj, 'dbt_project.yml'))
+            try:
+                yield dbt.project.read_project(os.path.join(full_obj, 'dbt_project.yml'), profile_to_load=project.profile_to_load)
+            except dbt.project.DbtProjectError as e:
+                print("Error reading dependency project at {}".format(full_obj))
+                print(str(e))
 
 def split_path(path):
     norm = os.path.normpath(path)

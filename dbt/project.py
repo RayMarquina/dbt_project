@@ -20,9 +20,7 @@ default_project_cfg = {
     'modules-path': 'dbt_modules'
 }
 
-default_profiles = {
-    'user': {}
-}
+default_profiles = {}
 
 class DbtProjectError(Exception):
     def __init__(self, message, project):
@@ -43,7 +41,7 @@ class Project(object):
             self.profile_to_load = self.cfg['profile']
 
         if self.profile_to_load is None:
-            self.profile_to_load = 'user'
+            raise DbtProjectError("No profile was supplied in the dbt_project.yml file, or the command line", self)
 
         if self.profile_to_load in self.profiles:
             self.cfg.update(self.profiles[self.profile_to_load])

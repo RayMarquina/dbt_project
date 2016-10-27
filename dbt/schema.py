@@ -29,6 +29,10 @@ class Column(object):
         return self.column
 
     @property
+    def quoted(self):
+        return '"{}"'.format(self.column)
+
+    @property
     def data_type(self):
         if self.is_string():
             return Column.string_type(self.string_size())
@@ -69,6 +73,7 @@ class Schema(object):
         self.logger = logging.getLogger(__name__)
 
         self.schema_cache = {}
+        self.runtime_existing = self.query_for_existing(self.target.schema)
 
     def cache_table_columns(self, schema, table, columns):
         tid = (schema, table)
@@ -284,4 +289,16 @@ class Schema(object):
                 new_type = Column.string_type(source_column.string_size())
                 self.logger.debug("Changing col type from %s to %s in table %s.%s", dest_column.data_type, new_type, to_schema, to_table)
                 self.alter_column_type(to_schema, to_table, column_name, new_type)
+
+        # update these cols in the cache! This is a hack to fix broken incremental models for type expansion. TODO
+        self.cache_table_columns(to_schema, to_table, source_columns)
+
+    def table_exists(self, schema, table):
+        if schema == self.target.schema:
+            exists = self.runtime_existing.get(table) is not None
+            return exists
+        else:
+            tables = self.query_for_existing(schema)
+            exists = tables.get(table) is not None
+            return exists
 
