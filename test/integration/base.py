@@ -10,12 +10,16 @@ class DBTIntegrationTest(unittest.TestCase):
     def setUp(self):
         # create a dbt_project.yml
 
-        project_config = {
+        base_project_config = {
             'name': 'test',
             'version': '1.0',
             'source-paths': [self.models],
             'profile': 'test'
         }
+
+        project_config = {}
+        project_config.update(base_project_config)
+        project_config.update(self.project_config)
 
         with open("dbt_project.yml", 'w') as f:
             yaml.safe_dump(project_config, f, default_flow_style=True)
@@ -53,8 +57,15 @@ class DBTIntegrationTest(unittest.TestCase):
         os.remove("/root/.dbt/profiles.yml")
         os.remove("dbt_project.yml")
 
-    def run_dbt(self):
-        dbt.handle(["run"])
+    @property
+    def project_config(self):
+        return {}
+
+    def run_dbt(self, args=None):
+        if args is None:
+            args = ["run"]
+
+        dbt.handle(args)
 
     def run_sql_file(self, path):
         with open(path, 'r') as f:
