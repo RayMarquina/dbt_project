@@ -21,7 +21,19 @@ class TestSimpleArchive(DBTIntegrationTest):
             "data-paths": ['test/integration/005_simple_seed/data']
         }
 
-    def test_simple_dependency(self):
+    def test_simple_seed(self):
         self.run_dbt(["seed"])
+        self.assertTablesEqual("seed_actual","seed_expected")
 
+        # this should truncate the seed_actual table, the re-insert
+        self.run_dbt(["seed"])
+        self.assertTablesEqual("seed_actual","seed_expected")
+
+
+    def test_simple_seed_with_drop(self):
+        self.run_dbt(["seed"])
+        self.assertTablesEqual("seed_actual","seed_expected")
+
+        # this should drop the seed table, then re-create
+        self.run_dbt(["seed", "--drop-existing"])
         self.assertTablesEqual("seed_actual","seed_expected")
