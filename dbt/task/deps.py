@@ -88,7 +88,9 @@ class DepsTask:
 
         return repo, branch
 
-    def __pull_deps_recursive(self, repos, processed_repos = set(), i=0):
+    def __pull_deps_recursive(self, repos, processed_repos = None, i=0):
+        if processed_repos is None:
+            processed_repos = set()
         for repo_string in repos:
             repo, branch = self.__split_at_branch(repo_string)
             repo_folder = folder_from_git_remote(repo)

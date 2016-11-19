@@ -1,6 +1,6 @@
 import unittest
 import dbt.main as dbt
-import os
+import os, shutil
 import yaml
 
 from test.integration.connection import handle
@@ -10,12 +10,16 @@ class DBTIntegrationTest(unittest.TestCase):
     def setUp(self):
         # create a dbt_project.yml
 
-        project_config = {
+        base_project_config = {
             'name': 'test',
             'version': '1.0',
             'source-paths': [self.models],
             'profile': 'test'
         }
+
+        project_config = {}
+        project_config.update(base_project_config)
+        project_config.update(self.project_config)
 
         with open("dbt_project.yml", 'w') as f:
             yaml.safe_dump(project_config, f, default_flow_style=True)
@@ -23,6 +27,9 @@ class DBTIntegrationTest(unittest.TestCase):
         # create profiles
 
         profile_config = {
+            'config': {
+                'send_anonymous_usage_stats': False
+            },
             'test': {
                 'outputs': {
                     'default': {
@@ -53,8 +60,18 @@ class DBTIntegrationTest(unittest.TestCase):
         os.remove("/root/.dbt/profiles.yml")
         os.remove("dbt_project.yml")
 
-    def run_dbt(self):
-        dbt.handle(["run"])
+        if os.path.exists('dbt_modules'):
+            shutil.rmtree('dbt_modules')
+
+    @property
+    def project_config(self):
+        return {}
+
+    def run_dbt(self, args=None):
+        if args is None:
+            args = ["run"]
+
+        dbt.handle(args)
 
     def run_sql_file(self, path):
         with open(path, 'r') as f:
@@ -72,7 +89,7 @@ class DBTIntegrationTest(unittest.TestCase):
                 return output
             except BaseException as e:
                 handle.rollback()
-                print e
+                print(e)
 
     def get_table_columns(self, table):
         sql = """
@@ -85,6 +102,22 @@ class DBTIntegrationTest(unittest.TestCase):
         result = self.run_sql(sql.format(table, self.schema))
 
         return result
+
+    def get_models_in_schema(self):
+        sql = """
+                select table_name,
+                        case when table_type = 'BASE TABLE' then 'table'
+                             when table_type = 'VIEW' then 'view'
+                             else table_type
+                        end as materialization
+                from information_schema.tables
+                where table_schema = '{}'
+                order by table_name
+                """
+
+        result = self.run_sql(sql.format(self.schema))
+
+        return {model_name: materialization for (model_name, materialization) in result}
 
     def assertTablesEqual(self, table_a, table_b):
         self.assertTableColumnsEqual(table_a, table_b)
