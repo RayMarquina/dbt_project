@@ -37,12 +37,14 @@ class TestTask:
         runner = RunManager(self.project, self.project['target-path'], 'build', self.args.threads)
 
         if (self.args.data and self.args.schema) or (not self.args.data and not self.args.schema):
-            runner.run_tests(test_schemas=True, test_data=True)
+            res = runner.run_tests(test_schemas=True, test_data=True)
         elif self.args.data:
-            runner.run_tests(test_schemas=False, test_data=True)
+            res = runner.run_tests(test_schemas=False, test_data=True)
         elif self.args.schema:
-            runner.run_tests(test_schemas=True, test_data=False)
+            res = runner.run_tests(test_schemas=True, test_data=False)
         else:
             raise RuntimeError("unexpected")
 
         print("Done!")
+
+        return res
