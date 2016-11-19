@@ -4,4 +4,4 @@
   )
 }}
 
-select * from "simple_dependency_003"."seed"
+select * from "simple_reference_003"."seed"

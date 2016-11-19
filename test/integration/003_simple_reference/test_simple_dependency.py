@@ -5,17 +5,17 @@ class TestSimpleDependency(DBTIntegrationTest):
     def setUp(self):
         DBTIntegrationTest.setUp(self)
 
-        self.run_sql_file("test/integration/003_simple_dependency/seed.sql")
+        self.run_sql_file("test/integration/003_simple_reference/seed.sql")
 
     @property
     def schema(self):
-        return "simple_dependency_003"
+        return "simple_reference_003"
 
     @property
     def models(self):
-        return "test/integration/003_simple_dependency/models"
+        return "test/integration/003_simple_reference/models"
 
-    def test_simple_dependency(self):
+    def test_simple_reference(self):
         self.run_dbt()
 
         # Copies should match
@@ -29,7 +29,7 @@ class TestSimpleDependency(DBTIntegrationTest):
         self.assertTablesEqual("summary_expected","view_summary")
         self.assertTablesEqual("summary_expected","ephemeral_summary")
 
-        self.run_sql_file("test/integration/003_simple_dependency/update.sql")
+        self.run_sql_file("test/integration/003_simple_reference/update.sql")
 
         self.run_dbt()
 
