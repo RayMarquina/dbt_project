@@ -510,3 +510,21 @@ VALUES
     (498,'Larry','lhayesdt@wordpress.com','162.146.13.46','1997-02-26 14:01:53'),
     (499,'Evelyn','ethomasdu@hhs.gov','6.241.88.250','2007-09-14 13:03:34'),
     (500,'Paula','pshawdv@networksolutions.com','123.27.47.249','2003-10-30 21:19:20');
+
+create table simple_dependency_006.seed_config_expected_1 as (
+
+    select *, 'default'::text as c1, 'default'::text as c2 from simple_dependency_006.seed
+
+);
+
+create table simple_dependency_006.seed_config_expected_2 as (
+
+    select *, 'abc'::text as c1, 'def'::text as c2 from simple_dependency_006.seed
+
+);
+
+create table simple_dependency_006.seed_config_expected_3 as (
+
+    select *, 'ghi'::text as c1, 'jkl'::text as c2 from simple_dependency_006.seed
+
+);

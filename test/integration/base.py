@@ -27,6 +27,9 @@ class DBTIntegrationTest(unittest.TestCase):
         # create profiles
 
         profile_config = {
+            'config': {
+                'send_anonymous_usage_stats': False
+            },
             'test': {
                 'outputs': {
                     'default': {
