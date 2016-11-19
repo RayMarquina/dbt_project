@@ -1,6 +1,6 @@
 from test.integration.base import DBTIntegrationTest
 
-class TestSimpleArchive(DBTIntegrationTest):
+class TestSimpleSeed(DBTIntegrationTest):
 
     def setUp(self):
         DBTIntegrationTest.setUp(self)

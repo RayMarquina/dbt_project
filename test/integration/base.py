@@ -1,6 +1,6 @@
 import unittest
 import dbt.main as dbt
-import os
+import os, shutil
 import yaml
 
 from test.integration.connection import handle
@@ -56,6 +56,9 @@ class DBTIntegrationTest(unittest.TestCase):
     def tearDown(self):
         os.remove("/root/.dbt/profiles.yml")
         os.remove("dbt_project.yml")
+
+        if os.path.exists('dbt_modules'):
+            shutil.rmtree('dbt_modules')
 
     @property
     def project_config(self):
