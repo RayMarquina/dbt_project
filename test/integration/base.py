@@ -89,7 +89,7 @@ class DBTIntegrationTest(unittest.TestCase):
                 return output
             except BaseException as e:
                 handle.rollback()
-                print e
+                print(e)
 
     def get_table_columns(self, table):
         sql = """
@@ -102,6 +102,22 @@ class DBTIntegrationTest(unittest.TestCase):
         result = self.run_sql(sql.format(table, self.schema))
 
         return result
+
+    def get_models_in_schema(self):
+        sql = """
+                select table_name,
+                        case when table_type = 'BASE TABLE' then 'table'
+                             when table_type = 'VIEW' then 'view'
+                             else table_type
+                        end as materialization
+                from information_schema.tables
+                where table_schema = '{}'
+                order by table_name
+                """
+
+        result = self.run_sql(sql.format(self.schema))
+
+        return {model_name: materialization for (model_name, materialization) in result}
 
     def assertTablesEqual(self, table_a, table_b):
         self.assertTableColumnsEqual(table_a, table_b)
