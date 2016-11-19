@@ -21,3 +21,5 @@ dependencies:
 test:
   override:
     - sudo -i /bin/bash -c 'cd /home/ubuntu/dbt && ./test/circle.sh'
+  post:
+    - mv htmlcov $CIRCLE_ARTIFACTS/
