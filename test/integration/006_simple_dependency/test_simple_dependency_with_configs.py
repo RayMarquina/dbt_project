@@ -151,7 +151,7 @@ class TestSimpleDependencyWithModelSpecificOverriddenConfigs(BaseTestSimpleDepen
 
         created_models = self.get_models_in_schema()
 
-        # config is disabled
+        # config, table are disabled
         self.assertFalse('config' in created_models)
         self.assertFalse('table' in created_models)
 

@@ -22,7 +22,7 @@ class TestSimpleDependency(DBTIntegrationTest):
             ]
         }
 
-    def deps_run_assert_equality(self):
+    def test_simple_dependency(self):
         self.run_dbt(["deps"])
         self.run_dbt(["run"])
 
@@ -30,13 +30,31 @@ class TestSimpleDependency(DBTIntegrationTest):
         self.assertTablesEqual("seed","view")
         self.assertTablesEqual("seed","incremental")
 
-    def test_simple_dependency(self):
-        self.deps_run_assert_equality()
+        self.assertTablesEqual("seed_summary","view_summary")
 
         self.run_sql_file("test/integration/006_simple_dependency/update.sql")
 
-        self.deps_run_assert_equality()
+        self.run_dbt(["deps"])
+        self.run_dbt(["run"])
 
+        self.assertTablesEqual("seed","table")
+        self.assertTablesEqual("seed","view")
+        self.assertTablesEqual("seed","incremental")
+
+    def test_simple_dependency_with_models(self):
+        self.run_dbt(["deps"])
+        self.run_dbt(["run", '--models', 'view'])
+
+        self.assertTablesEqual("seed","view")
+        self.assertTablesEqual("seed_summary","view_summary")
+
+        created_models = self.get_models_in_schema()
+
+        self.assertFalse('table' in created_models)
+        self.assertFalse('incremental' in created_models)
+
+        self.assertEqual(created_models['view'], 'view')
+        self.assertEqual(created_models['view_summary'], 'view')
 
 class TestSimpleDependencyBranch(DBTIntegrationTest):
 
@@ -68,8 +86,17 @@ class TestSimpleDependencyBranch(DBTIntegrationTest):
         self.assertTablesEqual("seed","view")
         self.assertTablesEqual("seed","incremental")
 
+        created_models = self.get_models_in_schema()
+
+        self.assertEqual(created_models['table'], 'table')
+        self.assertEqual(created_models['view'], 'view')
+        self.assertEqual(created_models['view_summary'], 'view')
+        self.assertEqual(created_models['incremental'], 'table')
+
     def test_simple_dependency(self):
         self.deps_run_assert_equality()
+
+        self.assertTablesEqual("seed_summary","view_summary")
 
         self.run_sql_file("test/integration/006_simple_dependency/update.sql")
 
