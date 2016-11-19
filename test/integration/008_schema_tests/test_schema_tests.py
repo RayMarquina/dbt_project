@@ -6,6 +6,8 @@ from dbt.project import read_project
 class FakeArgs(object):
     def __init__(self):
         self.threads = 1
+        self.data = False
+        self.schema = True
 
 class TestSchemaTests(DBTIntegrationTest):
 
@@ -13,6 +15,12 @@ class TestSchemaTests(DBTIntegrationTest):
         DBTIntegrationTest.setUp(self)
         self.run_sql_file("test/integration/008_schema_tests/seed.sql")
         self.run_sql_file("test/integration/008_schema_tests/seed_failure.sql")
+    
+    @property
+    def project_config(self):
+        return {
+            "test-paths": []
+        }
 
     @property
     def schema(self):
