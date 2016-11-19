@@ -17,12 +17,6 @@ class TestSchemaTests(DBTIntegrationTest):
         self.run_sql_file("test/integration/008_schema_tests/seed_failure.sql")
     
     @property
-    def project_config(self):
-        return {
-            "test-paths": []
-        }
-
-    @property
     def schema(self):
         return "schema_tests_008"
 
