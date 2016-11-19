@@ -35,6 +35,8 @@ class TestTask:
     def run(self):
         self.compile()
         runner = RunManager(self.project, self.project['target-path'], 'build', self.args.threads)
-        runner.run_tests()
+        res = runner.run_tests()
 
         print("Done!")
+
+        return res
