@@ -75,6 +75,8 @@ class SchemaTester(object):
         self.logger = logging.getLogger(__name__)
         self.project = project
 
+        self.test_started_at = datetime.datetime.now()
+
     def get_target(self):
         target_cfg = self.project.run_environment()
         return dbt.targets.get_target(target_cfg)
@@ -138,7 +140,7 @@ class SchemaTester(object):
             failed_rows = 0 if res.status == "ERROR" else res.status
 
             value = value_template.format(
-                tested_at = datetime.datetime.now(),
+                tested_at = self.test_started_at,
                 model_name = res.model.name,
                 errored = "true" if res.errored else "false",
                 skipped = "true" if res.skipped else "false",
