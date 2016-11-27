@@ -33,10 +33,6 @@ class TestTask:
 
         return compiler
 
-    def insert_test_results(self, run_model_results):
-        schema_tester = SchemaTester(self.project)
-        schema_tester.insert_test_results(run_model_results)
-
     def run(self):
         self.compile()
         runner = RunManager(self.project, self.project['target-path'], 'build', self.args.threads)
@@ -49,9 +45,6 @@ class TestTask:
             res = runner.run_tests(test_schemas=True, test_data=False)
         else:
             raise RuntimeError("unexpected")
-
-        if self.args.insert_test_results:
-            self.insert_test_results(res)
 
         print("Done!")
         return res

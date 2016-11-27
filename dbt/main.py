@@ -89,7 +89,6 @@ def handle(args):
     sub = subs.add_parser('test', parents=[base_subparser])
     sub.add_argument('--data', action='store_true', help='Run data tests defined in "tests" directory')
     sub.add_argument('--schema', action='store_true', help='Run constraint validations from schema.yml files')
-    sub.add_argument('--insert_test_results', action='store_true', help="Insert test results into audit table (in active schema)")
     sub.add_argument('--threads', type=int, required=False, help="Specify number of threads to use while executing tests. Overrides settings in profiles.yml")
     sub.set_defaults(cls=test_task.TestTask, which='test')
 

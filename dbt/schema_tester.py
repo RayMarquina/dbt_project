@@ -62,14 +62,6 @@ create table if not exists {schema}.dbt_test_results (
 );
 """
 
-INSERT_TEST_RESULT_TEMPLATE = """
-insert into {schema}.dbt_test_results
-    (tested_at, model_name, errored, skipped, failed, count_failures, execution_time)
-values
-    {values}
-"""
-
-
 class SchemaTester(object):
     def __init__(self, project):
         self.logger = logging.getLogger(__name__)
@@ -118,45 +110,4 @@ class SchemaTester(object):
                 print("  FAILED ({})".format(num_rows))
                 yield False
 
-    def create_test_results_table_if_not_exist(self):
-        target = self.get_target()
-
-        with target.get_handle() as handle:
-            with handle.cursor() as cursor:
-                stmt = DDL_TEST_RESULT_CREATE.format(schema=target.schema)
-                try:
-                    cursor.execute(stmt)
-                except psycopg2.ProgrammingError as e:
-                    self.logger.exception('programming error: %s', stmt)
-
-    def insert_test_results(self, run_model_results):
-        target = self.get_target()
-        self.create_test_results_table_if_not_exist()
-
-        value_template = "('{tested_at}', '{model_name}', {errored}, {skipped}, {failed}, {count_failures}, {execution_time})"
-
-        values = []
-        for res in run_model_results:
-            failed_rows = 0 if res.status == "ERROR" else res.status
-
-            value = value_template.format(
-                tested_at = self.test_started_at,
-                model_name = res.model.name,
-                errored = "true" if res.errored else "false",
-                skipped = "true" if res.skipped else "false",
-                failed = "true" if failed_rows > 0 else "false",
-                count_failures = failed_rows,
-                execution_time = res.execution_time
-            )
-            values.append(value)
-
-        joined = ",\n".join(values)
-        stmt = INSERT_TEST_RESULT_TEMPLATE.format(values=joined, schema=target.schema)
-
-        with target.get_handle() as handle:
-            with handle.cursor() as cursor:
-                try:
-                    cursor.execute(stmt)
-                except psycopg2.ProgrammingError as e:
-                    self.logger.exception('programming error: %s', stmt)
 
