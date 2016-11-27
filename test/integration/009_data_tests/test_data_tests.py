@@ -8,6 +8,7 @@ class FakeArgs(object):
         self.threads = 1
         self.data = True
         self.schema = False
+        self.insert_test_results = False
 
 class TestDataTests(DBTIntegrationTest):
 
