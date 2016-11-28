@@ -15,13 +15,13 @@ database:
 
 dependencies:
   pre:
-    - sudo pip install --upgrade pip setuptools || true
+    - pip install --upgrade pip setuptools || true
     - pip install --upgrade tox tox-pyenv
   override:
     - pyenv local 2.7.9 3.5.0
 
 test:
   override:
-    - sudo -i /bin/bash -c 'cd /home/ubuntu/dbt && tox'
+    - /bin/bash -c 'cd /home/ubuntu/dbt && tox'
   post:
     - mv htmlcov $CIRCLE_ARTIFACTS/
