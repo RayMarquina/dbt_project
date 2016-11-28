@@ -7,7 +7,7 @@ cd /usr/src/app
 
 if [ $# = 0 ]; then
     echo "Running all tests"
-    nosetests -v --with-coverage --cover-branches --cover-html --cover-html-dir=htmlcov test/unit test/integration/* 
+    tox
 else
     echo "Running specified tests"
     nosetests -v --nocapture --with-coverage --cover-branches --cover-html --cover-html-dir=htmlcov $@
