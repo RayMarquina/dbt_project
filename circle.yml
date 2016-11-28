@@ -22,8 +22,7 @@ dependencies:
 
 test:
   override:
-    - sudo mkdir /root/.dbt
-    - sudo chown ubuntu:ubuntu /root/.dbt
+    - sudo chown -R ubuntu:ubuntu /root/
     - /bin/bash -c 'cd /home/ubuntu/dbt && tox'
   post:
     - mv htmlcov $CIRCLE_ARTIFACTS/
