@@ -171,8 +171,14 @@ class DryRunner(ModelRunner):
 class TestRunner(ModelRunner):
     run_type = 'test'
 
+    test_data_type = 'data'
+    test_schema_type = 'schema'
+
     def pre_run_msg(self, model):
-        return "TEST {name} ".format(name=model.name)
+        if model.is_test_type(self.test_data_type):
+            return "DATA TEST {name} ".format(name=model.name)
+        else:
+            return "SCHEMA TEST {name} ".format(name=model.name)
 
     def post_run_msg(self, result):
         model = result.model
@@ -496,11 +502,52 @@ class RunManager(object):
                 self.target.cleanup()
                 print("Done")
 
+
+    def run_tests_from_graph(self, test_schemas, test_data):
+        linker = self.deserialize_graph()
+        compiled_models = [make_compiled_model(fqn, linker.get_node(fqn)) for fqn in linker.nodes()]
+
+        schema_name = self.target.schema
+
+        print("Connecting to redshift")
+        try:
+            self.schema.create_schema_if_not_exists(schema_name)
+        except psycopg2.OperationalError as e:
+            print("ERROR: Could not connect to the target database. Try `dbt debug` for more information")
+            print(str(e))
+            sys.exit(1)
+
+        test_runner = TestRunner()
+
+        if test_schemas:
+            schema_tests = [m for m in compiled_models if m.is_test_type(test_runner.test_schema_type)]
+        else:
+            schema_tests = []
+
+        if test_data:
+            data_tests = [m for m in compiled_models if m.is_test_type(test_runner.test_data_type)]
+        else:
+            data_tests = []
+
+        all_tests = schema_tests + data_tests
+
+        for m in all_tests:
+            if m.should_execute():
+                context = self.context.copy()
+                context.update(m.context())
+                m.compile(context)
+
+        dep_list = [schema_tests, data_tests]
+
+        on_failure = self.on_model_failure(linker, all_tests)
+        results = self.execute_models(test_runner, dep_list, on_failure)
+
+        return results
+
     # ------------------------------------
 
-    def run_tests(self, limit_to=None):
-        runner = TestRunner()
-        return self.safe_run_from_graph(runner, limit_to)
+    def run_tests(self, test_schemas=False, test_data=False, limit_to=None):
+        return self.run_tests_from_graph(test_schemas, test_data)
 
     def run(self, limit_to=None):
         runner = ModelRunner()

@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 import os.path
 
 package_name = "dbt"
-package_version = "0.5.3"
+package_version = "0.5.4"
 
 setup(
   name=package_name,
@@ -13,7 +13,7 @@ setup(
   author_email="admin@analystcollective.org",
   url="https://github.com/analyst-collective/dbt",
   packages=find_packages(),
-  test_suite = 'tests',
+  test_suite = 'test',
   entry_points={
     'console_scripts': [
       'dbt = dbt.main:main',

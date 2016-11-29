@@ -39,6 +39,9 @@ class CompiledModel(object):
     def is_type(self, run_type):
         return self.data['dbt_run_type'] == run_type
 
+    def is_test_type(self, test_type):
+        return self.data.get('dbt_test_type') == test_type
+
     @property
     def contents(self):
         if self._contents is None:

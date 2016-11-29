@@ -8,6 +8,7 @@ from dbt.templates import DryCreateTemplate, BaseCreateTemplate
 from dbt.runner import RunManager
 from dbt.schema_tester import SchemaTester
 
+
 class TestTask:
     """
     Testing:
@@ -35,6 +36,15 @@ class TestTask:
     def run(self):
         self.compile()
         runner = RunManager(self.project, self.project['target-path'], 'build', self.args.threads)
-        runner.run_tests()
+
+        if (self.args.data and self.args.schema) or (not self.args.data and not self.args.schema):
+            res = runner.run_tests(test_schemas=True, test_data=True)
+        elif self.args.data:
+            res = runner.run_tests(test_schemas=False, test_data=True)
+        elif self.args.schema:
+            res = runner.run_tests(test_schemas=True, test_data=False)
+        else:
+            raise RuntimeError("unexpected")
 
         print("Done!")
+        return res
