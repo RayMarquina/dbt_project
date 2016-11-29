@@ -5,6 +5,7 @@ import dbt.targets
 import psycopg2
 import logging
 import time
+import datetime
 
 
 QUERY_VALIDATE_NOT_NULL = """
@@ -49,12 +50,24 @@ select count(*) from child
 where id not in (select id from parent) and id is not null
 """
 
-
+DDL_TEST_RESULT_CREATE = """
+create table if not exists {schema}.dbt_test_results (
+    tested_at timestamp without time zone,
+    model_name text,
+    errored bool,
+    skipped bool,
+    failed bool,
+    count_failures integer,
+    execution_time double precision
+);
+"""
 
 class SchemaTester(object):
     def __init__(self, project):
         self.logger = logging.getLogger(__name__)
         self.project = project
+
+        self.test_started_at = datetime.datetime.now()
 
     def get_target(self):
         target_cfg = self.project.run_environment()
@@ -97,5 +110,4 @@ class SchemaTester(object):
                 print("  FAILED ({})".format(num_rows))
                 yield False
 
-    def test(self):
-        pass
+

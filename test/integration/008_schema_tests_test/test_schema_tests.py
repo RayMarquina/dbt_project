@@ -6,21 +6,24 @@ from dbt.project import read_project
 class FakeArgs(object):
     def __init__(self):
         self.threads = 1
+        self.data = False
+        self.schema = True
+        self.insert_test_results = False
 
 class TestSchemaTests(DBTIntegrationTest):
 
     def setUp(self):
         DBTIntegrationTest.setUp(self)
-        self.run_sql_file("test/integration/008_schema_tests/seed.sql")
-        self.run_sql_file("test/integration/008_schema_tests/seed_failure.sql")
-
+        self.run_sql_file("test/integration/008_schema_tests_test/seed.sql")
+        self.run_sql_file("test/integration/008_schema_tests_test/seed_failure.sql")
+    
     @property
     def schema(self):
         return "schema_tests_008"
 
     @property
     def models(self):
-        return "test/integration/008_schema_tests/models"
+        return "test/integration/008_schema_tests_test/models"
 
     def run_schema_validations(self):
         project = read_project('dbt_project.yml')
@@ -29,7 +32,7 @@ class TestSchemaTests(DBTIntegrationTest):
         test_task = TestTask(args, project)
         return test_task.run()
 
-    def test_simple_dependency(self):
+    def test_schema_tests(self):
         self.run_dbt()
         test_results = self.run_schema_validations()
 
