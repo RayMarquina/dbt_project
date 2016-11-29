@@ -2,8 +2,12 @@ import unittest
 import dbt.main as dbt
 import os, shutil
 import yaml
+import time
 
 from test.integration.connection import handle
+
+DBT_CONFIG_DIR = os.path.expanduser(os.environ.get("DBT_CONFIG_DIR", '/root/.dbt'))
+DBT_PROFILES = os.path.join(DBT_CONFIG_DIR, 'profiles.yml')
 
 class DBTIntegrationTest(unittest.TestCase):
 
@@ -48,21 +52,25 @@ class DBTIntegrationTest(unittest.TestCase):
             }
         }
 
-        if not os.path.exists('/root/.dbt'):
-            os.makedirs('/root/.dbt')
+        if not os.path.exists(DBT_CONFIG_DIR):
+            os.makedirs(DBT_CONFIG_DIR)
 
-        with open("/root/.dbt/profiles.yml", 'w') as f:
+        with open(DBT_PROFILES, 'w') as f:
             yaml.safe_dump(profile_config, f, default_flow_style=True)
 
         self.run_sql("DROP SCHEMA IF EXISTS {} CASCADE;".format(self.schema))
         self.run_sql("CREATE SCHEMA {};".format(self.schema))
 
     def tearDown(self):
-        os.remove("/root/.dbt/profiles.yml")
+        os.remove(DBT_PROFILES)
         os.remove("dbt_project.yml")
 
-        if os.path.exists('dbt_modules'):
-            shutil.rmtree('dbt_modules')
+        # quick fix for windows bug that prevents us from deleting dbt_modules
+        try:
+            if os.path.exists('dbt_modules'):
+                shutil.rmtree('dbt_modules')
+        except:
+            os.rename("dbt_modules", "dbt_modules-{}".format(time.time()))
 
     @property
     def project_config(self):
