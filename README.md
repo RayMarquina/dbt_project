@@ -1,6 +1,7 @@
 # dbt
 Tests: [![CircleCI](https://circleci.com/gh/analyst-collective/dbt/tree/master.svg?style=svg)](https://circleci.com/gh/analyst-collective/dbt/tree/master)
 •
+[![AppVeyor](https://ci.appveyor.com/api/projects/status/v01rwd3q91jnwp9m/branch/development?svg=true)](https://ci.appveyor.com/project/DrewBanin/dbt/branch/development)
 [Coverage](https://circleci.com/api/v1/project/analyst-collective/dbt/latest/artifacts/0/$CIRCLE_ARTIFACTS/htmlcov/index.html?branch=development)
 •
 [Docs](http://dbt.readthedocs.io/en/master/about/overview/)
