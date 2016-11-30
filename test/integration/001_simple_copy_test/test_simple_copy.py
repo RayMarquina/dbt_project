@@ -36,3 +36,4 @@ class TestSimpleCopy(DBTIntegrationTest):
         models = self.get_models_in_schema()
 
         self.assertFalse('empty' in models.keys())
+        self.assertFalse('disabled' in models.keys())
