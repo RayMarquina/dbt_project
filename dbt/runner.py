@@ -93,7 +93,8 @@ class BaseRunner(object):
                             error=str(e).strip(),
                             user=target.user,
                         ))
-
+                    else:
+                        raise
 
         handle.commit()
         return status
