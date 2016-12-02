@@ -1,11 +1,4 @@
 # dbt
-Tests: [![CircleCI](https://circleci.com/gh/analyst-collective/dbt/tree/development.svg?style=svg)](https://circleci.com/gh/analyst-collective/dbt/tree/development)
-•
-[![AppVeyor](https://ci.appveyor.com/api/projects/status/v01rwd3q91jnwp9m/branch/development?svg=true)](https://ci.appveyor.com/project/DrewBanin/dbt/branch/development)
-•
-[Coverage](https://circleci.com/api/v1/project/analyst-collective/dbt/latest/artifacts/0/$CIRCLE_ARTIFACTS/htmlcov/index.html?branch=development)
-•
-[Docs](http://dbt.readthedocs.io/en/master/about/overview/)
 
 dbt (data build tool) helps analysts write reliable, modular code using a workflow that closely mirrors software development.
 
@@ -16,6 +9,14 @@ dbt (data build tool) helps analysts write reliable, modular code using a workfl
 - [Installation]
 - Join the [chat][slack-url] on Slack for live questions and support.
 
+### Testing
+
+| service | development | master |
+| --- | --- | --- |
+| CircleCI| [![CircleCI](https://circleci.com/gh/analyst-collective/dbt/tree/development.svg?style=svg)](https://circleci.com/gh/analyst-collective/dbt/tree/development) | [![CircleCI](https://circleci.com/gh/analyst-collective/dbt/tree/master.svg?style=svg)](https://circleci.com/gh/analyst-collective/dbt/tree/master) |
+| AppVeyor | [![AppVeyor](https://ci.appveyor.com/api/projects/status/v01rwd3q91jnwp9m/branch/development?svg=true)](https://ci.appveyor.com/project/DrewBanin/dbt/branch/development) | [![AppVeyor](https://ci.appveyor.com/api/projects/status/v01rwd3q91jnwp9m/branch/master?svg=true)](https://ci.appveyor.com/project/DrewBanin/dbt/branch/master) |
+
+[Coverage](https://circleci.com/api/v1/project/analyst-collective/dbt/latest/artifacts/0/$CIRCLE_ARTIFACTS/htmlcov/index.html?branch=development)
 
 ## Code of Conduct
 
