@@ -28,7 +28,7 @@ class TestSimpleDependencyWithConfigs(BaseTestSimpleDependencyWithConfigs):
 
             },
             "repositories": [
-                'https://github.com/fishtown-analytics/dbt-integration-project@configs'
+                'https://github.com/fishtown-analytics/dbt-integration-project@with-configs'
             ]
         }
 
@@ -61,7 +61,7 @@ class TestSimpleDependencyWithOverriddenConfigs(BaseTestSimpleDependencyWithConf
 
             },
             "repositories": [
-                'https://github.com/fishtown-analytics/dbt-integration-project@configs'
+                'https://github.com/fishtown-analytics/dbt-integration-project@with-configs'
             ]
         }
 
@@ -97,7 +97,7 @@ class TestSimpleDependencyWithModelSpecificOverriddenConfigs(BaseTestSimpleDepen
 
             },
             "repositories": [
-                'https://github.com/fishtown-analytics/dbt-integration-project@configs'
+                'https://github.com/fishtown-analytics/dbt-integration-project@with-configs'
             ]
         }
 
@@ -141,7 +141,7 @@ class TestSimpleDependencyWithModelSpecificOverriddenConfigs(BaseTestSimpleDepen
 
             },
             "repositories": [
-                'https://github.com/fishtown-analytics/dbt-integration-project@configs'
+                'https://github.com/fishtown-analytics/dbt-integration-project@with-configs'
             ]
         }
 
