@@ -386,7 +386,7 @@ class RunManager(object):
             return []
 
         num_threads = self.target.threads
-        print("Concurrency: {} threads (target='{}')".format(num_threads, self.project.get_target()))
+        print("Concurrency: {} threads (target='{}')".format(num_threads, self.project.get_target().get('name')))
         print("Running!")
 
         pool = ThreadPool(num_threads)

@@ -19,7 +19,7 @@ DBTConfigKeys = [
 ]
 
 class This(object):
-    def __init__(self, schema, table, name=None):
+    def __init__(self, schema, table, name):
         self.schema = schema
         self.table = table
         self.name = table if name is None else name

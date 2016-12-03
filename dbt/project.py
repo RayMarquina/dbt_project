@@ -77,7 +77,9 @@ class Project(object):
         return self.cfg['outputs'][target_name]
 
     def get_target(self):
-        return self.cfg['target'] # TODO
+        ctx = self.context().get('env').copy()
+        ctx['name'] = self.cfg['target']
+        return ctx
 
     def context(self):
         target_cfg = self.run_environment()

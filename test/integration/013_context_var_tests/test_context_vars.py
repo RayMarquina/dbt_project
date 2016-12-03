@@ -10,7 +10,6 @@ class TestContextVars(DBTIntegrationTest):
             'this.name',
             'this.schema',
             'this.table',
-            'this.materialized',
             'target.dbname',
             'target.host',
             'target.name',
@@ -79,7 +78,6 @@ class TestContextVars(DBTIntegrationTest):
         self.assertEqual(ctx['this.name'], 'context')
         self.assertEqual(ctx['this.schema'], 'context_vars_013')
         self.assertEqual(ctx['this.table'], 'context__dbt_tmp')
-        self.assertEqual(ctx['this.materialized'], 'table')
 
         self.assertEqual(ctx['target.dbname'], 'dbt')
         self.assertEqual(ctx['target.host'], 'database')
@@ -87,7 +85,8 @@ class TestContextVars(DBTIntegrationTest):
         self.assertEqual(ctx['target.port'], 5432)
         self.assertEqual(ctx['target.schema'], 'context_vars_013')
         self.assertEqual(ctx['target.threads'], 1)
-        self.assertEqual(ctx['target.type'], 'root')
+        self.assertEqual(ctx['target.type'], 'postgres')
+        self.assertEqual(ctx['target.user'], 'root')
         self.assertEqual(ctx['target.pass'], '')
 
     def test_env_vars_prod(self):
@@ -98,7 +97,6 @@ class TestContextVars(DBTIntegrationTest):
         self.assertEqual(ctx['this.name'], 'context')
         self.assertEqual(ctx['this.schema'], 'context_vars_013')
         self.assertEqual(ctx['this.table'], 'context__dbt_tmp')
-        self.assertEqual(ctx['this.materialized'], 'table')
 
         self.assertEqual(ctx['target.dbname'], 'dbt')
         self.assertEqual(ctx['target.host'], 'database')
@@ -106,5 +104,7 @@ class TestContextVars(DBTIntegrationTest):
         self.assertEqual(ctx['target.port'], 5432)
         self.assertEqual(ctx['target.schema'], 'context_vars_013')
         self.assertEqual(ctx['target.threads'], 1)
-        self.assertEqual(ctx['target.type'], 'root')
+        self.assertEqual(ctx['target.type'], 'postgres')
+        self.assertEqual(ctx['target.user'], 'root')
         self.assertEqual(ctx['target.pass'], '')
+
