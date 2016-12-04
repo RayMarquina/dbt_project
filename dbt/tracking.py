@@ -128,7 +128,12 @@ def get_platform_context():
     return SelfDescribingJson(PLATFORM_SPEC, data)
 
 def get_dbt_env_context():
-    dbt_invocation_env = os.getenv(DBT_INVOCATION_ENV, 'manual')
+    default = 'manual'
+
+    dbt_invocation_env = os.getenv(DBT_INVOCATION_ENV, default)
+    if dbt_invocation_env == '':
+        dbt_invocation_env = default
+
     data = {
         "environment" : dbt_invocation_env,
     }
@@ -159,7 +164,6 @@ def track(*args, **kwargs):
 def track_invocation_start(project=None, args=None):
     invocation_context = get_invocation_start_context(invocation_id, user, project, args)
     context = [invocation_context, platform_context, env_context]
-    import ipdb; ipdb.set_trace()
     track(category="dbt", action='invocation', label='start', context=context)
 
 def track_model_run(options):
