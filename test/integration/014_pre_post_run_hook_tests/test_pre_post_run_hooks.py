@@ -39,7 +39,7 @@ class TestPrePostRunHooks(DBTIntegrationTest):
     def setUp(self):
         DBTIntegrationTest.setUp(self)
 
-        self.run_sql_file("test/integration/014_pre_post_run_hooks/seed.sql")
+        self.run_sql_file("test/integration/014_pre_post_run_hook_tests/seed.sql")
 
         self.fields = [
             'state',
@@ -69,7 +69,7 @@ class TestPrePostRunHooks(DBTIntegrationTest):
 
     @property
     def models(self):
-        return "test/integration/014_pre_post_run_hooks/models"
+        return "test/integration/014_pre_post_run_hook_tests/models"
 
     def get_ctx_vars(self, state):
         field_list = ", ".join(['"{}"'.format(f) for f in self.fields])
