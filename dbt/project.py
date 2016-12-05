@@ -23,6 +23,8 @@ default_project_cfg = {
 
 default_profiles = {}
 
+default_profiles_dir = os.path.join(os.path.expanduser('~'), '.dbt')
+
 class DbtProjectError(Exception):
     def __init__(self, message, project):
         self.project = project
@@ -30,11 +32,12 @@ class DbtProjectError(Exception):
 
 class Project(object):
 
-    def __init__(self, cfg, profiles, profile_to_load=None):
+    def __init__(self, cfg, profiles, profiles_dir, profile_to_load=None):
         self.cfg = default_project_cfg.copy()
         self.cfg.update(cfg)
         self.profiles = default_profiles.copy()
         self.profiles.update(profiles)
+        self.profiles_dir = profiles_dir
         self.profile_to_load = profile_to_load
 
         # load profile from dbt_config.yml if cli arg isn't supplied
@@ -85,12 +88,6 @@ class Project(object):
         filtered_target.pop('pass', None)
         return {'env': filtered_target}
 
-    def with_profiles(self, profile):
-        return Project(
-            copy.deepcopy(self.cfg),
-            copy.deepcopy(self.profiles),
-            profile)
-
     def validate(self):
         self.handle_deprecations()
 
@@ -117,10 +114,13 @@ class Project(object):
         return hashlib.md5(project_name.encode('utf-8')).hexdigest()
 
 
-def read_profiles():
+def read_profiles(profiles_dir=None):
+    if profiles_dir is None:
+        profiles_dir = default_profiles_dir
+
     profiles = {}
     paths = [
-        os.path.join(os.path.expanduser('~'), '.dbt/profiles.yml')
+        os.path.join(profiles_dir, 'profiles.yml')
     ]
     for path in paths:
         if os.path.isfile(path):
@@ -131,12 +131,12 @@ def read_profiles():
 
     return profiles
 
-def read_project(filename, validate=True, profile_to_load=None):
+def read_project(filename, profiles_dir, validate=True, profile_to_load=None):
     with open(filename, 'r') as f:
         project_cfg = yaml.safe_load(f)
         project_cfg['project-root'] = os.path.dirname(os.path.abspath(filename))
-        profiles = read_profiles()
-        proj = Project(project_cfg, profiles, profile_to_load)
+        profiles = read_profiles(profiles_dir)
+        proj = Project(project_cfg, profiles, profiles_dir, profile_to_load)
 
         if validate:
             proj.validate()

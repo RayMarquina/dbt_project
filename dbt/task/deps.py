@@ -103,7 +103,7 @@ class DepsTask:
                     dep_project = project.read_project(
                         os.path.join(self.project['modules-path'],
                                      dep_folder,
-                                     'dbt_project.yml'), profile_to_load=self.project.profile_to_load
+                                     'dbt_project.yml'), self.project.profiles_dir, profile_to_load=self.project.profile_to_load
                     )
                     processed_repos.add(dep_folder)
                     self.__pull_deps_recursive(dep_project['repositories'], processed_repos, i+1)

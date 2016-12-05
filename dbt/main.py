@@ -20,6 +20,7 @@ import dbt.task.archive as archive_task
 import dbt.tracking
 
 
+# TODO : make this use the correct profiles dir (via args)!
 def is_opted_out():
     profiles = project.read_profiles()
 
@@ -38,9 +39,10 @@ def main(args=None):
         dbt.tracking.do_not_track()
 
     try:
-        handle(args)
+        res = handle(args)
         dbt.tracking.flush()
 
+        return res
     except RuntimeError as e:
         print("Encountered an error:")
         print(str(e))
@@ -63,13 +65,13 @@ def invoke_dbt(parsed):
     proj = None
 
     try:
-        proj = project.read_project('dbt_project.yml', validate=False, profile_to_load=parsed.profile)
+        proj = project.read_project('dbt_project.yml', parsed.profiles_dir, validate=False, profile_to_load=parsed.profile)
         proj.validate()
     except project.DbtProjectError as e:
         print("Encountered an error while reading the project:")
         print("  ERROR {}".format(str(e)))
         print("Did you set the correct --profile? Using: {}".format(parsed.profile))
-        all_profiles = project.read_profiles().keys()
+        all_profiles = project.read_profiles(parsed.profiles_dir).keys()
         profiles_string = "\n".join([" - " + key for key in all_profiles])
         print("Valid profiles:\n{}".format(profiles_string))
         dbt.tracking.track_invalid_invocation(project=proj, args=parsed, result_type="invalid_profile", result=str(e))
@@ -101,6 +103,7 @@ def handle(args):
     subs = p.add_subparsers()
 
     base_subparser = argparse.ArgumentParser(add_help=False)
+    base_subparser.add_argument('--profiles-dir', default=project.default_profiles_dir, type=str, help='Which dir to look in for the profiles.yml file. Default = {}'.format(project.default_profiles_dir))
     base_subparser.add_argument('--profile', required=False, type=str, help='Which profile to load (overrides profile setting in dbt_project.yml file)')
     base_subparser.add_argument('--target', default=None, type=str, help='Which target to load for the given profile')
 
@@ -160,7 +163,7 @@ def handle(args):
 
     dbt.tracking.track_invocation_start(project=proj, args=parsed)
     try:
-        task.run()
+        return task.run()
         dbt.tracking.track_invocation_end(project=proj, args=parsed, result_type="ok", result=None)
     except Exception as e:
         dbt.tracking.track_invocation_end(project=proj, args=parsed, result_type="error", result=str(e))
