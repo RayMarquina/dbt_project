@@ -34,24 +34,25 @@ def main(args=None):
     if args is None:
         args = sys.argv[1:]
 
-    handle(args)
-
-def handle(args):
     try:
-        parsed = parse_args(args)
+        return handle(args)
 
-        # this needs to happen after args are parsed so we can determine the correct profiles.yml file
-        if is_opted_out(parsed.profiles_dir):
-            dbt.tracking.do_not_track()
-
-        res = run_from_args(parsed)
-        dbt.tracking.flush()
-
-        return res
     except RuntimeError as e:
         print("Encountered an error:")
         print(str(e))
         sys.exit(1)
+
+def handle(args):
+    parsed = parse_args(args)
+
+    # this needs to happen after args are parsed so we can determine the correct profiles.yml file
+    if is_opted_out(parsed.profiles_dir):
+        dbt.tracking.do_not_track()
+
+    res = run_from_args(parsed)
+    dbt.tracking.flush()
+
+    return res
 
 def get_nearest_project_dir():
     root_path = os.path.abspath(os.sep)
