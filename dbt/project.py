@@ -131,7 +131,10 @@ def read_profiles(profiles_dir=None):
 
     return profiles
 
-def read_project(filename, profiles_dir, validate=True, profile_to_load=None):
+def read_project(filename, profiles_dir=None, validate=True, profile_to_load=None):
+    if profiles_dir is None:
+        profiles_dir = default_profiles_dir
+
     with open(filename, 'r') as f:
         project_cfg = yaml.safe_load(f)
         project_cfg['project-root'] = os.path.dirname(os.path.abspath(filename))
