@@ -43,8 +43,6 @@ def handle(args):
         # this needs to happen after args are parsed so we can determine the correct profiles.yml file
         if is_opted_out(parsed.profiles_dir):
             dbt.tracking.do_not_track()
-        else:
-            dbt.tracking.set_profiles_dir(parsed.profiles_dir)
 
         res = run_from_args(parsed)
         dbt.tracking.flush()
