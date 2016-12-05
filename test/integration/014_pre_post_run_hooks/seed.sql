@@ -1,6 +1,6 @@
 
 create table pre_post_run_hooks_014.on_run_hook (
-    "hook_type"        TEXT, -- start|end
+    "state"            TEXT, -- start|end
 
     "target.dbname"    TEXT,
     "target.host"      TEXT,
@@ -10,7 +10,7 @@ create table pre_post_run_hooks_014.on_run_hook (
     "target.user"      TEXT,
     "target.pass"      TEXT,
     "target.port"      INTEGER,
-    "target.threads"   TEXT,
+    "target.threads"   INTEGER,
 
     "run_started_at"   TEXT,
     "invocation_id"    TEXT

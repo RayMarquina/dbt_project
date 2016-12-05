@@ -3,7 +3,7 @@ from test.integration.base import DBTIntegrationTest
 
 RUN_HOOK_TEMPLATE = """
    insert into pre_post_run_hooks_014.on_run_hook (
-        "hook_type",
+        "state",
         "target.dbname",
         "target.host",
         "target.name",
@@ -14,9 +14,9 @@ RUN_HOOK_TEMPLATE = """
         "target.port",
         "target.threads",
         "run_started_at",
-        "invocation_id",
+        "invocation_id"
    ) VALUES (
-    '%s',
+    '{{ state }}',
     '{{ target.dbname }}',
     '{{ target.host }}',
     '{{ target.name }}',
@@ -26,13 +26,13 @@ RUN_HOOK_TEMPLATE = """
     '{{ target.pass }}',
     {{ target.port }},
     {{ target.threads }},
-    '{{ run_started_at }}'
+    '{{ run_started_at }}',
     '{{ invocation_id }}'
    )
 """
 
-RUN_START_HOOK = RUN_HOOK_TEMPLATE % 'start'
-RUN_END_HOOK = RUN_HOOK_TEMPLATE % 'end'
+RUN_START_HOOK = RUN_HOOK_TEMPLATE
+RUN_END_HOOK = RUN_HOOK_TEMPLATE
 
 class TestPrePostRunHooks(DBTIntegrationTest):
 
@@ -42,7 +42,7 @@ class TestPrePostRunHooks(DBTIntegrationTest):
         self.run_sql_file("test/integration/014_pre_post_run_hooks/seed.sql")
 
         self.fields = [
-            'hook_type',
+            'state',
             'target.dbname',
             'target.host',
             'target.name',
@@ -71,12 +71,12 @@ class TestPrePostRunHooks(DBTIntegrationTest):
     def models(self):
         return "test/integration/014_pre_post_run_hooks/models"
 
-    def get_ctx_vars(self):
+    def get_ctx_vars(self, state):
         field_list = ", ".join(['"{}"'.format(f) for f in self.fields])
-        query = 'select {field_list} from {schema}.on_run_hook'.format(field_list=field_list, schema=self.schema)
+        query = "select {field_list} from {schema}.on_run_hook where state = '{state}'".format(field_list=field_list, schema=self.schema, state=state)
 
         vals = self.run_sql(query)
-        self.assertTrue(len(vals) == 1, 'nothing inserted into on_run_hook table')
+        self.assertFalse(len(vals) == 0, 'nothing inserted into on_run_hook table')
         ctx = dict([(k,v) for (k,v) in zip(self.fields, vals[0])])
 
         return ctx
@@ -84,11 +84,12 @@ class TestPrePostRunHooks(DBTIntegrationTest):
     def test_pre_post_run_hooks(self):
         self.run_dbt(['run'])
 
-        ctx = self.get_ctx_vars()
+        ctx = self.get_ctx_vars('start')
 
+        self.assertEqual(ctx['state'], 'start')
         self.assertEqual(ctx['target.dbname'], 'dbt')
         self.assertEqual(ctx['target.host'], 'database')
-        self.assertEqual(ctx['target.name'], 'dev')
+        self.assertEqual(ctx['target.name'], 'default2')
         self.assertEqual(ctx['target.port'], 5432)
         self.assertEqual(ctx['target.schema'], 'pre_post_run_hooks_014')
         self.assertEqual(ctx['target.threads'], 1)

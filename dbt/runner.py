@@ -10,7 +10,7 @@ import re
 import yaml
 from datetime import datetime
 
-from dbt.compilation import Compiler
+from dbt.compilation import Compiler, compile_string
 from dbt.linker import Linker
 from dbt.templates import BaseCreateTemplate
 import dbt.targets
@@ -41,6 +41,10 @@ class RunModelResult(object):
         return self.skip
 
 class BaseRunner(object):
+    def __init__(self, project, schema_helper):
+        self.project = project
+        self.schema_helper = schema_helper
+
     def pre_run_msg(self, model):
         raise NotImplementedError("not implemented")
 
@@ -56,16 +60,33 @@ class BaseRunner(object):
     def post_run_all_msg(self, results):
         raise NotImplementedError("not implemented")
 
-    def post_run_all(self, schema, results):
+    def post_run_all(self, models, results, context):
         pass
 
-    def pre_run_all(self, models):
+    def pre_run_all(self, models, context):
         pass
 
     def status(self, result):
         raise NotImplementedError("not implemented")
 
-    def execute_contents(self, schema, target, model):
+    def execute_list(self, queries, source):
+        handle = None
+
+        status = 'None'
+        for i, query in enumerate(queries):
+            try:
+                handle, status = self.schema_helper.execute_without_auto_commit(query, handle)
+            except psycopg2.ProgrammingError as e:
+                error_msg = e.diag.message_primary
+                if error_msg is not None and "permission denied for" in error_msg:
+                    raise RuntimeError("Permission denied while running {}".format(source))
+                else:
+                    raise
+
+        handle.commit()
+        return status
+
+    def execute_contents(self, target, model):
         parts = re.split(r'-- (DBT_OPERATION .*)', model.compiled_contents)
         handle = None
 
@@ -79,13 +100,13 @@ class BaseRunner(object):
                 kwargs = instruction['args']
 
                 func_map = {
-                    'expand_column_types_if_needed': lambda kwargs: schema.expand_column_types_if_needed(**kwargs),
+                    'expand_column_types_if_needed': lambda kwargs: self.schema_helper.expand_column_types_if_needed(**kwargs),
                 }
 
                 func_map[function](kwargs)
             else:
                 try:
-                    handle, status = schema.execute_without_auto_commit(part, handle)
+                    handle, status = self.schema_helper.execute_without_auto_commit(part, handle)
                 except psycopg2.ProgrammingError as e:
                     if "permission denied for" in e.diag.message_primary:
                         raise RuntimeError(dbt.schema.READ_PERMISSION_DENIED_ERROR.format(
@@ -133,19 +154,41 @@ class ModelRunner(BaseRunner):
     def status(self, result):
         return result.status
 
-    def execute(self, schema, target, model):
+    def execute(self, target, model):
         if model.tmp_drop_type is not None:
-            schema.drop(target.schema, model.tmp_drop_type, model.tmp_name)
+            self.schema_helper.drop(target.schema, model.tmp_drop_type, model.tmp_name)
 
-        status = self.execute_contents(schema, target, model)
+        status = self.execute_contents(target, model)
 
         if model.final_drop_type is not None:
-            schema.drop(target.schema, model.final_drop_type, model.name)
+            self.schema_helper.drop(target.schema, model.final_drop_type, model.name)
 
         if model.should_rename():
-            schema.rename(target.schema, model.tmp_name, model.name)
+            self.schema_helper.rename(target.schema, model.tmp_name, model.name)
 
         return status
+
+    def __run_hooks(self, hooks, context, source):
+        if type(hooks) not in (list, tuple):
+            hooks = [hooks]
+
+        ctx = {
+            "target"         : self.project.get_target(),
+            "state"          : "start",
+            "invocation_id"  : context['invocation_id'],
+            "run_started_at" : context['run_started_at']
+        }
+
+        compiled_hooks = [compile_string(hook, ctx) for hook in hooks]
+        self.execute_list(compiled_hooks, source)
+
+    def pre_run_all(self, models, context):
+        hooks = self.project.cfg.get('on-run-start', [])
+        self.__run_hooks(hooks, context, 'on-run-start hooks')
+
+    def post_run_all(self, models, results, context):
+        hooks = self.project.cfg.get('on-run-start', [])
+        self.__run_hooks(hooks, context, 'on-run-end hooks')
 
 class DryRunner(ModelRunner):
     run_type = 'dry-run'
@@ -165,7 +208,7 @@ class DryRunner(ModelRunner):
     def post_run_all_msg(self, results):
         return "Finished dry-running {} models".format(len(results))
 
-    def post_run_all(self, schema, results):
+    def post_run_all(self, models, results, context):
         count_dropped = 0
         for result in results:
             if result.errored or result.skipped:
@@ -174,7 +217,7 @@ class DryRunner(ModelRunner):
             schema_name = model.target.schema
 
             relation_type = 'table' if model.materialization == 'incremental' else 'view'
-            schema.drop(schema_name, relation_type, model.name)
+            self.schema_helper.drop(schema_name, relation_type, model.name)
             count_dropped += 1
         print("Dropped {} dry-run models".format(count_dropped))
 
@@ -229,8 +272,8 @@ class TestRunner(ModelRunner):
 
         return info
 
-    def execute(self, schema, target, model):
-        rows = schema.execute_and_fetch(model.compiled_contents)
+    def execute(self, target, model):
+        rows = self.schema_helper.execute_and_fetch(model.compiled_contents)
         if len(rows) > 1:
             raise RuntimeError("Bad test {name}: Returned {num_rows} rows instead of 1".format(name=model.name, num_rows=len(rows)))
 
@@ -272,8 +315,8 @@ class ArchiveRunner(BaseRunner):
     def status(self, result):
         return result.status
 
-    def execute(self, schema, target, model):
-        status = self.execute_contents(schema, target, model)
+    def execute(self, target, model):
+        status = self.execute_contents(target, model)
         return status
 
 class RunManager(object):
@@ -315,7 +358,7 @@ class RunManager(object):
     def execute_model(self, runner, model):
         self.logger.info("executing model %s", model)
 
-        result = runner.execute(self.schema, self.target, model)
+        result = runner.execute(self.target, model)
         return result
 
     def safe_execute_model(self, data):
@@ -393,7 +436,7 @@ class RunManager(object):
 
         print()
         print(runner.pre_run_all_msg(flat_models))
-        runner.pre_run_all(flat_models)
+        runner.pre_run_all(flat_models, self.context)
 
         fqn_to_id_map = {model.fqn: i + 1 for (i, model) in enumerate(flat_models)}
 
@@ -460,7 +503,7 @@ class RunManager(object):
 
         print()
         print(runner.post_run_all_msg(model_results))
-        runner.post_run_all(self.schema, model_results)
+        runner.post_run_all(flat_models, model_results, self.context)
 
         return model_results
 
@@ -527,7 +570,7 @@ class RunManager(object):
             print(str(e))
             sys.exit(1)
 
-        test_runner = TestRunner()
+        test_runner = TestRunner(self.project, self.schema)
 
         if test_schemas:
             schema_tests = [m for m in compiled_models if m.is_test_type(test_runner.test_schema_type)]
@@ -560,15 +603,15 @@ class RunManager(object):
         return self.run_tests_from_graph(test_schemas, test_data)
 
     def run(self, limit_to=None):
-        runner = ModelRunner()
+        runner = ModelRunner(self.project, self.schema)
         return self.safe_run_from_graph(runner, limit_to)
 
     def dry_run(self, limit_to=None):
-        runner = DryRunner()
+        runner = DryRunner(self.project, self.schema)
         return self.safe_run_from_graph(runner, limit_to)
 
     def run_archive(self):
-        runner = ArchiveRunner()
+        runner = ArchiveRunner(self.project, self.schema)
         return self.safe_run_from_graph(runner, None)
 
 
