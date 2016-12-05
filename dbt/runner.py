@@ -70,6 +70,9 @@ class BaseRunner(object):
         raise NotImplementedError("not implemented")
 
     def execute_list(self, queries, source):
+        if len(queries) == 0:
+            return
+
         handle = None
 
         status = 'None'
