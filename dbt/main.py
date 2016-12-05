@@ -20,9 +20,8 @@ import dbt.task.archive as archive_task
 import dbt.tracking
 
 
-# TODO : make this use the correct profiles dir (via args)!
-def is_opted_out():
-    profiles = project.read_profiles()
+def is_opted_out(profiles_dir):
+    profiles = project.read_profiles(profiles_dir)
 
     if profiles is None or profiles.get("config") is None:
         return False
@@ -35,11 +34,19 @@ def main(args=None):
     if args is None:
         args = sys.argv[1:]
 
-    if is_opted_out():
-        dbt.tracking.do_not_track()
+    handle(args)
 
+def handle(args):
     try:
-        res = handle(args)
+        parsed = parse_args(args)
+
+        # this needs to happen after args are parsed so we can determine the correct profiles.yml file
+        if is_opted_out(parsed.profiles_dir):
+            dbt.tracking.do_not_track()
+        else:
+            dbt.tracking.set_profiles_dir(parsed.profiles_dir)
+
+        res = run_from_args(parsed)
         dbt.tracking.flush()
 
         return res
@@ -59,6 +66,28 @@ def get_nearest_project_dir():
         cwd = os.path.dirname(cwd)
 
     return None
+
+def run_from_args(parsed):
+    nearest_project_dir = get_nearest_project_dir()
+
+    if nearest_project_dir is None:
+        raise RuntimeError("dbt must be run from a project root directory with a dbt_project.yml file")
+
+    os.chdir(nearest_project_dir)
+
+    if parsed.which == 'init':
+        # bypass looking for a project file if we're running `dbt init`
+        task = parsed.cls(args=parsed)
+    else:
+        task, proj = invoke_dbt(parsed)
+
+    dbt.tracking.track_invocation_start(project=proj, args=parsed)
+    try:
+        return task.run()
+        dbt.tracking.track_invocation_end(project=proj, args=parsed, result_type="ok", result=None)
+    except Exception as e:
+        dbt.tracking.track_invocation_end(project=proj, args=parsed, result_type="error", result=str(e))
+        raise
 
 def invoke_dbt(parsed):
     task = None
@@ -97,7 +126,7 @@ def invoke_dbt(parsed):
 
     return task, proj
 
-def handle(args):
+def parse_args(args):
     p = argparse.ArgumentParser(prog='dbt: data build tool', formatter_class=argparse.RawTextHelpFormatter)
     p.add_argument('--version', action='version', version=dbt.version.get_version_information(), help="Show version information")
     subs = p.add_subparsers()
@@ -147,24 +176,4 @@ def handle(args):
     if len(args) == 0: return p.print_help()
 
     parsed = p.parse_args(args)
-
-    nearest_project_dir = get_nearest_project_dir()
-
-    if nearest_project_dir is None:
-        raise RuntimeError("dbt must be run from a project root directory with a dbt_project.yml file")
-
-    os.chdir(nearest_project_dir)
-
-    if parsed.which == 'init':
-        # bypass looking for a project file if we're running `dbt init`
-        task = parsed.cls(args=parsed)
-    else:
-        task, proj = invoke_dbt(parsed)
-
-    dbt.tracking.track_invocation_start(project=proj, args=parsed)
-    try:
-        return task.run()
-        dbt.tracking.track_invocation_end(project=proj, args=parsed, result_type="ok", result=None)
-    except Exception as e:
-        dbt.tracking.track_invocation_end(project=proj, args=parsed, result_type="error", result=str(e))
-        raise
+    return parsed
