@@ -70,7 +70,7 @@ def run_from_args(parsed):
     nearest_project_dir = get_nearest_project_dir()
 
     if nearest_project_dir is None:
-        raise RuntimeError("dbt must be run from a project root directory with a dbt_project.yml file")
+        raise RuntimeError("fatal: Not a dbt project (or any of the parent directories). Missing dbt_project.yml file")
 
     os.chdir(nearest_project_dir)
 
