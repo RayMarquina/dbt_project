@@ -10,10 +10,10 @@ version: '0.0.1'
 source-paths: ["models"]     # paths with source code to compile
 analysis-paths: ["analysis"] # path with code to compile, but not execute
 target-path: "target"        # path for compiled code
-clean-targets: ["target"]    # directories removed by the clean task
 test-paths: ["test"]         # where to store test results
 data-paths: ["data"]         # load csvs from this directory with `dbt seed`
 log-path: "logs"             # where to save log files (rotated daily)
+clean-targets: ["target", "dbt_modules"]    # directories removed by the clean task
 
 profile: "evil-corp"  # this must map to the profile you create in profiles.yml;
                       # this is how dbt gets the connection information for this project.
