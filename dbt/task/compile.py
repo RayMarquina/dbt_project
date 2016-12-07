@@ -16,7 +16,7 @@ class CompileTask:
 
         compiler = Compiler(self.project, create_template)
         compiler.initialize()
-        results = compiler.compile(dry=self.args.dry)
+        results = compiler.compile(dry=self.args.dry, limit_to=CompilableEntities)
 
         stat_line = ", ".join(["{} {}".format(results[k], k) for k in CompilableEntities])
         print("Compiled {}".format(stat_line))
