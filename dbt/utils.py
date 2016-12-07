@@ -91,7 +91,7 @@ def dependency_projects(project):
         full_obj = os.path.join(project['modules-path'], obj)
         if os.path.isdir(full_obj):
             try:
-                yield dbt.project.read_project(os.path.join(full_obj, 'dbt_project.yml'), profile_to_load=project.profile_to_load)
+                yield dbt.project.read_project(os.path.join(full_obj, 'dbt_project.yml'), project.profiles_dir, profile_to_load=project.profile_to_load)
             except dbt.project.DbtProjectError as e:
                 print("Error reading dependency project at {}".format(full_obj))
                 print(str(e))
