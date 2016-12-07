@@ -10,5 +10,5 @@ if [ $# = 0 ]; then
     tox
 else
     echo "Running specified tests"
-    nosetests -v --nocapture --with-coverage --cover-branches --cover-html --cover-html-dir=htmlcov $@
+    DBT_INVOCATION_ENV="ci-local" nosetests -v --nocapture --with-coverage --cover-branches --cover-html --cover-html-dir=htmlcov $@
 fi

@@ -23,6 +23,9 @@ COOKIE_PATH = os.path.join(os.path.expanduser('~'), '.dbt/.user.yml')
 INVOCATION_SPEC = "https://raw.githubusercontent.com/analyst-collective/dbt/master/events/schemas/com.fishtownanalytics/invocation_event.json"
 PLATFORM_SPEC   = "https://raw.githubusercontent.com/analyst-collective/dbt/master/events/schemas/com.fishtownanalytics/platform_context.json"
 RUN_MODEL_SPEC  = "https://raw.githubusercontent.com/analyst-collective/dbt/master/events/schemas/com.fishtownanalytics/run_model_context.json"
+INVOCATION_ENV_SPEC  = "https://raw.githubusercontent.com/analyst-collective/dbt/feature/track_dbt_environment/events/schemas/com.fishtownanalytics/invocation_env_context.json"
+
+DBT_INVOCATION_ENV = 'DBT_INVOCATION_ENV'
 
 emitter = Emitter(COLLECTOR_URL, protocol=COLLECTOR_PROTOCOL, buffer_size=1)
 tracker = Tracker(emitter, namespace="cf", app_id="dbt")
@@ -124,8 +127,22 @@ def get_platform_context():
 
     return SelfDescribingJson(PLATFORM_SPEC, data)
 
+def get_dbt_env_context():
+    default = 'manual'
+
+    dbt_invocation_env = os.getenv(DBT_INVOCATION_ENV, default)
+    if dbt_invocation_env == '':
+        dbt_invocation_env = default
+
+    data = {
+        "environment" : dbt_invocation_env,
+    }
+
+    return SelfDescribingJson(INVOCATION_ENV_SPEC, data)
+
 invocation_id = str(uuid.uuid4())
 platform_context = get_platform_context()
+env_context = get_dbt_env_context()
 
 user = get_user()
 subject = Subject()
@@ -146,7 +163,7 @@ def track(*args, **kwargs):
 
 def track_invocation_start(project=None, args=None):
     invocation_context = get_invocation_start_context(invocation_id, user, project, args)
-    context = [invocation_context, platform_context]
+    context = [invocation_context, platform_context, env_context]
     track(category="dbt", action='invocation', label='start', context=context)
 
 def track_model_run(options):
@@ -156,12 +173,12 @@ def track_model_run(options):
 
 def track_invocation_end(project=None, args=None, result_type=None, result=None):
     invocation_context = get_invocation_end_context(invocation_id, user, project, args, result_type, result)
-    context = [invocation_context, platform_context]
+    context = [invocation_context, platform_context, env_context]
     track(category="dbt", action='invocation', label='end', context=context)
 
 def track_invalid_invocation(project=None, args=None, result_type=None, result=None):
     invocation_context = get_invocation_invalid_context(invocation_id, user, project, args, result_type, result)
-    context = [invocation_context, platform_context]
+    context = [invocation_context, platform_context, env_context]
     track(category="dbt", action='invocation', label='invalid', context=context)
 
 def flush():
