@@ -19,7 +19,7 @@ DBTConfigKeys = [
 ]
 
 class This(object):
-    def __init__(self, schema, table, name=None):
+    def __init__(self, schema, table, name):
         self.schema = schema
         self.table = table
         self.name = table if name is None else name
@@ -31,7 +31,12 @@ class This(object):
         return self.schema_table(self.schema, self.table)
 
 def compiler_error(model, msg):
-    raise RuntimeError("! Compilation error while compiling model {}:\n! {}".format(model.nice_name, msg))
+    if model is None:
+        name = '<None>'
+    else:
+        name = model.nice_name
+
+    raise RuntimeError("! Compilation error while compiling model {}:\n! {}".format(name, msg))
 
 def compiler_warning(model, msg):
     print("* Compilation warning while compiling model {}:\n* {}".format(model.nice_name, msg))

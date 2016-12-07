@@ -14,6 +14,14 @@ import sqlparse
 
 CompilableEntities = ["models", "data tests", "schema tests", "archives", "analyses"]
 
+def compile_string(string, ctx):
+    try:
+        env = jinja2.Environment()
+        template = env.from_string(str(string), globals=ctx)
+        return template.render(ctx)
+    except jinja2.exceptions.TemplateSyntaxError as e:
+        compiler_error(None, str(e))
+
 class Compiler(object):
     def __init__(self, project, create_template_class):
         self.project = project
