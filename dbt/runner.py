@@ -24,6 +24,9 @@ from multiprocessing.dummy import Pool as ThreadPool
 
 ABORTED_TRANSACTION_STRING = "current transaction is aborted, commands ignored until end of transaction block"
 
+def get_timestamp():
+    return "{} |".format(time.strftime("%H:%M:%S"))
+
 class RunModelResult(object):
     def __init__(self, model, error=None, skip=False, status=None, execution_time=0):
         self.model = model
@@ -149,10 +152,10 @@ class ModelRunner(BaseRunner):
         return output
 
     def pre_run_all_msg(self, models):
-        return "Running {} models".format(len(models))
+        return "{} Running {} models".format(get_timestamp(), len(models))
 
     def post_run_all_msg(self, results):
-        return "Finished running {} models".format(len(results))
+        return "{} Finished running {} models".format(get_timestamp(), len(results))
 
     def status(self, result):
         return result.status
@@ -209,7 +212,7 @@ class DryRunner(ModelRunner):
         return "Dry-running {} models".format(len(models))
 
     def post_run_all_msg(self, results):
-        return "Finished dry-running {} models".format(len(results))
+        return "{} Finished dry-running {} models".format(get_timestamp(), len(results))
 
     def post_run_all(self, models, results, context):
         count_dropped = 0
@@ -243,7 +246,7 @@ class TestRunner(ModelRunner):
         return "{info} {name} ".format(info=info, name=model.name)
 
     def pre_run_all_msg(self, models):
-        return "Running {} tests".format(len(models))
+        return "{} Running {} tests".format(get_timestamp(), len(models))
 
     def post_run_all_msg(self, results):
         total = len(results)
@@ -313,7 +316,7 @@ class ArchiveRunner(BaseRunner):
         return "Archiving {} tables".format(len(models))
 
     def post_run_all_msg(self, results):
-        return "Finished archiving {} tables".format(len(results))
+        return "{} Finished archiving {} tables".format(get_timestamp(), len(results))
 
     def status(self, result):
         return result.status
@@ -412,7 +415,7 @@ class RunManager(object):
         return skip_dependent
 
     def print_fancy_output_line(self, message, status, index, total, execution_time=None):
-        prefix = "{index} of {total} {message}".format(index=index, total=total, message=message)
+        prefix = "{timestamp} {index} of {total} {message}".format(timestamp=get_timestamp(), index=index, total=total, message=message)
         justified = prefix.ljust(80, ".")
 
         if execution_time is None:
