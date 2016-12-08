@@ -108,3 +108,9 @@ insert into varchar_widening_002.seed (first_name, last_name, email, gender, ip_
 insert into varchar_widening_002.seed (first_name, last_name, email, gender, ip_address) values ('Angela', 'Brooks', 'abrooks2p@mtv.com', 'Female', '10.63.249.126');
 insert into varchar_widening_002.seed (first_name, last_name, email, gender, ip_address) values ('Harold', 'Foster', 'hfoster2q@privacy.gov.au', 'Male', '139.214.40.244');
 insert into varchar_widening_002.seed (first_name, last_name, email, gender, ip_address) values ('Carl', 'Meyer', 'cmeyer2r@disqus.com', 'Male', '204.117.7.88');
+
+
+-- make sure that column type altering works with dependent views
+create view varchar_widening_002.dependent_view_expected as (
+    select gender from varchar_widening_002.seed
+);
