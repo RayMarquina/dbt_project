@@ -260,7 +260,7 @@ class Schema(object):
         """
         1. Create a new column (w/ temp name and correct type)
         2. Copy data over to it
-        3. Drop the existing column
+        3. Drop the existing column (cascade!)
         4. Rename the new column to existing column
         """
 
@@ -275,7 +275,7 @@ class Schema(object):
         sql = """
         alter table "{schema}"."{table}" add column "{tmp_column}" {dtype};
         update "{schema}"."{table}" set "{tmp_column}" = "{old_column}";
-        alter table "{schema}"."{table}" drop column "{old_column}";
+        alter table "{schema}"."{table}" drop column "{old_column}" cascade;
         alter table "{schema}"."{table}" rename column "{tmp_column}" to "{old_column}";
         """.format(**opts)
 
