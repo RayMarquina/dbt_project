@@ -19,7 +19,7 @@ DBTConfigKeys = [
 ]
 
 class This(object):
-    def __init__(self, schema, table, name=None):
+    def __init__(self, schema, table, name):
         self.schema = schema
         self.table = table
         self.name = table if name is None else name
@@ -31,13 +31,19 @@ class This(object):
         return self.schema_table(self.schema, self.table)
 
 def compiler_error(model, msg):
-    raise RuntimeError("! Compilation error while compiling model {}:\n! {}".format(model.nice_name, msg))
+    if model is None:
+        name = '<None>'
+    else:
+        name = model.nice_name
+
+    raise RuntimeError("! Compilation error while compiling model {}:\n! {}".format(name, msg))
 
 def compiler_warning(model, msg):
     print("* Compilation warning while compiling model {}:\n* {}".format(model.nice_name, msg))
 
 class Var(object):
     UndefinedVarError = "Required var '{}' not found in config:\nVars supplied to {} = {}"
+    NoneVarError = "Supplied var '{}' is undefined in config:\nVars supplied to {} = {}"
 
     def __init__(self, model, context):
         self.model = model
@@ -48,11 +54,13 @@ class Var(object):
         return json.dumps(data, sort_keys=True, indent=4)
 
     def __call__(self, var_name, default=None):
+        pretty_vars = self.pretty_dict(self.local_vars)
         if var_name not in self.local_vars and default is None:
-            pretty_vars = self.pretty_dict(self.local_vars)
             compiler_error(self.model, self.UndefinedVarError.format(var_name, self.model.nice_name, pretty_vars))
         elif var_name in self.local_vars:
             raw = self.local_vars[var_name]
+            if raw is None:
+                compiler_error(self.model, self.NoneVarError.format(var_name, self.model.nice_name, pretty_vars))
             compiled = self.model.compile_string(self.context, raw)
             return compiled
         else:
@@ -86,7 +94,7 @@ def dependency_projects(project):
         full_obj = os.path.join(project['modules-path'], obj)
         if os.path.isdir(full_obj):
             try:
-                yield dbt.project.read_project(os.path.join(full_obj, 'dbt_project.yml'), profile_to_load=project.profile_to_load)
+                yield dbt.project.read_project(os.path.join(full_obj, 'dbt_project.yml'), project.profiles_dir, profile_to_load=project.profile_to_load)
             except dbt.project.DbtProjectError as e:
                 print("Error reading dependency project at {}".format(full_obj))
                 print(str(e))

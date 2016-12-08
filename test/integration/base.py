@@ -97,7 +97,7 @@ class DBTIntegrationTest(unittest.TestCase):
         if args is None:
             args = ["run"]
 
-        dbt.handle(args)
+        return dbt.handle(args)
 
     def run_sql_file(self, path):
         with open(path, 'r') as f:

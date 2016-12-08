@@ -20,6 +20,7 @@ class TestVarcharWidening(DBTIntegrationTest):
 
         self.assertTablesEqual("seed","incremental")
         self.assertTablesEqual("seed","materialized")
+        self.assertTablesEqual("dependent_view_expected","dependent_view")
 
         self.run_sql_file("test/integration/002_varchar_widening_test/update.sql")
 
@@ -27,3 +28,4 @@ class TestVarcharWidening(DBTIntegrationTest):
 
         self.assertTablesEqual("seed","incremental")
         self.assertTablesEqual("seed","materialized")
+        self.assertTablesEqual("dependent_view_expected","dependent_view")
