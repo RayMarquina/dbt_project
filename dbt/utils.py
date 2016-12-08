@@ -43,6 +43,7 @@ def compiler_warning(model, msg):
 
 class Var(object):
     UndefinedVarError = "Required var '{}' not found in config:\nVars supplied to {} = {}"
+    NoneVarError = "Supplied var '{}' is undefined in config:\nVars supplied to {} = {}"
 
     def __init__(self, model, context):
         self.model = model
@@ -53,11 +54,13 @@ class Var(object):
         return json.dumps(data, sort_keys=True, indent=4)
 
     def __call__(self, var_name, default=None):
+        pretty_vars = self.pretty_dict(self.local_vars)
         if var_name not in self.local_vars and default is None:
-            pretty_vars = self.pretty_dict(self.local_vars)
             compiler_error(self.model, self.UndefinedVarError.format(var_name, self.model.nice_name, pretty_vars))
         elif var_name in self.local_vars:
             raw = self.local_vars[var_name]
+            if raw is None:
+                compiler_error(self.model, self.NoneVarError.format(var_name, self.model.nice_name, pretty_vars))
             compiled = self.model.compile_string(self.context, raw)
             return compiled
         else:
