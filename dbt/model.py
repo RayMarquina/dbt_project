@@ -16,6 +16,7 @@ class SourceConfig(object):
 
     AppendListFields  = ['pre-hook', 'post-hook']
     ExtendDictFields = ['vars']
+    ClobberFields = ['enabled', 'materialized', 'dist', 'sort', 'sql_where', 'unique_key', 'sort_type']
 
     def __init__(self, active_project, own_project, fqn):
         self.active_project = active_project
@@ -23,6 +24,11 @@ class SourceConfig(object):
         self.fqn = fqn
 
         self.in_model_config   = {} # the config options defined within the model
+
+        # make sure we categorize all configs
+        all_configs = self.AppendListFields + self.ExtendDictFields + self.ClobberFields
+        for config in self.ConfigKeys:
+            assert config in all_configs, config
 
     def _merge(self, *configs):
         merged_config = {}
@@ -79,7 +85,7 @@ class SourceConfig(object):
         for hook in new_hooks:
             if type(hook) != str:
                 name = ".".join(self.fqn)
-                compiler_error("{} for model {} is not a string!".format(key, name))
+                compiler_error(None, "{} for model {} is not a string!".format(key, name))
 
             hooks.append(hook)
         return hooks
@@ -93,6 +99,10 @@ class SourceConfig(object):
         for key in SourceConfig.ExtendDictFields:
             dict_val = relevant_configs.get(key, {})
             mutable_config[key].update(dict_val)
+
+        for key in SourceConfig.ClobberFields:
+            if key in relevant_configs:
+                mutable_config[key] = relevant_configs[key]
 
         return relevant_configs
 
@@ -296,7 +306,7 @@ class Model(DBTSource):
         dist_key = model_config['dist']
 
         if type(dist_key) != str:
-            compiler_error("The provided distkey '{}' is not valid!".format(dist_key))
+            compiler_error(self, "The provided distkey '{}' is not valid!".format(dist_key))
 
         dist_key = dist_key.strip().lower()
 
@@ -341,7 +351,7 @@ class Model(DBTSource):
         model_config = self.config
 
         if self.materialization not in SourceConfig.Materializations:
-            compiler_error("Invalid materialize option given: '{}'. Must be one of {}".format(self.materialization, SourceConfig.Materializations))
+            compiler_error(self, "Invalid materialize option given: '{}'. Must be one of {}".format(self.materialization, SourceConfig.Materializations))
 
         schema = ctx['env'].get('schema', 'public')
 
@@ -352,7 +362,7 @@ class Model(DBTSource):
         if self.materialization == 'incremental':
             identifier = self.name
             if 'sql_where' not in model_config:
-                compiler_error("sql_where not specified in model materialized as incremental")
+                compiler_error(self, "sql_where not specified in model materialized as incremental")
             raw_sql_where = model_config['sql_where']
             sql_where = self.compile_string(ctx, raw_sql_where)
 
@@ -573,7 +583,7 @@ class SchemaFile(DBTSource):
             return SchemaFile.SchemaTestMap[test_type]
         else:
             possible_types = ", ".join(SchemaFile.SchemaTestMap.keys())
-            compiler_error("Invalid validation type given in {}: '{}'. Possible: {}".format(self.filepath, test_type, possible_types))
+            compiler_error(self, "Invalid validation type given in {}: '{}'. Possible: {}".format(self.filepath, test_type, possible_types))
 
     def do_compile(self):
         schema_tests = []
@@ -590,9 +600,9 @@ class SchemaFile(DBTSource):
         try:
             return self.do_compile()
         except TypeError as e:
-            raise compiler_error(self, str(e))
+            compiler_error(self, str(e))
         except AttributeError as e:
-            raise compiler_error(self, str(e))
+            compiler_error(self, str(e))
 
     def __repr__(self):
         return "<SchemaFile {}.{}: {}>".format(self.project['name'], self.model_name, self.filepath)
