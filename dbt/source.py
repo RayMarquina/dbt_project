@@ -16,6 +16,10 @@ class Source(object):
     def find(self, source_paths, file_pattern):
         """returns abspath, relpath, filename of files matching file_regex in source_paths"""
         found = []
+
+        if type(source_paths) not in (list, tuple):
+            source_paths = [source_paths]
+
         for source_path in source_paths:
             root_path = os.path.join(self.own_project_root, source_path)
             for root, dirs, files in os.walk(root_path):

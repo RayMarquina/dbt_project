@@ -623,11 +623,14 @@ class Macro(DBTSource):
 
     def get_macros(self, ctx):
         env = jinja2.Environment()
-        template = env.from_string(self.contents, globals=ctx)
+        try:
+            template = env.from_string(self.contents, globals=ctx)
+        except jinja2.exceptions.TemplateSyntaxError as e:
+            compiler_error(self, str(e))
 
         for key, item in template.module.__dict__.items():
             if type(item) == jinja2.runtime.Macro:
-                yield key, item
+                yield {"project": self.own_project, "name": key, "macro": item}
 
     def __repr__(self):
         return "<Macro {}.{}: {}>".format(self.project['name'], self.name, self.filepath)
