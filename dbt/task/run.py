@@ -15,9 +15,9 @@ class RunTask:
 
     def compile(self):
         create_template = DryCreateTemplate if self.args.dry else BaseCreateTemplate
-        compiler = Compiler(self.project, create_template)
+        compiler = Compiler(self.project, create_template, self.args)
         compiler.initialize()
-        results = compiler.compile(self.args.dry, limit_to=['models'])
+        results = compiler.compile(limit_to=['models'] )
 
         stat_line = ", ".join(["{} {}".format(results[k], k) for k in CompilableEntities])
         print("Compiled {}".format(stat_line))
@@ -27,7 +27,7 @@ class RunTask:
     def run(self):
         graph_type = self.compile()
 
-        runner = RunManager(self.project, self.project['target-path'], graph_type, self.args.threads)
+        runner = RunManager(self.project, self.project['target-path'], graph_type, self.args)
 
         if self.args.dry:
             results = runner.dry_run(self.args.models)

@@ -24,7 +24,7 @@ class TestTask:
         self.project = project
 
     def compile(self):
-        compiler = Compiler(self.project, BaseCreateTemplate)
+        compiler = Compiler(self.project, BaseCreateTemplate, self.args)
         compiler.initialize()
         results = compiler.compile(limit_to=['tests'])
 
@@ -35,7 +35,7 @@ class TestTask:
 
     def run(self):
         self.compile()
-        runner = RunManager(self.project, self.project['target-path'], 'build', self.args.threads)
+        runner = RunManager(self.project, self.project['target-path'], 'build', self.args)
 
         if (self.args.data and self.args.schema) or (not self.args.data and not self.args.schema):
             res = runner.run_tests(test_schemas=True, test_data=True)

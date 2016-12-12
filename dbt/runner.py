@@ -10,7 +10,7 @@ import re
 import yaml
 from datetime import datetime
 
-from dbt.compilation import Compiler, compile_string
+from dbt.compilation import compile_string
 from dbt.linker import Linker
 from dbt.templates import BaseCreateTemplate
 import dbt.targets
@@ -326,13 +326,14 @@ class ArchiveRunner(BaseRunner):
         return status
 
 class RunManager(object):
-    def __init__(self, project, target_path, graph_type, threads):
+    def __init__(self, project, target_path, graph_type, args):
         self.logger = logging.getLogger(__name__)
         self.project = project
         self.target_path = target_path
         self.graph_type = graph_type
+        self.args = args
 
-        self.target = dbt.targets.get_target(self.project.run_environment(), threads)
+        self.target = dbt.targets.get_target(self.project.run_environment(), self.args.threads)
 
         if self.target.should_open_tunnel():
             print("Opening ssh tunnel to host {}... ".format(self.target.ssh_host), end="")

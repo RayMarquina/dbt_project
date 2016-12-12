@@ -56,10 +56,16 @@ class SourceConfig(object):
         active_config = self.load_config_from_active_project()
 
         if self.active_project['name'] == self.own_project['name']:
-            return self._merge(defaults, active_config, self.in_model_config)
+            cfg = self._merge(defaults, active_config, self.in_model_config)
         else:
             own_config = self.load_config_from_own_project()
-            return self._merge(defaults, own_config, self.in_model_config, active_config)
+            cfg =  self._merge(defaults, own_config, self.in_model_config, active_config)
+
+        # mask this as a table if it's an incremental model with --full-refresh provided
+        if cfg.get('materialized') == 'incremental' and self.active_project.args.full_refresh:
+            cfg['materialized'] = 'table'
+
+        return cfg
 
     def update_in_model_config(self, config):
         config = config.copy()
@@ -368,8 +374,6 @@ class Model(DBTSource):
 
             unique_key = model_config.get('unique_key', None)
         else:
-            if 'sql_where' in model_config:
-                compiler_warning(self, "'sql_where' configuration supplied to non-incremental model")
             identifier = self.tmp_name()
             sql_where = None
             unique_key = None

@@ -23,9 +23,13 @@ def compile_string(string, ctx):
         compiler_error(None, str(e))
 
 class Compiler(object):
-    def __init__(self, project, create_template_class):
+    def __init__(self, project, create_template_class, args):
         self.project = project
         self.create_template = create_template_class()
+        self.args = args
+
+        self.project.args = args
+
         self.macro_generator = None
         self.target = self.get_target()
 
@@ -406,7 +410,7 @@ class Compiler(object):
 
         return all_models
 
-    def compile(self, dry=False, limit_to=None):
+    def compile(self, limit_to=None):
         linker = Linker()
 
         all_models = self.get_models()

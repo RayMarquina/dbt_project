@@ -144,6 +144,8 @@ def parse_args(args):
 
     sub = subs.add_parser('compile', parents=[base_subparser])
     sub.add_argument('--dry', action='store_true', help="Compile 'dry run' models")
+    sub.add_argument('--non-destructive', action='store_true', help="If specified, DBT will not drop views. Tables will be truncated instead of dropped. ")
+    sub.add_argument('--full-refresh', action='store_true', help="If specified, DBT will drop incremental models and fully-recalculate the incremental table from the model definition.")
     sub.set_defaults(cls=compile_task.CompileTask, which='compile')
 
     sub = subs.add_parser('debug', parents=[base_subparser])
@@ -160,6 +162,8 @@ def parse_args(args):
     sub.add_argument('--dry', action='store_true', help="'dry run' models")
     sub.add_argument('--models', required=False, nargs='+', help="Specify the models to run. All models depending on these models will also be run")
     sub.add_argument('--threads', type=int, required=False, help="Specify number of threads to use while executing models. Overrides settings in profiles.yml")
+    sub.add_argument('--non-destructive', action='store_true', help="If specified, DBT will not drop views. Tables will be truncated instead of dropped. ")
+    sub.add_argument('--full-refresh', action='store_true', help="If specified, DBT will drop incremental models and fully-recalculate the incremental table from the model definition.")
     sub.set_defaults(cls=run_task.RunTask, which='run')
 
     sub = subs.add_parser('seed', parents=[base_subparser])
