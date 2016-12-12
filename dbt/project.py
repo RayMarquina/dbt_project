@@ -4,6 +4,7 @@ import pprint
 import copy
 import sys
 import hashlib
+import re
 import dbt.deprecations
 
 default_project_cfg = {
@@ -74,6 +75,15 @@ class Project(object):
         if 'run-target' in self.cfg:
             dbt.deprecations.warn('run-target')
             self.cfg['target'] = self.cfg['run-target']
+
+        if not self.is_valid_package_name():
+            dbt.deprecations.warn('invalid-package-name', package_name = self['name'])
+
+    def is_valid_package_name(self):
+        if re.match(r"^[^\d\W]\w*\Z", self['name']):
+            return True
+        else:
+            return False
 
     def run_environment(self):
         target_name = self.cfg['target']

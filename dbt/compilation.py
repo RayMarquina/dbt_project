@@ -7,6 +7,7 @@ import dbt.project
 from dbt.source import Source
 from dbt.utils import find_model_by_fqn, find_model_by_name, dependency_projects, split_path, This, Var, compiler_error, to_string
 from dbt.linker import Linker
+from dbt.runtime import RuntimeContext
 import dbt.targets
 import dbt.templates
 import time
@@ -180,6 +181,8 @@ class Compiler(object):
         return wrapped_do_ref
 
     def get_context(self, linker, model,  models, add_dependency=False):
+        runtime = RuntimeContext(model=model)
+
         context = self.project.context()
 
         # built-ins
@@ -196,11 +199,20 @@ class Compiler(object):
         # add in context from run target
         context.update(self.target.context)
 
-        # add in macros (can we cache these somehow?)
-        for macro_name, macro in self.macro_generator(context):
-            context[macro_name] = macro
+        runtime.update_global(context)
 
-        return context
+        # add in macros (can we cache these somehow?)
+        for macro_data in self.macro_generator(context):
+            macro = macro_data["macro"]
+            macro_name = macro_data["name"]
+            project = macro_data["project"]
+
+            runtime.update_package(project['name'], {macro_name: macro})
+
+            if project['name'] == self.project['name']:
+                runtime.update_global({macro_name: macro})
+
+        return runtime
 
     def compile_model(self, linker, model, models, add_dependency=True):
         try:
@@ -214,6 +226,8 @@ class Compiler(object):
 
             rendered = template.render(context)
         except jinja2.exceptions.TemplateSyntaxError as e:
+            compiler_error(model, str(e))
+        except jinja2.exceptions.UndefinedError as e:
             compiler_error(model, str(e))
 
         return rendered
