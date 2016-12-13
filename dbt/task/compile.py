@@ -14,9 +14,9 @@ class CompileTask:
         else:
             create_template = BaseCreateTemplate
 
-        compiler = Compiler(self.project, create_template)
+        compiler = Compiler(self.project, create_template, self.args)
         compiler.initialize()
-        results = compiler.compile(dry=self.args.dry, limit_to=CompilableEntities)
+        results = compiler.compile(limit_to=CompilableEntities)
 
         stat_line = ", ".join(["{} {}".format(results[k], k) for k in CompilableEntities])
         print("Compiled {}".format(stat_line))

@@ -20,7 +20,7 @@ class TestSimpleDependencyWithConfigs(BaseTestSimpleDependencyWithConfigs):
     def project_config(self):
         return {
             "models": {
-                "DBT Integration Project": {
+                "dbt_integration_project": {
                     'vars': {
                         'bool_config': True
                     }
@@ -50,7 +50,7 @@ class TestSimpleDependencyWithOverriddenConfigs(BaseTestSimpleDependencyWithConf
         return {
             "models": {
                 # project-level configs
-                "DBT Integration Project": {
+                "dbt_integration_project": {
                     "vars": {
                         "config_1": "abc",
                         "config_2": "def",
@@ -83,7 +83,7 @@ class TestSimpleDependencyWithModelSpecificOverriddenConfigs(BaseTestSimpleDepen
     def project_config(self):
         return {
             "models": {
-                "DBT Integration Project": {
+                "dbt_integration_project": {
                     "config": {
                         # model-level configs
                         "vars": {
@@ -118,7 +118,7 @@ class TestSimpleDependencyWithModelSpecificOverriddenConfigs(BaseTestSimpleDepen
     def project_config(self):
         return {
             "models": {
-                "DBT Integration Project": {
+                "dbt_integration_project": {
                     # disable config model, but supply vars
                     "config": {
                         "enabled": False,

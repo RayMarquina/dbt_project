@@ -56,10 +56,16 @@ class SourceConfig(object):
         active_config = self.load_config_from_active_project()
 
         if self.active_project['name'] == self.own_project['name']:
-            return self._merge(defaults, active_config, self.in_model_config)
+            cfg = self._merge(defaults, active_config, self.in_model_config)
         else:
             own_config = self.load_config_from_own_project()
-            return self._merge(defaults, own_config, self.in_model_config, active_config)
+            cfg =  self._merge(defaults, own_config, self.in_model_config, active_config)
+
+        # mask this as a table if it's an incremental model with --full-refresh provided
+        if cfg.get('materialized') == 'incremental' and self.active_project.args.full_refresh:
+            cfg['materialized'] = 'table'
+
+        return cfg
 
     def update_in_model_config(self, config):
         config = config.copy()
@@ -235,7 +241,16 @@ class DBTSource(object):
         return self.fqn
 
     def tmp_name(self):
-        return "{}__dbt_tmp".format(self.name)
+        if self.is_non_destructive():
+            return self.name
+        else:
+            return "{}__dbt_tmp".format(self.name)
+
+    def is_non_destructive(self):
+        if hasattr(self.project.args, 'non_destructive'):
+            return self.project.args.non_destructive
+        else:
+            return False
 
     def rename_query(self, schema):
         opts = {
@@ -368,8 +383,6 @@ class Model(DBTSource):
 
             unique_key = model_config.get('unique_key', None)
         else:
-            if 'sql_where' in model_config:
-                compiler_warning(self, "'sql_where' configuration supplied to non-incremental model")
             identifier = self.tmp_name()
             sql_where = None
             unique_key = None
@@ -388,7 +401,8 @@ class Model(DBTSource):
             "prologue": self.get_prologue_string(),
             "unique_key" : unique_key,
             "pre-hooks" : pre_hooks,
-            "post-hooks" : post_hooks
+            "post-hooks" : post_hooks,
+            "non_destructive": self.is_non_destructive()
         }
 
         return create_template.wrap(opts)
@@ -623,11 +637,14 @@ class Macro(DBTSource):
 
     def get_macros(self, ctx):
         env = jinja2.Environment()
-        template = env.from_string(self.contents, globals=ctx)
+        try:
+            template = env.from_string(self.contents, globals=ctx)
+        except jinja2.exceptions.TemplateSyntaxError as e:
+            compiler_error(self, str(e))
 
         for key, item in template.module.__dict__.items():
             if type(item) == jinja2.runtime.Macro:
-                yield key, item
+                yield {"project": self.own_project, "name": key, "macro": item}
 
     def __repr__(self):
         return "<Macro {}.{}: {}>".format(self.project['name'], self.name, self.filepath)

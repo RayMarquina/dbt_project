@@ -187,6 +187,12 @@ class Schema(object):
         finally:
             cursor.close()
 
+    def truncate(self, schema, relation):
+        sql = 'truncate table "{schema}"."{relation}"'.format(schema=schema, relation=relation)
+        self.logger.info("dropping table %s.%s", schema, relation)
+        self.execute_and_handle_permissions(sql, relation)
+        self.logger.info("dropped %s.%s", schema, relation)
+
     def drop(self, schema, relation_type, relation):
         sql = 'drop {relation_type} if exists "{schema}"."{relation}" cascade'.format(schema=schema, relation_type=relation_type, relation=relation)
         self.logger.info("dropping %s %s.%s", relation_type, schema, relation)
