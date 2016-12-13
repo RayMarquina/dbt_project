@@ -241,10 +241,16 @@ class DBTSource(object):
         return self.fqn
 
     def tmp_name(self):
-        if self.project.args.non_destructive:
+        if self.is_non_destructive():
             return self.name
         else:
             return "{}__dbt_tmp".format(self.name)
+
+    def is_non_destructive(self):
+        if hasattr(self.project.args, 'non_destructive'):
+            return self.project.args.non_destructive
+        else:
+            return False
 
     def rename_query(self, schema):
         opts = {
@@ -368,8 +374,6 @@ class Model(DBTSource):
         dist_qualifier = self.dist_qualifier(model_config)
         sort_qualifier = self.sort_qualifier(model_config)
 
-        is_non_destructive = self.project.args.non_destructive
-
         if self.materialization == 'incremental':
             identifier = self.name
             if 'sql_where' not in model_config:
@@ -398,7 +402,7 @@ class Model(DBTSource):
             "unique_key" : unique_key,
             "pre-hooks" : pre_hooks,
             "post-hooks" : post_hooks,
-            "non_destructive": is_non_destructive
+            "non_destructive": self.is_non_destructive()
         }
 
         return create_template.wrap(opts)
