@@ -6,7 +6,7 @@
  - Minor improvements
  - Bugfixes
 
-### Macros https://github.com/analyst-collective/dbt/pull/245
+### Macros
 
 Macros are snippets of SQL that can be called like functions in models. Macros make it possible to re-use SQL between models
 in keeping with the engineering principle of DRY (Dont Repeat Yourself). Moreover, packages can expose Macros that you can use in your own dbt project.
@@ -14,11 +14,10 @@ in keeping with the engineering principle of DRY (Dont Repeat Yourself). Moreove
 For detailed information on how to use Macros, check out the pull request [here](https://github.com/analyst-collective/dbt/pull/245)
 
 
-### Runtime Materialization Configs https://github.com/analyst-collective/dbt/issues/137 https://github.com/analyst-collective/dbt/issues/140
-
+### Runtime Materialization Configs
 DBT Version 0.6.0 introduces two new ways to control the materialization of models:
 
-#### Non-destructive dbt run https://github.com/analyst-collective/dbt/issues/137
+#### Non-destructive dbt run [more info](https://github.com/analyst-collective/dbt/issues/137)
 
 If you provide the `--non-destructive` argument to `dbt run`, dbt will minimize the amount of time during which your models are unavailable. Specfically, dbt
 will
@@ -31,7 +30,7 @@ This flag is useful for recurring jobs which only need to update table models an
 dbt run --non-destructive
 ```
 
-#### Incremental Model Full Refresh https://github.com/analyst-collective/dbt/issues/140
+#### Incremental Model Full Refresh [more info](https://github.com/analyst-collective/dbt/issues/140)
 
 If you procide the `--full-refresh` argument to `dbt run`, dbt will treat incremental models as table models. This is useful when
 
@@ -49,13 +48,13 @@ For more information, run
 dbt run --help
 ```
 
-### Minor improvements https://github.com/analyst-collective/dbt/milestone/15?closed=1
+### Minor improvements [more info](https://github.com/analyst-collective/dbt/milestone/15?closed=1)
 
- - Add `{{ target }}` variable to dbt runtime https://github.com/analyst-collective/dbt/issues/149
- - User-specified `profiles.yml` dir https://github.com/analyst-collective/dbt/issues/213
- - Add timestamp to console output https://github.com/analyst-collective/dbt/issues/125
- - Run dbt from subdirectory of project root https://github.com/analyst-collective/dbt/issues/129
- - Pre and post run hooks https://github.com/analyst-collective/dbt/issues/226
+ - Add `{{ target }}` variable to dbt runtime [more info](https://github.com/analyst-collective/dbt/issues/149)
+ - User-specified `profiles.yml` dir [more info](https://github.com/analyst-collective/dbt/issues/213)
+ - Add timestamp to console output [more info](https://github.com/analyst-collective/dbt/issues/125)
+ - Run dbt from subdirectory of project root [more info](https://github.com/analyst-collective/dbt/issues/129)
+ - Pre and post run hooks [more info](https://github.com/analyst-collective/dbt/issues/226)
 
 ### Bug fixes https://github.com/analyst-collective/dbt/milestone/11?closed=1
 
