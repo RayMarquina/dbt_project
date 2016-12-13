@@ -13,12 +13,12 @@ class DBTDeprecation(object):
 class DBTRunTargetDeprecation(DBTDeprecation):
     name = 'run-target'
     description = """profiles.yml configuration option 'run-target' is deprecated. Please use 'target' instead. 
-  The 'run-target' option will be removed (in favor of 'target') in DBT version 0.6.0"""
+  The 'run-target' option will be removed (in favor of 'target') in DBT version 0.7.0"""
 
 class DBTInvalidPackageName(DBTDeprecation):
     name = 'invalid-package-name'
     description = """The package name '{package_name}' is not valid. Package names must only contain letters and underscores.
-  Packages with invalid names will fail to compile in DBT version 0.6.0"""
+  Packages with invalid names will fail to compile in DBT version 0.7.0"""
 
 
 def warn(name, *args, **kwargs):

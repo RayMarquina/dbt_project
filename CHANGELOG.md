@@ -1,3 +1,73 @@
+## dbt release 0.6.0
+
+### tl;dr
+ - Macros
+ - More control over how models are materialized
+ - Minor improvements
+ - Bugfixes
+
+### Macros https://github.com/analyst-collective/dbt/pull/245
+
+Macros are snippets of SQL that can be called like functions in models. Macros make it possible to re-use SQL between models
+in keeping with the engineering principle of DRY (Dont Repeat Yourself). Moreover, packages can expose Macros that you can use in your own dbt project.
+
+For detailed information on how to use Macros, check out the pull request [here](https://github.com/analyst-collective/dbt/pull/245)
+
+
+### Runtime Materialization Configs https://github.com/analyst-collective/dbt/issues/137 https://github.com/analyst-collective/dbt/issues/140
+
+DBT Version 0.6.0 introduces two new ways to control the materialization of models:
+
+#### Non-destructive dbt run https://github.com/analyst-collective/dbt/issues/137
+
+If you provide the `--non-destructive` argument to `dbt run`, dbt will minimize the amount of time during which your models are unavailable. Specfically, dbt
+will
+ 1. Ignore models materialized as `views`
+ 2. Truncate tables and re-insert data instead of dropping and re-creating
+
+This flag is useful for recurring jobs which only need to update table models and incremental models.
+
+```bash
+dbt run --non-destructive
+```
+
+#### Incremental Model Full Refresh https://github.com/analyst-collective/dbt/issues/140
+
+If you procide the `--full-refresh` argument to `dbt run`, dbt will treat incremental models as table models. This is useful when
+
+1. An incremental model schema changes and you need to recreate the table accordingly
+2. You want to reprocess the entirety of the incremental model because of new logic in the model code
+
+```bash
+dbt run --full-refresh
+```
+
+Note that `--full-refresh` and `--non-destructive` can be used together!
+
+For more information, run
+```
+dbt run --help
+```
+
+### Minor improvements https://github.com/analyst-collective/dbt/milestone/15?closed=1
+
+ - Add `{{ target }}` variable to dbt runtime https://github.com/analyst-collective/dbt/issues/149
+ - User-specified `profiles.yml` dir https://github.com/analyst-collective/dbt/issues/213
+ - Add timestamp to console output https://github.com/analyst-collective/dbt/issues/125
+ - Run dbt from subdirectory of project root https://github.com/analyst-collective/dbt/issues/129
+ - Pre and post run hooks https://github.com/analyst-collective/dbt/issues/226
+
+### Bug fixes https://github.com/analyst-collective/dbt/milestone/11?closed=1
+
+We fixed 10 bugs in this release! See the full list [here](https://github.com/analyst-collective/dbt/milestone/11?closed=1)
+
+
+### One more thing...
+
+As always, feel free to reach out to us on [Slack](http://ac-slackin.herokuapp.com/) with any questions or comments!
+
+---
+
 ## dbt release 0.5.4
 
 ### tl;dr
