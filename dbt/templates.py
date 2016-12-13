@@ -86,8 +86,19 @@ delete from "{schema}"."{identifier}" where  ({unique_key}) in (
 
     def wrap(self, opts):
         sql = ""
-        if opts['materialization'] in ('table', 'view'):
+
+        if opts['materialization'] == 'view':
             sql = self.template.format(**opts)
+
+        elif opts['materialization'] == 'table' and not opts['non_destructive']:
+            sql = self.template.format(**opts)
+
+        elif opts['materialization'] == 'table' and opts['non_destructive']:
+            opts['incremental_delete_statement'] = "-- non-destructive insert... skippping delete"
+            opts['sql_where'] = 'TRUE'
+
+            sql = self.incremental_template.format(**opts)
+
         elif opts['materialization'] == 'incremental':
             if opts.get('unique_key') is not None:
                 delete_sql = self.incremental_delete_template.format(**opts)

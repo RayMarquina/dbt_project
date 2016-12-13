@@ -162,14 +162,20 @@ class ModelRunner(BaseRunner):
 
     def execute(self, target, model):
         if model.tmp_drop_type is not None:
-            self.schema_helper.drop(target.schema, model.tmp_drop_type, model.tmp_name)
+            if model.materialization == 'table' and self.project.args.non_destructive:
+                self.schema_helper.truncate(target.schema, model.tmp_name)
+            else:
+                self.schema_helper.drop(target.schema, model.tmp_drop_type, model.tmp_name)
 
         status = self.execute_contents(target, model)
 
         if model.final_drop_type is not None:
-            self.schema_helper.drop(target.schema, model.final_drop_type, model.name)
+            if model.materialization == 'table' and self.project.args.non_destructive:
+                pass # we just inserted into this recently truncated table... do nothing here
+            else:
+                self.schema_helper.drop(target.schema, model.final_drop_type, model.name)
 
-        if model.should_rename():
+        if model.should_rename(self.project.args):
             self.schema_helper.rename(target.schema, model.tmp_name, model.name)
 
         return status
@@ -401,7 +407,7 @@ class RunManager(object):
                     model = find_model_by_fqn(models, fqn)
                 except RuntimeError as e:
                     continue
-                if model.should_execute():
+                if model.should_execute(self.args, existing):
                     model.prepare(existing, target)
                     level.append(model)
             model_dependency_list.append(level)
@@ -521,7 +527,7 @@ class RunManager(object):
         relevant_compiled_models = [m for m in compiled_models if m.is_type(runner.run_type)]
 
         for m in relevant_compiled_models:
-            if m.should_execute():
+            if m.should_execute(self.args, existing = []):
                 context = self.context.copy()
                 context.update(m.context())
                 m.compile(context)
@@ -592,7 +598,7 @@ class RunManager(object):
         all_tests = schema_tests + data_tests
 
         for m in all_tests:
-            if m.should_execute():
+            if m.should_execute(self.args, existing = []):
                 context = self.context.copy()
                 context.update(m.context())
                 m.compile(context)

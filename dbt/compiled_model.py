@@ -80,11 +80,17 @@ class CompiledModel(object):
         else:
             return self.target.schema
 
-    def should_execute(self):
-        return self.data['enabled'] and self.materialization != 'ephemeral'
+    def should_execute(self, args, existing):
+        if args.non_destructive and self.materialization == 'view' and self.name in existing:
+            return False
+        else:
+            return self.data['enabled'] and self.materialization != 'ephemeral'
 
-    def should_rename(self):
-        return self.data['materialized'] in ['table' , 'view']
+    def should_rename(self, args):
+        if args.non_destructive and self.materialization == 'table':
+            return False
+        else:
+            return self.materialization in ['table' , 'view']
 
     def prepare(self, existing, target):
         if self.materialization == 'incremental':
@@ -108,7 +114,7 @@ class CompiledTest(CompiledModel):
     def should_rename(self):
         return False
 
-    def should_execute(self):
+    def should_execute(self, args, existing):
         return True
 
     def prepare(self, existing, target):
@@ -124,7 +130,7 @@ class CompiledArchive(CompiledModel):
     def should_rename(self):
         return False
 
-    def should_execute(self):
+    def should_execute(self, args, existing):
         return True
 
     def prepare(self, existing, target):
