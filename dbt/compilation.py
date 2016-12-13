@@ -22,6 +22,8 @@ def compile_string(string, ctx):
         return template.render(ctx)
     except jinja2.exceptions.TemplateSyntaxError as e:
         compiler_error(None, str(e))
+    except jinja2.exceptions.UndefinedError as e:
+        compiler_error(None, str(e))
 
 class Compiler(object):
     def __init__(self, project, create_template_class, args):

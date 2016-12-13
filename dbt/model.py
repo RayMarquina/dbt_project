@@ -354,6 +354,8 @@ class Model(DBTSource):
             return template.render(ctx)
         except jinja2.exceptions.TemplateSyntaxError as e:
             compiler_error(self, str(e))
+        except jinja2.exceptions.UndefinedError as e:
+            compiler_error(self, str(e))
 
     def get_hooks(self, ctx, hook_key):
         hooks = self.config.get(hook_key, [])
