@@ -32,7 +32,7 @@ dbt run --non-destructive
 
 #### Incremental Model Full Refresh [more info](https://github.com/analyst-collective/dbt/issues/140)
 
-If you procide the `--full-refresh` argument to `dbt run`, dbt will treat incremental models as table models. This is useful when
+If you provide the `--full-refresh` argument to `dbt run`, dbt will treat incremental models as table models. This is useful when
 
 1. An incremental model schema changes and you need to recreate the table accordingly
 2. You want to reprocess the entirety of the incremental model because of new logic in the model code
