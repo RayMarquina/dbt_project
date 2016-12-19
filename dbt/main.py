@@ -67,6 +67,7 @@ def get_nearest_project_dir():
     return None
 
 def run_from_args(parsed):
+    task = None
     proj = None
 
     if parsed.which == 'init':
@@ -81,7 +82,11 @@ def run_from_args(parsed):
 
         os.chdir(nearest_project_dir)
 
-        task, proj = invoke_dbt(parsed)
+        res = invoke_dbt(parsed)
+        if res is None:
+            raise RuntimeError("Could not run dbt")
+        else:
+            task, proj = res
 
     dbt.tracking.track_invocation_start(project=proj, args=parsed)
     try:
