@@ -67,17 +67,20 @@ def get_nearest_project_dir():
     return None
 
 def run_from_args(parsed):
-    nearest_project_dir = get_nearest_project_dir()
-
-    if nearest_project_dir is None:
-        raise RuntimeError("fatal: Not a dbt project (or any of the parent directories). Missing dbt_project.yml file")
-
-    os.chdir(nearest_project_dir)
+    proj = None
 
     if parsed.which == 'init':
         # bypass looking for a project file if we're running `dbt init`
         task = parsed.cls(args=parsed)
     else:
+
+        nearest_project_dir = get_nearest_project_dir()
+
+        if nearest_project_dir is None:
+            raise RuntimeError("fatal: Not a dbt project (or any of the parent directories). Missing dbt_project.yml file")
+
+        os.chdir(nearest_project_dir)
+
         task, proj = invoke_dbt(parsed)
 
     dbt.tracking.track_invocation_start(project=proj, args=parsed)
