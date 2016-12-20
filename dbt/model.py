@@ -286,7 +286,6 @@ class Model(DBTSource):
             return ''
 
         if (self.is_view or self.is_ephemeral) and 'sort' in model_config:
-           compiler_warning(self, "'sort' configuration supplied to model materialized as '{}'".format(self.materialization))
            return ''
 
         sort_keys = model_config['sort']
@@ -315,7 +314,6 @@ class Model(DBTSource):
             return ''
 
         if (self.is_view or self.is_ephemeral) and 'dist' in model_config:
-           compiler_warning(self, "'dist' configuration supplied to model materialized as '{}'".format(self.materialization))
            return ''
 
         dist_key = model_config['dist']
