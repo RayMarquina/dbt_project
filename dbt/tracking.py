@@ -23,7 +23,7 @@ COOKIE_PATH = os.path.join(os.path.expanduser('~'), '.dbt/.user.yml')
 INVOCATION_SPEC = "https://raw.githubusercontent.com/analyst-collective/dbt/master/events/schemas/com.fishtownanalytics/invocation_event.json"
 PLATFORM_SPEC   = "https://raw.githubusercontent.com/analyst-collective/dbt/master/events/schemas/com.fishtownanalytics/platform_context.json"
 RUN_MODEL_SPEC  = "https://raw.githubusercontent.com/analyst-collective/dbt/master/events/schemas/com.fishtownanalytics/run_model_context.json"
-INVOCATION_ENV_SPEC  = "https://raw.githubusercontent.com/analyst-collective/dbt/feature/track_dbt_environment/events/schemas/com.fishtownanalytics/invocation_env_context.json"
+INVOCATION_ENV_SPEC  = "https://raw.githubusercontent.com/analyst-collective/dbt/master/events/schemas/com.fishtownanalytics/invocation_env_context.json"
 
 DBT_INVOCATION_ENV = 'DBT_INVOCATION_ENV'
 
