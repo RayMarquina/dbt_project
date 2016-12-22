@@ -5,6 +5,7 @@
  - More control over how models are materialized
  - Minor improvements
  - Bugfixes
+ - Connor McArthur
 
 ### Macros
 
@@ -50,11 +51,48 @@ dbt run --help
 
 ### Minor improvements [more info](https://github.com/analyst-collective/dbt/milestone/15?closed=1)
 
- - Add `{{ target }}` variable to dbt runtime [more info](https://github.com/analyst-collective/dbt/issues/149)
- - User-specified `profiles.yml` dir [more info](https://github.com/analyst-collective/dbt/issues/213)
- - Add timestamp to console output [more info](https://github.com/analyst-collective/dbt/issues/125)
- - Run dbt from subdirectory of project root [more info](https://github.com/analyst-collective/dbt/issues/129)
- - Pre and post run hooks [more info](https://github.com/analyst-collective/dbt/issues/226)
+#### Add a `{{ target }}` variable to the dbt runtime [more info](https://github.com/analyst-collective/dbt/issues/149)
+Use `{{ target }}` to interpolate profile variables into your model definitions. For example:
+
+```sql
+-- only use the last week of data in development
+select * from events 
+
+{% if target.name == 'dev' %}
+where created_at > getdate() - interval '1 week'
+{% endif %}
+```
+
+#### User-specified `profiles.yml` dir [more info](https://github.com/analyst-collective/dbt/issues/213)
+DBT looks for a file called `profiles.yml` in the `~/.dbt/` directory. You can now overide this directory with
+```bash
+$ dbt run --profiles-dir /path/to/my/dir
+```
+#### Add timestamp to console output [more info](https://github.com/analyst-collective/dbt/issues/125)
+Informative _and_ pretty
+
+#### Run dbt from subdirectory of project root [more info](https://github.com/analyst-collective/dbt/issues/129)
+A story in three parts:
+```bash
+cd models/snowplow/sessions
+vim sessions.sql
+dbt run # it works!
+```
+
+#### Pre and post run hooks [more info](https://github.com/analyst-collective/dbt/issues/226)
+```yaml
+# dbt_project.yml
+name: ...
+version: ...
+
+...
+
+# supply either a string, or a list of strings
+on-run-start: "create table public.cool_table (id int)"
+on-run-end:
+  - insert into public.cool_table (id) values (1), (2), (3)
+  - insert into public.cool_table (id) values (4), (5), (6)
+```
 
 ### Bug fixes https://github.com/analyst-collective/dbt/milestone/11?closed=1
 
