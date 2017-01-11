@@ -1,4 +1,4 @@
-## dbt 0.6.1 (unreleased)
+## dbt 0.6.1
 
 #### Bugfixes
 
