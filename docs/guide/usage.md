@@ -27,6 +27,30 @@ Using `dbt run --models [model names]` will cause dbt to only deploy the models 
 
 Note that in its current version, `dbt run --dry` does not build any tables and therefore never executes `SELECT` statements on the underlying data. As such, there are modes in which `dbt run --dry` can succeed but `dbt run` can fail. Future versions will address this issue.
 
+### Run dbt non-destructively
+
+If you provide the `--non-destructive` argument to `dbt run`, dbt will minimize the amount of time during which your models are unavailable. Specfically, dbt
+will
+ 1. Ignore models materialized as `views`
+ 2. Truncate tables and re-insert data instead of dropping and re-creating them
+
+This flag is useful for recurring jobs which only need to update table models and incremental models. DBT will _not_ create, drop, or modify views whatsoever if the `--non-destructive` flag is provided.
+
+```bash
+dbt run --non-destructive
+```
+
+### Refresh incremental models
+
+If you provide the `--full-refresh` argument to `dbt run`, dbt will treat incremental models as table models. This is useful when
+
+1. An incremental model table schema changes and you need to recreate the table accordingly
+2. You want to reprocess the entirety of the incremental model because of new logic in the model code
+
+```bash
+dbt run --full-refresh
+```
+
 ## Test
 
 `dbt test` runs tests on data in deployed models. There are two types of tests:
