@@ -95,6 +95,17 @@ models:
     enabled: true        # configs defined here are applied to _all_ packages
     materialized: view   # but can be overridden in more specific configs below
 
+    # pre- and post- hooks can be defined anywhere within the model hierarchy.
+    # when defined at the root level (as they are here), they apply to all models
+    # in all packages. These hooks are compiled into the model SQL and run either
+    # before or after the model is materializated.
+    pre-hook:
+        - "insert into audit (model, state, time) values ('{{this.name}}', 'start', getdate())"
+
+    post-hook:
+        - "grant select on {{this}} to user_1"
+        - "insert into audit (model, state, time) values ('{{this.name}}', 'end', getdate())"
+
     # This is the configuration for the models in your local package. The name
     # `your_package_name` is defined above.
     your_package_name:
@@ -135,9 +146,27 @@ models:
             materialized: view
 
 
+
 #
-# Model Configurations
+# Run Start & Complete Hooks
 #
+
+# Like the pre- and post- hooks above, the on-run-start and on-run-end configs
+# make it possible to run SQL at the very beginning, and very end of a dbt run.
+# TODO : Add link to `target` config part of docs here
+on-run-start:
+    - "create table if not exists audit (model text, state text, time timestamp)"
+
+on-run-end:
+    - 'grant usage on schema "{{ target.schema }}" to db_reader'
+    - 'grant select on all tables in schema "{{ target.schema }}" to db_reader'
+
+
+
+#
+# Package configurations
+#
+
 # repositories: Optional. Contains a list of packages (git repositories) that
 # should be downloaded and included in this project. When a package is
 # included, its models are added to the dbt model graph and executed with
