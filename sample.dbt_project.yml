@@ -65,7 +65,7 @@ clean-targets: ["target", "dbt_modules"]
 
 # profile: Required. This config specifies which profile dbt should use to
 # connect to your data warehouse. The provided value must exist in the
-# profiles.yml file. TODO: Link to profiles.yml in docs
+# profiles.yml file.
 profile: "evil-corp"
 
 
@@ -157,7 +157,6 @@ models:
 
 # Like the pre- and post- hooks above, the on-run-start and on-run-end configs
 # make it possible to run SQL at the very beginning, and very end of a dbt run.
-# TODO : Add link to `target` config part of docs here
 on-run-start:
     - "create table if not exists audit (model text, state text, time timestamp)"
 
