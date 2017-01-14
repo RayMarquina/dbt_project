@@ -54,5 +54,5 @@ Here are some reference examples of dbt projects. Take a look at their code to g
 
 - [Quickbooks](https://github.com/fishtown-analytics/quickbooks)
 - [Snowplow](https://github.com/fishtown-analytics/snowplow)
-- [Stripe](https://github.com/analyst-collective/stripe)
-- [Mailchimp](https://github.com/analyst-collective/mailchimp)
+- [Stripe](https://github.com/fishtown-analytics/stripe)
+- [Zendesk](https://github.com/fishtown-analytics/zendesk)

@@ -39,12 +39,16 @@ analysis-paths: ["analysis"]
 target-path: "target"
 
 # test-paths: Optional. Specify which path(s) dbt should look in to find data
-# test definitions. TODO: Link to data testing docs here
+# test definitions.
 test-paths: ["test"]
 
 # data-paths: Optional. Specify which path(s) dbt should look in to find CSV
 # files. Running `dbt seed` will load these CSVs as tables in your warehouse
 data-paths: ["data"]
+
+# macro-paths: Optional. Specify which path(s) dbt should look in to find
+# macros. These macros will be globally available to all models in your project
+macro-paths: ['macros']
 
 # log-path: Optional. Specify which path dbt should write debug logs to.
 log-path: "logs"
@@ -181,3 +185,12 @@ on-run-end:
 
 repositories:
   - https://github.com/fishtown-analytics/quickbooks
+
+
+
+#
+# Archival
+#
+
+# Data archival is a powerful feature intended for advanced dbt users. For more
+# information, consult: http://dbt.readthedocs.io/en/master/guide/archival/

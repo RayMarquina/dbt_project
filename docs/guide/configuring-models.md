@@ -93,7 +93,7 @@ dbt applies this `WHERE` condition automatically, so it shouldn't be present in 
 WHERE session_end_timestamp >= (select max(session_end_timestamp) from {{this}})
 ```
 
-See [environment variables](environment-variables/) for more information on `this`.
+See [context variables](context-variables/) for more information on `this`.
 
 #### unique_key
 
