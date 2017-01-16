@@ -1,14 +1,14 @@
 # Macros
 
 Macros are snippets of SQL that can be invoked like functions from models. Macros make it possible to re-use SQL between models
-in keeping with the engineering principle of DRY (Dont Repeat Yourself). Moreover, packages can expose Macros
+in keeping with the engineering principle of DRY (Don't Repeat Yourself). Additionally, shared packages can expose macros
 that you can use in your own dbt project.
 
 To use macros, add a `macro-paths` config entry to your `dbt_project.yml` file. Macro files must use the `.sql` file extension.
 
 ```yml
 # dbt_project.yml
-source-paths: ["models"] 
+source-paths: ["models"]
 target-path: "target"
 ...
 macro-paths: ['macros']    # look for macros in ./macros directory
@@ -70,7 +70,7 @@ If the macro was imported from the `dbt_sql_helpers` package via:
 ...
 repositories:
     # this package's "name" is dbt_sql_helpers in its dbt_project.yml file!
-  - "https://github.com/fishtown-analytics/dbt_sql_helpers.git" 
+  - "https://github.com/fishtown-analytics/dbt_sql_helpers.git"
 ```
 
 then we would need to fully-qualify the macro:

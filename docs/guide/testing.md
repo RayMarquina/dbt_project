@@ -2,11 +2,11 @@
 
 Note: We believe that data testing and validation is an essential part of a mature analytical workflow. We anticipate spending much more time working on these features once the core modeling, templating, and scheduling functionality is completed.
 
-dbt provides two different mechanisms for data validation: schema testing and data testing.
+dbt provides two different mechanisms for data validation: schema tests and custom data tests.
 
-## Schema testing
+## Schema tests
 
-Data integrity in analytic databases is empirically often of lower quality than data in transactional systems. Schema testing provides users a repeatable way to ensure that their schema adheres to basic rules: referential integrity, uniqueness, etc. Building schema tests and running them on an ongoing basis gives users of the resulting data increased confidence that analytic queries produce the desired outputs.
+Data integrity in analytic databases is empirically often of lower quality than data in transactional systems. Schema testing provides users a repeatable way to ensure that their schema adheres to basic rules: referential integrity, uniqueness, etc. Building schema tests and running them on an ongoing basis gives users of the resulting data confidence that analytic queries produce the desired outputs.
 
 Tests are run with `dbt test`. See [usage](usage/) for more information on the dbt command structure. `dbt test` will report back the success or failure of each test, and in case of failure will report the number of failing rows.
 
@@ -61,9 +61,9 @@ people:
 It is recommended that users specify tests for as many constraints as can be reasonably identified in their database. This may result in a large number of total tests, but `schema.yml` makes it fast to create and modify these tests, and the presence of additional tests of this sort can significantly increase the confidence in underlying data consistency in a database.
 
 
-## Data testing
+## Custom data tests
 
-While schema tests are an essential part of a modern analytical workflow, there exists a class of data bugs that can not be surfaced using schema tests alone. For this reason, dbt provides a mechanism for testing arbitrary assertions about your data. These data tests are sql SELECT statements that return 0 rows on success, or > 0 rows on failure.
+Not all error conditions can be expressed in a schema test. For this reason, dbt provides a mechanism for testing arbitrary assertions about your data. These data tests are sql `SELECT` statements that return 0 rows on success, or > 0 rows on failure.
 
 A typical data test might look like:
 
@@ -104,10 +104,4 @@ Any .sql files found in the `test-paths` directories will be evaluated as data t
 ```bash
 $ dbt test         # run schema + data tests
 $ dbt test --data  # run only data tests
-```
-
-# For more information, try
-
-```bash
-$ dbt test -h
 ```

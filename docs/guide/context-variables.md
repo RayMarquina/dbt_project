@@ -41,7 +41,7 @@ Besides `{{ this }}`, there are a number of other helpful context variables avai
 | target.dbname    | Database name specified in active target                             |
 | target.host      | Host specified in active target                                      |
 | target.schema    | Schema specified in active target                                    |
-| target.type      | Database type (postgres | redshift | ...) specified in active target |
+| target.type      | Database type (postgres / redshift / ...) specified in active target |
 | target.user      | User specified in active target                                      |
 | target.port      | Port specified in active target                                      |
 | target.threads   | Number of threads specified in active target                         |
@@ -52,8 +52,8 @@ Besides `{{ this }}`, there are a number of other helpful context variables avai
 ## Arbitrary configuration variables
 
 Variables can be passed from your `dbt_project.yml` file into models during compilation.
-This is useful for configuring models imported via an open-source analytical package like
-Snowplow or Quickbooks. To add a variable to a model, use the var() function:
+These variables are useful for configuring packages to be useful in multiple environments.
+To add a variable to a model, use the var() function:
 
 ```sql
 -- some_model.sql
