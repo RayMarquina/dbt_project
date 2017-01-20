@@ -1,8 +1,9 @@
 from __future__ import print_function
-import dbt.targets
 import dbt.schema
 import dbt.templates
 import jinja2
+
+from dbt.adapters.factory import get_adapter
 
 
 class Archival(object):
@@ -10,9 +11,6 @@ class Archival(object):
     def __init__(self, project, archive_model):
         self.archive_model = archive_model
         self.project = project
-
-        self.target = dbt.targets.get_target(self.project.run_environment())
-        self.schema = dbt.schema.Schema(self.project, self.target)
 
     def compile(self):
         source_schema = self.archive_model.source_schema
@@ -22,10 +20,13 @@ class Archival(object):
         unique_key = self.archive_model.unique_key
         updated_at = self.archive_model.updated_at
 
-        self.schema.create_schema(target_schema)
+        profile = self.project.run_environment()
+        adapter = get_adapter(profile)
 
-        source_columns = self.schema.get_columns_in_table(
-            source_schema, source_table)
+        adapter.create_schema(profile, target_schema)
+
+        source_columns = adapter.get_columns_in_table(
+            profile, source_schema, source_table)
 
         if len(source_columns) == 0:
             raise RuntimeError(
@@ -40,7 +41,9 @@ class Archival(object):
         ]
 
         dest_columns = source_columns + extra_cols
-        self.schema.create_table(
+
+        adapter.create_table(
+            profile,
             target_schema,
             target_table,
             dest_columns,

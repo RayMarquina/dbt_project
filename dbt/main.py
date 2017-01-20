@@ -7,6 +7,7 @@ import sys
 import re
 
 import dbt.version
+import dbt.flags as flags
 import dbt.project as project
 import dbt.task.run as run_task
 import dbt.task.compile as compile_task
@@ -19,6 +20,7 @@ import dbt.task.test as test_task
 import dbt.task.archive as archive_task
 import dbt.tracking
 import dbt.config as config
+import dbt.adapters.cache as adapter_cache
 
 
 def main(args=None):
@@ -97,6 +99,11 @@ def run_from_args(parsed):
         dbt.tracking.track_invocation_end(
             project=proj, args=parsed, result_type="ok", result=None
         )
+    except dbt.exceptions.NotImplementedException as e:
+        logger.info('ERROR: {}'.format(e))
+        dbt.tracking.track_invocation_end(
+            project=proj, args=parsed, result_type="error", result=str(e)
+        )
     except Exception as e:
         dbt.tracking.track_invocation_end(
             project=proj, args=parsed, result_type="error", result=str(e)
@@ -107,6 +114,8 @@ def run_from_args(parsed):
 def invoke_dbt(parsed):
     task = None
     proj = None
+
+    adapter_cache.reset()
 
     try:
         proj = project.read_project(
@@ -167,21 +176,27 @@ def invoke_dbt(parsed):
 def parse_args(args):
     p = argparse.ArgumentParser(
         prog='dbt: data build tool',
-        formatter_class=argparse.RawTextHelpFormatter
-    )
+        formatter_class=argparse.RawTextHelpFormatter)
 
     p.add_argument(
         '--version',
         action='version',
         version=dbt.version.get_version_information(),
-        help="Show version information"
-    )
+        help="Show version information")
+
     p.add_argument(
         '-d',
         '--debug',
         action='store_true',
         help='''Display debug logging during dbt execution. Useful for
         debugging and making bug reports.''')
+
+    p.add_argument(
+        '-S',
+        '--strict',
+        action='store_true',
+        help='''Run schema validations at runtime. This will surface
+        bugs in dbt, but may incur a performance penalty.''')
 
     subs = p.add_subparsers()
 
