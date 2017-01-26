@@ -44,7 +44,7 @@ class GraphTest(unittest.TestCase):
                 'name': 'test_models_compile',
                 'version': '0.1',
                 'profile': 'test',
-                'project-root': '/fake',
+                'project-root': os.path.abspath('.'),
             },
             profiles=self.profiles,
             profiles_dir=None)
@@ -86,7 +86,7 @@ class GraphTest(unittest.TestCase):
 
     def use_models(self, models):
         for k, v in models.items():
-            path = os.path.abspath('/fake/models/{}.sql'.format(k))
+            path = os.path.abspath('models/{}.sql'.format(k))
             self.mock_models.append({
                 'searched_path': 'models',
                 'absolute_path': path,
@@ -105,7 +105,8 @@ class GraphTest(unittest.TestCase):
             [('test_models_compile', 'model_one')])
 
         self.assertEquals(
-            self.graph_result.edges(), [])
+            self.graph_result.edges(),
+            [])
 
     def test__two_models_simple_ref(self):
         self.use_models({
