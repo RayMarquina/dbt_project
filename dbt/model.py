@@ -202,6 +202,10 @@ class DBTSource(object):
         self.source_config = SourceConfig(project, own_project, self.fqn)
 
     @property
+    def absolute_path(self):
+        return os.path.join(self.root_dir, self.rel_filepath)
+
+    @property
     def root_dir(self):
         return os.path.join(self.own_project['project-root'], self.top_dir)
 
@@ -229,7 +233,7 @@ class DBTSource(object):
 
     @property
     def contents(self):
-        return dbt.clients.system.load_file_contents(self.filepath)
+        return dbt.clients.system.load_file_contents(self.absolute_path)
 
     @property
     def config(self):

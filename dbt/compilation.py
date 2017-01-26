@@ -274,7 +274,7 @@ class Compiler(object):
             jinja = jinja2.Environment(loader=fs_loader)
 
             template_contents = dbt.clients.system.load_file_contents(
-                model.filepath)
+                model.absolute_path)
 
             template = jinja.from_string(template_contents)
             context = self.get_context(
