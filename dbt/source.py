@@ -3,6 +3,8 @@ import fnmatch
 from dbt.model import Model, Analysis, TestModel, SchemaFile, Csv, Macro, \
     ArchiveModel, DataTest
 
+import dbt.clients.system
+
 
 class Source(object):
     def __init__(self, project, own_project=None):
@@ -15,72 +17,91 @@ class Source(object):
         self.own_project_root = self.own_project['project-root']
         self.own_project_name = self.own_project['name']
 
-    def find(self, source_paths, file_pattern):
-        """returns abspath, relpath, filename of files matching file_regex in
-        source_paths"""
-        found = []
+    def build_models_from_file_matches(
+            self,
+            to_build,
+            file_matches,
+            extra_args=[]):
 
-        if type(source_paths) not in (list, tuple):
-            source_paths = [source_paths]
+        build_args = [[self.project,
+                       file_match.get('searched_path'),
+                       file_match.get('relative_path'),
+                       self.own_project] + extra_args
+                      for file_match in file_matches]
 
-        for source_path in source_paths:
-            root_path = os.path.join(self.own_project_root, source_path)
-            for root, dirs, files in os.walk(root_path):
-                for filename in files:
-                    abs_path = os.path.join(root, filename)
-                    rel_path = os.path.relpath(abs_path, root_path)
-
-                    if fnmatch.fnmatch(filename, file_pattern):
-                        found.append(
-                            (self.project,
-                             source_path,
-                             rel_path,
-                             self.own_project)
-                        )
-        return found
+        return [to_build(*args) for args in build_args]
 
     def get_models(self, model_dirs, create_template):
-        pattern = "[!.#~]*.sql"
-        models = [Model(*model + (create_template,))
-                  for model in self.find(model_dirs, pattern)]
-        return models
+        file_matches = dbt.clients.system.find_matching(
+            self.own_project_root,
+            model_dirs,
+            "[!.#~]*.sql")
+
+        return self.build_models_from_file_matches(
+            Model,
+            file_matches,
+            [create_template])
 
     def get_test_models(self, model_dirs, create_template):
-        pattern = "[!.#~]*.sql"
-        models = [TestModel(*model + (create_template,))
-                  for model in self.find(model_dirs, pattern)]
-        return models
+        file_matches = dbt.clients.system.find_matching(
+            self.own_project_root,
+            model_dirs,
+            "[!.#~]*.sql")
+
+        return self.build_models_from_file_matches(
+            TestModel,
+            file_matches,
+            [create_template])
 
     def get_analyses(self, analysis_dirs):
-        pattern = "[!.#~]*.sql"
-        models = [Analysis(*analysis)
-                  for analysis in self.find(analysis_dirs, pattern)]
-        return models
+        file_matches = dbt.clients.system.find_matching(
+            self.own_project_root,
+            analysis_dirs,
+            "[!.#~]*.sql")
 
-    def get_schemas(self, model_dirs):
-        "Get schema.yml files"
-        pattern = "[!.#~]*.yml"
-        schemas = [SchemaFile(*schema)
-                   for schema in self.find(model_dirs, pattern)]
-        return schemas
+        return self.build_models_from_file_matches(
+            Analysis,
+            file_matches)
+
+    def get_schemas(self, schema_dirs):
+        file_matches = dbt.clients.system.find_matching(
+            self.own_project_root,
+            schema_dirs,
+            "[!.#~]*.yml")
+
+        return self.build_models_from_file_matches(
+            SchemaFile,
+            file_matches)
 
     def get_tests(self, test_dirs):
-        "Get custom test files"
-        pattern = "[!.#~]*.sql"
-        tests = [DataTest(*test) for test in self.find(test_dirs, pattern)]
-        return tests
+        file_matches = dbt.clients.system.find_matching(
+            self.own_project_root,
+            test_dirs,
+            "[!.#~]*.sql")
+
+        return self.build_models_from_file_matches(
+            DataTest,
+            file_matches)
 
     def get_csvs(self, csv_dirs):
-        "Get CSV files"
-        pattern = "[!.#~]*.csv"
-        csvs = [Csv(*csv) for csv in self.find(csv_dirs, pattern)]
-        return csvs
+        file_matches = dbt.clients.system.find_matching(
+            self.own_project_root,
+            csv_dirs,
+            "[!.#~]*.csv")
+
+        return self.build_models_from_file_matches(
+            Csv,
+            file_matches)
 
     def get_macros(self, macro_dirs):
-        "Get Macro files"
-        pattern = "[!.#~]*.sql"
-        macros = [Macro(*macro) for macro in self.find(macro_dirs, pattern)]
-        return macros
+        file_matches = dbt.clients.system.find_matching(
+            self.own_project_root,
+            macro_dirs,
+            "[!.#~]*.sql")
+
+        return self.build_models_from_file_matches(
+            Macro,
+            file_matches)
 
     def get_archives(self, create_template):
         "Get Archive models defined in project config"

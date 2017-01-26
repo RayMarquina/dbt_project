@@ -11,7 +11,6 @@ import dbt.archival
 from dbt.utils import deep_merge, DBTConfigKeys, compiler_error, \
     compiler_warning
 
-
 class SourceConfig(object):
     Materializations = ['view', 'table', 'incremental', 'ephemeral']
     ConfigKeys = DBTConfigKeys
@@ -230,9 +229,7 @@ class DBTSource(object):
 
     @property
     def contents(self):
-        filepath = os.path.join(self.root_dir, self.rel_filepath)
-        with open(filepath) as fh:
-            return fh.read().strip()
+        return dbt.clients.system.load_file_contents(self.filepath)
 
     @property
     def config(self):
