@@ -43,7 +43,6 @@ class TestDataTests(DBTIntegrationTest):
         self.run_dbt()
         test_results = self.run_data_validations()
 
-
         for result in test_results:
             # assert that all deliberately failing tests actually fail
             if 'fail' in result.model.name:

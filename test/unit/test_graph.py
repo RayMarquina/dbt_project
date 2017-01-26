@@ -1,14 +1,15 @@
-from mock import MagicMock, patch, PropertyMock
+from mock import MagicMock
+import os
+import six
 import unittest
 
+import dbt.compilation
 import dbt.model
 import dbt.project
 import dbt.templates
 import dbt.utils
 
 import networkx as nx
-
-import dbt.compilation
 
 from dbt.logger import GLOBAL_LOGGER as logger
 
@@ -59,23 +60,40 @@ class GraphTest(unittest.TestCase):
 
         dbt.utils.dependency_projects = MagicMock(return_value=[])
 
+        self.mock_models = []
+        self.mock_content = {}
 
-    def use_models(self, models):
+        def mock_find_matching(root_path, relative_paths_to_search,
+                               file_pattern):
+            if not 'sql' in file_pattern:
+                return []
+
+            to_return = []
+
+            if 'models' in relative_paths_to_search:
+                to_return = to_return + self.mock_models
+
+            return to_return
+
         dbt.clients.system.find_matching = MagicMock(
-            return_value=[{'searched_path': 'models',
-                           'absolute_path': '/fake/models/{}.sql'.format(k),
-                           'relative_path': '{}.sql'.format(k)}
-                          for k, v in models.items()])
+            side_effect=mock_find_matching)
 
         def mock_load_file_contents(path):
-            k = path.split('/')[-1].split('.')[0]
-            return models[k]
+            return self.mock_content[path]
 
         dbt.clients.system.load_file_contents = MagicMock(
             side_effect=mock_load_file_contents)
 
+    def use_models(self, models):
+        for k, v in models.items():
+            path = '/fake/models/{}.sql'.format(k)
+            self.mock_models.append({
+                'searched_path': 'models',
+                'absolute_path': os.path.abspath(path),
+                'relative_path': '{}.sql'.format(k)})
+            self.mock_content[path] = v
 
-    def test_single_model(self):
+    def test__single_model(self):
         self.use_models({
             'model_one': 'select * from events',
         })
@@ -89,7 +107,7 @@ class GraphTest(unittest.TestCase):
         self.assertEquals(
             self.graph_result.edges(), [])
 
-    def test_two_models_simple_ref(self):
+    def test__two_models_simple_ref(self):
         self.use_models({
             'model_one': 'select * from events',
             'model_two': "select * from {{ref('model_one')}}",
@@ -97,12 +115,12 @@ class GraphTest(unittest.TestCase):
 
         self.compiler.compile(limit_to=['models'])
 
-        self.assertEquals(
+        six.assertCountEqual(self,
             self.graph_result.nodes(),
             [('test_models_compile', 'model_one'),
              ('test_models_compile', 'model_two'),])
 
-        self.assertEquals(
+        six.assertCountEqual(self,
             self.graph_result.edges(),
             [(('test_models_compile', 'model_one'),
               ('test_models_compile', 'model_two')),])
