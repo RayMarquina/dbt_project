@@ -86,10 +86,10 @@ class GraphTest(unittest.TestCase):
 
     def use_models(self, models):
         for k, v in models.items():
-            path = '/fake/models/{}.sql'.format(k)
+            path = os.path.abspath('/fake/models/{}.sql'.format(k))
             self.mock_models.append({
                 'searched_path': 'models',
-                'absolute_path': os.path.abspath(path),
+                'absolute_path': path,
                 'relative_path': '{}.sql'.format(k)})
             self.mock_content[path] = v
 
