@@ -1,4 +1,3 @@
-
 import os.path
 import yaml
 import jinja2
@@ -10,6 +9,7 @@ import dbt.project
 import dbt.archival
 from dbt.utils import deep_merge, DBTConfigKeys, compiler_error, \
     compiler_warning
+
 
 class SourceConfig(object):
     Materializations = ['view', 'table', 'incremental', 'ephemeral']
