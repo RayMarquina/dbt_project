@@ -14,11 +14,20 @@ import networkx as nx
 from dbt.logger import GLOBAL_LOGGER as logger
 
 class GraphTest(unittest.TestCase):
+
+    def tearDown(self):
+        nx.write_yaml = self.real_write_yaml
+        dbt.utils.dependency_projects = self.real_dependency_projects
+        dbt.clients.system.find_matching = self.real_find_matching
+        dbt.clients.system.load_file_contents = self.real_load_file_contents
+
     def setUp(self):
         def mock_write_yaml(graph, outfile):
             self.graph_result = graph
 
+        self.real_write_yaml = nx.write_yaml
         nx.write_yaml = mock_write_yaml
+
         self.graph_result = None
 
         self.profiles = {
@@ -58,6 +67,7 @@ class GraphTest(unittest.TestCase):
 
         self.compiler.get_macros = MagicMock(return_value=[])
 
+        self.real_dependency_projects = dbt.utils.dependency_projects
         dbt.utils.dependency_projects = MagicMock(return_value=[])
 
         self.mock_models = []
@@ -75,12 +85,14 @@ class GraphTest(unittest.TestCase):
 
             return to_return
 
+        self.real_find_matching = dbt.clients.system.find_matching
         dbt.clients.system.find_matching = MagicMock(
             side_effect=mock_find_matching)
 
         def mock_load_file_contents(path):
             return self.mock_content[path]
 
+        self.real_load_file_contents = dbt.clients.system.load_file_contents
         dbt.clients.system.load_file_contents = MagicMock(
             side_effect=mock_load_file_contents)
 
