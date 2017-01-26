@@ -12,7 +12,7 @@ import dbt.compilation
 
 from dbt.logger import GLOBAL_LOGGER as logger
 
-class DependencyTest(unittest.TestCase):
+class GraphTest(unittest.TestCase):
     def setUp(self):
         def mock_write_yaml(graph, outfile):
             self.graph_result = graph
