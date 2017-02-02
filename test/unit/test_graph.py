@@ -13,6 +13,11 @@ import networkx as nx
 
 from dbt.logger import GLOBAL_LOGGER as logger
 
+class FakeArgs:
+    
+    def __init__(self):
+        self.full_refresh = False
+
 class GraphTest(unittest.TestCase):
 
     def tearDown(self):
@@ -48,25 +53,6 @@ class GraphTest(unittest.TestCase):
             }
         }
 
-        self.project = dbt.project.Project(
-            cfg={
-                'name': 'test_models_compile',
-                'version': '0.1',
-                'profile': 'test',
-                'project-root': os.path.abspath('.'),
-            },
-            profiles=self.profiles,
-            profiles_dir=None)
-
-        self.project.validate()
-
-        self.compiler = dbt.compilation.Compiler(
-            self.project,
-            dbt.templates.BaseCreateTemplate,
-            {})
-
-        self.compiler.get_macros = MagicMock(return_value=[])
-
         self.real_dependency_projects = dbt.utils.dependency_projects
         dbt.utils.dependency_projects = MagicMock(return_value=[])
 
@@ -75,7 +61,7 @@ class GraphTest(unittest.TestCase):
 
         def mock_find_matching(root_path, relative_paths_to_search,
                                file_pattern):
-            if not 'sql' in file_pattern:
+            if 'sql' not in file_pattern:
                 return []
 
             to_return = []
@@ -96,6 +82,35 @@ class GraphTest(unittest.TestCase):
         dbt.clients.system.load_file_contents = MagicMock(
             side_effect=mock_load_file_contents)
 
+    def get_project(self, extra_cfg=None):
+        if extra_cfg is None:
+            extra_cfg = {}
+
+        cfg = {
+            'name': 'test_models_compile',
+            'version': '0.1',
+            'profile': 'test',
+            'project-root': os.path.abspath('.'),
+        }
+        cfg.update(extra_cfg)
+
+        project = dbt.project.Project(
+            cfg=cfg,
+            profiles=self.profiles,
+            profiles_dir=None)
+
+        project.validate()
+        return project
+
+    def get_compiler(self, project):
+        compiler = dbt.compilation.Compiler(
+            project,
+            dbt.templates.BaseCreateTemplate,
+            FakeArgs())
+
+        compiler.get_macros = MagicMock(return_value=[])
+        return compiler
+
     def use_models(self, models):
         for k, v in models.items():
             path = os.path.abspath('models/{}.sql'.format(k))
@@ -110,7 +125,8 @@ class GraphTest(unittest.TestCase):
             'model_one': 'select * from events',
         })
 
-        self.compiler.compile(limit_to=['models'])
+        compiler = self.get_compiler(self.get_project())
+        compiler.compile(limit_to=['models'])
 
         self.assertEquals(
             self.graph_result.nodes(),
@@ -126,7 +142,8 @@ class GraphTest(unittest.TestCase):
             'model_two': "select * from {{ref('model_one')}}",
         })
 
-        self.compiler.compile(limit_to=['models'])
+        compiler = self.get_compiler(self.get_project())
+        compiler.compile(limit_to=['models'])
 
         six.assertCountEqual(self,
             self.graph_result.nodes(),
@@ -137,3 +154,113 @@ class GraphTest(unittest.TestCase):
             self.graph_result.edges(),
             [(('test_models_compile', 'model_one'),
               ('test_models_compile', 'model_two')),])
+
+    def test__model_materializations(self):
+        self.use_models({
+            'model_one': 'select * from events',
+            'model_two': "select * from {{ref('model_one')}}",
+            'model_three': "select * from events",
+            'model_four': "select * from events",
+        })
+
+        cfg = {
+            "models": {
+                "materialized": "table",
+                "test_models_compile": {
+                    "model_one": { "materialized": "table" },
+                    "model_two": { "materialized": "view" },
+                    "model_three": { "materialized": "ephemeral" }
+                }
+            }
+        }
+
+        compiler = self.get_compiler(self.get_project(cfg))
+        compiler.compile(limit_to=['models'])
+
+        expected_materialization = {
+            "model_one": "table",
+            "model_two": "view",
+            "model_three": "ephemeral",
+            "model_four": "table"
+        }
+
+        nodes = self.graph_result.node
+
+        for model, expected in expected_materialization.items():
+            actual = nodes[("test_models_compile", model)]["materialized"]
+            self.assertEquals(actual, expected)
+
+
+    def test__model_enabled(self):
+        self.use_models({
+            'model_one': 'select * from events',
+            'model_two': "select * from {{ref('model_one')}}",
+        })
+
+        cfg = {
+            "models": {
+                "materialized": "table",
+                "test_models_compile": {
+                    "model_one": { "enabled": True },
+                    "model_two": { "enabled": False },
+                }
+            }
+        }
+
+        compiler = self.get_compiler(self.get_project(cfg))
+        compiler.compile(limit_to=['models'])
+
+
+        six.assertCountEqual(self,
+            self.graph_result.nodes(), [('test_models_compile', 'model_one')])
+
+        six.assertCountEqual(self, self.graph_result.edges(), [])
+
+    def test__model_incremental_without_sql_where_fails(self):
+        self.use_models({
+            'model_one': 'select * from events'
+        })
+
+        cfg = {
+            "models": {
+                "materialized": "table",
+                "test_models_compile": {
+                    "model_one": { "materialized": "incremental" },
+                }
+            }
+        }
+
+        compiler = self.get_compiler(self.get_project(cfg))
+
+        with self.assertRaises(RuntimeError) as context:
+            compiler.compile(limit_to=['models'])
+
+    def test__model_incremental(self):
+        self.use_models({
+            'model_one': 'select * from events'
+        })
+
+        cfg = {
+            "models": {
+                "test_models_compile": {
+                    "model_one": {
+                        "materialized": "incremental",
+                        "sql_where": "TRUE",
+                        "unique_key": "TRUE"
+                    },
+                }
+            }
+        }
+
+        compiler = self.get_compiler(self.get_project(cfg))
+        compiler.compile(limit_to=['models'])
+
+        node = ('test_models_compile', 'model_one')
+
+        self.assertEqual(self.graph_result.nodes(), [node])
+        self.assertEqual(self.graph_result.edges(), [])
+
+        self.assertEqual(
+                self.graph_result.node[node]['materialized'],
+                'incremental')
+
