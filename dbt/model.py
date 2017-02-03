@@ -13,7 +13,6 @@ from dbt.utils import deep_merge, DBTConfigKeys, compiler_error, \
     compiler_warning
 
 
-
 class SourceConfig(object):
     Materializations = ['view', 'table', 'incremental', 'ephemeral']
     ConfigKeys = DBTConfigKeys
@@ -356,7 +355,6 @@ class Model(DBTSource):
         adapter = get_adapter(self.project.run_environment())
         return adapter.sort_qualifier(sort_type, sort_keys)
 
-
     def dist_qualifier(self, model_config):
         if 'dist' not in model_config:
             return ''
@@ -376,7 +374,6 @@ class Model(DBTSource):
 
         adapter = get_adapter(self.project.run_environment())
         return adapter.dist_qualifier(dist_key)
-
 
     def build_path(self):
         build_dir = self.create_template.label
