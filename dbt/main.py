@@ -43,6 +43,8 @@ def handle(args):
     # correct profiles.yml file
     if not config.send_anonymous_usage_stats(parsed.profiles_dir):
         dbt.tracking.do_not_track()
+    else:
+        dbt.tracking.initialize_tracking()
 
     res = run_from_args(parsed)
     dbt.tracking.flush()
@@ -92,6 +94,7 @@ def run_from_args(parsed):
         log_path = proj.get('log-path', 'logs')
 
     initialize_logger(parsed.debug, log_path)
+    logger.debug("Tracking: {}".format(dbt.tracking.active_user.state()))
 
     dbt.tracking.track_invocation_start(project=proj, args=parsed)
     try:

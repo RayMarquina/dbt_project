@@ -412,7 +412,7 @@ class RunManager(object):
 
         self.context = {
             "run_started_at": datetime.now(),
-            "invocation_id": dbt.tracking.invocation_id,
+            "invocation_id": dbt.tracking.active_user.invocation_id,
             "get_columns_in_table": call_get_columns_in_table,
             "get_missing_columns": call_get_missing_columns,
             "already_exists": call_table_exists,
@@ -576,7 +576,7 @@ class RunManager(object):
                     )
 
                     dbt.tracking.track_model_run({
-                        "invocation_id": dbt.tracking.invocation_id,
+                        "invocation_id": dbt.tracking.active_user.invocation_id,
                         "index": index,
                         "total": num_models,
                         "execution_time": run_model_result.execution_time,
