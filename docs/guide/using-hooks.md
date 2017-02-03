@@ -39,9 +39,9 @@ Incremental models can be configured to both insert new records and update exist
 --[model_name].sql
 
 {{
-  config(
-    post-hook = "vacuum delete only {{this}} to 100 percent",
-  )
+  config({
+    "post-hook" : "vacuum delete only {{this}} to 100 percent"
+  })
 }}
 ```
 
