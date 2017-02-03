@@ -217,7 +217,6 @@ def track_model_run(options):
 def track_invocation_end(
         project=None, args=None, result_type=None, result=None
 ):
-
     user = active_user
     context = [
         get_invocation_end_context(user, project, args, result_type, result),

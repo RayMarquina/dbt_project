@@ -97,8 +97,10 @@ def run_from_args(parsed):
     logger.debug("Tracking: {}".format(dbt.tracking.active_user.state()))
 
     dbt.tracking.track_invocation_start(project=proj, args=parsed)
+
+    result = None
     try:
-        return task.run()
+        result = task.run()
         dbt.tracking.track_invocation_end(
             project=proj, args=parsed, result_type="ok", result=None
         )
@@ -113,6 +115,7 @@ def run_from_args(parsed):
         )
         raise
 
+    return result
 
 def invoke_dbt(parsed):
     task = None
