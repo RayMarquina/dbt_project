@@ -117,6 +117,7 @@ def run_from_args(parsed):
 
     return result
 
+
 def invoke_dbt(parsed):
     task = None
     proj = None

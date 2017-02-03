@@ -33,6 +33,7 @@ tracker = Tracker(emitter, namespace="cf", app_id="dbt")
 
 active_user = None
 
+
 class User(object):
 
     def __init__(self):
@@ -172,7 +173,6 @@ def get_dbt_env_context():
     return SelfDescribingJson(INVOCATION_ENV_SPEC, data)
 
 
-
 def track(user, *args, **kwargs):
     if user.do_not_track:
         return
@@ -237,8 +237,16 @@ def track_invalid_invocation(
 ):
 
     user = active_user
+    invocation_context = get_invocation_invalid_context(
+            user,
+            project,
+            args,
+            result_type,
+            result
+    )
+
     context = [
-        get_invocation_invalid_context(user, project, args, result_type, result),
+        invocation_context,
         get_platform_context(),
         get_dbt_env_context()
     ]
@@ -256,12 +264,13 @@ def flush():
     logger.debug("Flushing usage events")
     tracker.flush()
 
+
 def do_not_track():
     global active_user
     active_user = User()
+
 
 def initialize_tracking():
     global active_user
     active_user = User()
     active_user.initialize()
-

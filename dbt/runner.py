@@ -575,8 +575,9 @@ class RunManager(object):
                         run_model_result.execution_time
                     )
 
+                    invocation_id = dbt.tracking.active_user.invocation_id
                     dbt.tracking.track_model_run({
-                        "invocation_id": dbt.tracking.active_user.invocation_id,
+                        "invocation_id": invocation_id,
                         "index": index,
                         "total": num_models,
                         "execution_time": run_model_result.execution_time,
