@@ -133,8 +133,8 @@ def dependency_projects(project):
                 yield dbt.project.read_project(
                     os.path.join(full_obj, 'dbt_project.yml'),
                     project.profiles_dir,
-                    profile_to_load=project.profile_to_load
-                )
+                    profile_to_load=project.profile_to_load,
+                    args=project.args)
             except dbt.project.DbtProjectError as e:
                 logger.info(
                     "Error reading dependency project at {}".format(full_obj)
