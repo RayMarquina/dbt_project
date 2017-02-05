@@ -8,15 +8,18 @@ import dbt.model
 import dbt.project
 import dbt.templates
 import dbt.utils
+import dbt.linker
 
 import networkx as nx
 
-from dbt.logger import GLOBAL_LOGGER as logger
+# from dbt.logger import GLOBAL_LOGGER as logger
+
 
 class FakeArgs:
-    
+
     def __init__(self):
         self.full_refresh = False
+
 
 class GraphTest(unittest.TestCase):
 
@@ -146,14 +149,20 @@ class GraphTest(unittest.TestCase):
         compiler.compile(limit_to=['models'])
 
         six.assertCountEqual(self,
-            self.graph_result.nodes(),
-            [('test_models_compile', 'model_one'),
-             ('test_models_compile', 'model_two'),])
+                             self.graph_result.nodes(),
+                             [
+                                 ('test_models_compile', 'model_one'),
+                                 ('test_models_compile', 'model_two')
+                             ])
 
         six.assertCountEqual(self,
-            self.graph_result.edges(),
-            [(('test_models_compile', 'model_one'),
-              ('test_models_compile', 'model_two')),])
+                             self.graph_result.edges(),
+                             [
+                                 (
+                                     ('test_models_compile', 'model_one'),
+                                     ('test_models_compile', 'model_two')
+                                 )
+                             ])
 
     def test__model_materializations(self):
         self.use_models({
@@ -167,9 +176,9 @@ class GraphTest(unittest.TestCase):
             "models": {
                 "materialized": "table",
                 "test_models_compile": {
-                    "model_one": { "materialized": "table" },
-                    "model_two": { "materialized": "view" },
-                    "model_three": { "materialized": "ephemeral" }
+                    "model_one": {"materialized": "table"},
+                    "model_two": {"materialized": "view"},
+                    "model_three": {"materialized": "ephemeral"}
                 }
             }
         }
@@ -190,7 +199,6 @@ class GraphTest(unittest.TestCase):
             actual = nodes[("test_models_compile", model)]["materialized"]
             self.assertEquals(actual, expected)
 
-
     def test__model_enabled(self):
         self.use_models({
             'model_one': 'select * from events',
@@ -201,8 +209,8 @@ class GraphTest(unittest.TestCase):
             "models": {
                 "materialized": "table",
                 "test_models_compile": {
-                    "model_one": { "enabled": True },
-                    "model_two": { "enabled": False },
+                    "model_one": {"enabled": True},
+                    "model_two": {"enabled": False},
                 }
             }
         }
@@ -210,9 +218,9 @@ class GraphTest(unittest.TestCase):
         compiler = self.get_compiler(self.get_project(cfg))
         compiler.compile(limit_to=['models'])
 
-
         six.assertCountEqual(self,
-            self.graph_result.nodes(), [('test_models_compile', 'model_one')])
+                             self.graph_result.nodes(),
+                             [('test_models_compile', 'model_one')])
 
         six.assertCountEqual(self, self.graph_result.edges(), [])
 
@@ -225,14 +233,14 @@ class GraphTest(unittest.TestCase):
             "models": {
                 "materialized": "table",
                 "test_models_compile": {
-                    "model_one": { "materialized": "incremental" },
+                    "model_one": {"materialized": "incremental"},
                 }
             }
         }
 
         compiler = self.get_compiler(self.get_project(cfg))
 
-        with self.assertRaises(RuntimeError) as context:
+        with self.assertRaises(RuntimeError):
             compiler.compile(limit_to=['models'])
 
     def test__model_incremental(self):
@@ -245,8 +253,8 @@ class GraphTest(unittest.TestCase):
                 "test_models_compile": {
                     "model_one": {
                         "materialized": "incremental",
-                        "sql_where": "TRUE",
-                        "unique_key": "TRUE"
+                        "sql_where": "created_at",
+                        "unique_key": "id"
                     },
                 }
             }
@@ -264,3 +272,96 @@ class GraphTest(unittest.TestCase):
                 self.graph_result.node[node]['materialized'],
                 'incremental')
 
+    def test__topological_ordering(self):
+        self.use_models({
+            'model_1': 'select * from events',
+            'model_2': 'select * from {{ ref("model_1") }}',
+            'model_3': '''
+                select * from {{ ref("model_1") }}
+                union all
+                select * from {{ ref("model_2") }}
+            ''',
+            'model_4': 'select * from {{ ref("model_3") }}'
+        })
+
+        compiler = self.get_compiler(self.get_project({}))
+        compiler.compile(limit_to=['models'])
+
+        six.assertCountEqual(self,
+                             self.graph_result.nodes(),
+                             [
+                                 ('test_models_compile', 'model_1'),
+                                 ('test_models_compile', 'model_2'),
+                                 ('test_models_compile', 'model_3'),
+                                 ('test_models_compile', 'model_4')
+                             ])
+
+        six.assertCountEqual(self,
+                             self.graph_result.edges(),
+                             [
+                                 (
+                                     ('test_models_compile', 'model_1'),
+                                     ('test_models_compile', 'model_2')
+                                 ),
+                                 (
+                                     ('test_models_compile', 'model_1'),
+                                     ('test_models_compile', 'model_3')
+                                 ),
+                                 (
+                                     ('test_models_compile', 'model_2'),
+                                     ('test_models_compile', 'model_3')
+                                 ),
+                                 (
+                                     ('test_models_compile', 'model_3'),
+                                     ('test_models_compile', 'model_4')
+                                 )
+                             ])
+
+        linker = dbt.linker.Linker()
+        linker.graph = self.graph_result
+
+        actual_ordering = linker.as_topological_ordering()
+        expected_ordering = [
+            ('test_models_compile', 'model_1'),
+            ('test_models_compile', 'model_2'),
+            ('test_models_compile', 'model_3'),
+            ('test_models_compile', 'model_4')
+        ]
+
+        self.assertEqual(actual_ordering, expected_ordering)
+
+    def test__dependency_list(self):
+        self.use_models({
+            'model_1': 'select * from events',
+            'model_2': 'select * from {{ ref("model_1") }}',
+            'model_3': '''
+                select * from {{ ref("model_1") }}
+                union all
+                select * from {{ ref("model_2") }}
+            ''',
+            'model_4': 'select * from {{ ref("model_3") }}'
+        })
+
+        compiler = self.get_compiler(self.get_project({}))
+        compiler.compile(limit_to=['models'])
+
+        linker = dbt.linker.Linker()
+        linker.graph = self.graph_result
+
+        actual_dep_list = linker.as_dependency_list()
+        expected_dep_list = [
+            [
+                ('test_models_compile', 'model_1')
+            ],
+            [
+                ('test_models_compile', 'model_2')
+            ],
+            [
+                ('test_models_compile', 'model_3')
+            ],
+            [
+                ('test_models_compile', 'model_4'),
+            ]
+        ]
+
+        self.assertEqual(actual_dep_list, expected_dep_list)
