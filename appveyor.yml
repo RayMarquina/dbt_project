@@ -8,8 +8,8 @@ environment:
   TOX_ENV: "pywin"
 
   matrix:
-    - PYTHON: "C:\\Python27"
-      PYTHON_VERSION: "2.7.8"
+    - PYTHON: "C:\\Python35"
+      PYTHON_VERSION: "3.5.2"
       PYTHON_ARCH: "32"
 
     #- PYTHON: "C:\\Python35"
@@ -51,6 +51,7 @@ install:
 build: false  # Not a C# project, build stuff at the test step instead.
 
 before_test:
+  - "%CMD_IN_ENV% pip install psycopg2==2.6.2"
   - "%CMD_IN_ENV% pip install tox"
 
 test_script:
