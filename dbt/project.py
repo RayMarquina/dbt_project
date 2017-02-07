@@ -118,6 +118,11 @@ class Project(object):
             raise DbtProjectError(
                 "Project name and version is not provided", self)
 
+        if not self.is_valid_package_name():
+            raise DbtProjectError(
+                ('Package name can only contain letters, numbers, and '
+                 'underscores, and must start with a letter.'), self)
+
         validator = dbt.contracts.connection.credentials_mapping.get(
             target_cfg.get('type'), None)
 
