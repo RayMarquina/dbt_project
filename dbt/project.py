@@ -82,13 +82,7 @@ class Project(object):
         return self.cfg.get(key, default)
 
     def handle_deprecations(self):
-        if 'run-target' in self.cfg:
-            dbt.deprecations.warn('run-target')
-            self.cfg['target'] = self.cfg['run-target']
-
-        if not self.is_valid_package_name():
-            dbt.deprecations.warn(
-                'invalid-package-name', package_name=self['name'])
+        pass
 
     def is_valid_package_name(self):
         if re.match(r"^[^\d\W]\w*\Z", self['name']):
