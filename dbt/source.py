@@ -1,6 +1,6 @@
 import os.path
 import fnmatch
-from dbt.model import Model, Analysis, TestModel, SchemaFile, Csv, Macro, \
+from dbt.model import Model, Analysis, SchemaFile, Csv, Macro, \
     ArchiveModel, DataTest
 
 import dbt.clients.system
@@ -39,17 +39,6 @@ class Source(object):
 
         return self.build_models_from_file_matches(
             Model,
-            file_matches,
-            [create_template])
-
-    def get_test_models(self, model_dirs, create_template):
-        file_matches = dbt.clients.system.find_matching(
-            self.own_project_root,
-            model_dirs,
-            "[!.#~]*.sql")
-
-        return self.build_models_from_file_matches(
-            TestModel,
             file_matches,
             [create_template])
 
