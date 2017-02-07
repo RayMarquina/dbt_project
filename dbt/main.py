@@ -348,6 +348,22 @@ def parse_args(args):
         settings in profiles.yml
         """
     )
+    sub.add_argument(
+        '--models',
+        required=False,
+        nargs='+',
+        help="""
+        Specify the models to test.
+        """
+    )
+    sub.add_argument(
+        '--exclude',
+        required=False,
+        nargs='+',
+        help="""
+        Specify the models to exclude from testing.
+        """
+    )
 
     sub.set_defaults(cls=test_task.TestTask, which='test')
 

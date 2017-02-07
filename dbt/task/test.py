@@ -28,7 +28,7 @@ class TestTask:
     def compile(self):
         compiler = Compiler(self.project, BaseCreateTemplate, self.args)
         compiler.initialize()
-        results = compiler.compile(limit_to=['tests'])
+        results = compiler.compile()
 
         stat_line = ", ".join(
             ["{} {}".format(results[k], k) for k in CompilableEntities]
@@ -43,13 +43,19 @@ class TestTask:
             self.project, self.project['target-path'], 'build', self.args
         )
 
+        include = self.args.models
+        exclude = self.args.exclude
+
         if (self.args.data and self.args.schema) or \
            (not self.args.data and not self.args.schema):
-            res = runner.run_tests(test_schemas=True, test_data=True)
+            res = runner.run_tests(include, exclude,
+                                   test_schemas=True, test_data=True)
         elif self.args.data:
-            res = runner.run_tests(test_schemas=False, test_data=True)
+            res = runner.run_tests(include, exclude,
+                                   test_schemas=False, test_data=True)
         elif self.args.schema:
-            res = runner.run_tests(test_schemas=True, test_data=False)
+            res = runner.run_tests(include, exclude,
+                                   test_schemas=True, test_data=False)
         else:
             raise RuntimeError("unexpected")
 

@@ -81,11 +81,16 @@ class SourceConfig(object):
 
         # mask this as a table if it's an incremental model with
         # --full-refresh provided
-        if cfg.get('materialized') == 'incremental' and \
-           self.active_project.args.full_refresh:
+        if cfg.get('materialized') == 'incremental' and self.is_full_refresh():
             cfg['materialized'] = 'table'
 
         return cfg
+
+    def is_full_refresh(self):
+        if hasattr(self.active_project.args, 'full_refresh'):
+            return self.active_project.args.full_refresh
+        else:
+            return False
 
     def update_in_model_config(self, config):
         config = config.copy()
@@ -589,6 +594,9 @@ class SchemaTest(DBTSource):
     def serialize(self):
         serialized = DBTSource.serialize(self).copy()
         serialized['dbt_test_type'] = self.dbt_test_type
+
+        # TODO: add test for this attribute
+        serialized['model_name'] = self.model_name
 
         return serialized
 

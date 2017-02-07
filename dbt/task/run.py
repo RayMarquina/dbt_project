@@ -20,7 +20,7 @@ class RunTask:
                           else BaseCreateTemplate
         compiler = Compiler(self.project, create_template, self.args)
         compiler.initialize()
-        results = compiler.compile(limit_to=['models'])
+        results = compiler.compile()
 
         stat_line = ", ".join([
             "{} {}".format(results[k], k) for k in CompilableEntities

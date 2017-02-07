@@ -125,13 +125,18 @@ class ModelRunner(BaseRunner):
     def status(self, result):
         return result.status
 
+    def is_non_destructive(self):
+        if hasattr(self.project.args, 'non_destructive'):
+            return self.project.args.non_destructive
+        else:
+            return False
+
     def execute(self, model):
         profile = self.project.run_environment()
         adapter = get_adapter(profile)
 
         if model.tmp_drop_type is not None:
-            if model.materialization == 'table' and \
-               self.project.args.non_destructive:
+            if model.materialization == 'table' and self.is_non_destructive():
                 adapter.truncate(
                     profile=profile,
                     table=model.tmp_name,
@@ -148,8 +153,7 @@ class ModelRunner(BaseRunner):
             model=model)
 
         if model.final_drop_type is not None:
-            if model.materialization == 'table' and \
-               self.project.args.non_destructive:
+            if model.materialization == 'table' and self.is_non_destructive():
                 # we just inserted into this recently truncated table...
                 # do nothing here
                 pass
@@ -689,10 +693,28 @@ class RunManager(object):
 
         return results
 
-    def run_tests_from_graph(self, test_schemas, test_data):
+    def run_tests_from_graph(self, include_spec, exclude_spec,
+                             test_schemas, test_data):
+
+        test_runner = TestRunner(self.project)
         linker = self.deserialize_graph()
+
+        selected_models = self.get_nodes_to_run(linker.graph, include_spec,
+                                                exclude_spec)
         compiled_models = [make_compiled_model(fqn, linker.get_node(fqn))
                            for fqn in linker.nodes()]
+
+        selected_tests = []
+        for cm in compiled_models:
+            if not cm.is_test_type(test_runner.test_schema_type) and \
+               not cm.is_test_type(test_runner.test_data_type):
+                continue
+
+            model_name = cm['model_name']
+            attached_model = find_model_by_name(compiled_models, model_name)
+
+            if tuple(attached_model.fqn) in selected_models:
+                selected_tests.append(cm)
 
         profile = self.project.run_environment()
         adapter = get_adapter(profile)
@@ -708,16 +730,14 @@ class RunManager(object):
             logger.info(str(e))
             sys.exit(1)
 
-        test_runner = TestRunner(self.project)
-
         if test_schemas:
-            schema_tests = [m for m in compiled_models
+            schema_tests = [m for m in selected_tests
                             if m.is_test_type(test_runner.test_schema_type)]
         else:
             schema_tests = []
 
         if test_data:
-            data_tests = [m for m in compiled_models
+            data_tests = [m for m in selected_tests
                           if m.is_test_type(test_runner.test_data_type)]
         else:
             data_tests = []
@@ -732,15 +752,17 @@ class RunManager(object):
 
         dep_list = [schema_tests, data_tests]
 
-        on_failure = self.on_model_failure(linker, all_tests)
+        on_failure = self.on_model_failure(linker, all_tests, set())
         results = self.execute_models(test_runner, dep_list, on_failure)
 
         return results
 
     # ------------------------------------
 
-    def run_tests(self, test_schemas=False, test_data=False, limit_to=None):
-        return self.run_tests_from_graph(test_schemas, test_data)
+    def run_tests(self, include_spec, exclude_spec,
+                  test_schemas=False, test_data=False):
+        return self.run_tests_from_graph(include_spec, exclude_spec,
+                                         test_schemas, test_data)
 
     def run(self, include_spec, exclude_spec):
         runner = ModelRunner(self.project)
