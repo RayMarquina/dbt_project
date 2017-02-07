@@ -41,8 +41,6 @@ class Compiler(object):
         self.create_template = create_template_class()
         self.args = args
 
-        self.project.args = args
-
         self.macro_generator = None
 
     def initialize(self):
@@ -89,13 +87,13 @@ class Compiler(object):
             own_project=project
         ).get_archives(archive_template)
 
-    def project_schemas(self):
-        source_paths = self.project.get('source-paths', [])
-        return Source(self.project).get_schemas(source_paths)
+    def project_schemas(self, project):
+        source_paths = project.get('source-paths', [])
+        return Source(project).get_schemas(source_paths)
 
-    def project_tests(self):
-        source_paths = self.project.get('test-paths', [])
-        return Source(self.project).get_tests(source_paths)
+    def project_tests(self, project):
+        source_paths = project.get('test-paths', [])
+        return Source(project).get_tests(source_paths)
 
     def analysis_sources(self, project):
         paths = project.get('analysis-paths', [])
@@ -458,13 +456,25 @@ class Compiler(object):
 
         return written_analyses
 
-    def compile_schema_tests(self, linker):
-        target_cfg = self.project.run_environment()
+    def get_local_and_package_sources(self, project, source_getter):
+        all_sources = []
 
-        schemas = self.project_schemas()
+        all_sources.extend(source_getter(project))
+
+        for package in dbt.utils.dependency_projects(project):
+            all_sources.extend(source_getter(package))
+
+        return all_sources
+
+    def compile_schema_tests(self, linker):
+        all_schema_specs = self.get_local_and_package_sources(
+                self.project,
+                self.project_schemas
+        )
 
         schema_tests = []
-        for schema in schemas:
+
+        for schema in all_schema_specs:
             # compiling a SchemaFile returns >= 0 SchemaTest models
             schema_tests.extend(schema.compile())
 
@@ -480,7 +490,10 @@ class Compiler(object):
         return written_tests
 
     def compile_data_tests(self, linker):
-        tests = self.project_tests()
+        tests = self.get_local_and_package_sources(
+                self.project,
+                self.project_tests
+        )
 
         all_models = self.get_models()
         enabled_models = [model for model in all_models if model.is_enabled]

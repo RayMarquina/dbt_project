@@ -122,7 +122,8 @@ def invoke_dbt(parsed):
             'dbt_project.yml',
             parsed.profiles_dir,
             validate=False,
-            profile_to_load=parsed.profile
+            profile_to_load=parsed.profile,
+            args=parsed
         )
         proj.validate()
     except project.DbtProjectError as e:
