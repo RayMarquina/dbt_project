@@ -91,8 +91,7 @@ class TestSimpleDependencyWithModelSpecificOverriddenConfigs(BaseTestSimpleDepen
                         "vars": {
                             "config_1": "ghi",
                             "config_2": "jkl",
-                            "bool_config": True
-
+                            "bool_config": True,
                         }
                     }
                 }

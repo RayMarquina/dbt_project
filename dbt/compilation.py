@@ -6,10 +6,11 @@ import time
 import sqlparse
 
 import dbt.project
+import dbt.utils
+
 from dbt.source import Source
 from dbt.utils import find_model_by_fqn, find_model_by_name, \
-    dependency_projects, split_path, This, Var, compiler_error, \
-    to_string
+     split_path, This, Var, compiler_error, to_string
 
 from dbt.linker import Linker
 from dbt.runtime import RuntimeContext
@@ -229,7 +230,7 @@ class Compiler(object):
 
         return wrapped_do_ref
 
-    def get_context(self, linker, model,  models, add_dependency=False):
+    def get_context(self, linker, model, models, add_dependency=False):
         runtime = RuntimeContext(model=model)
 
         context = self.project.context()
@@ -272,10 +273,10 @@ class Compiler(object):
             fs_loader = jinja2.FileSystemLoader(searchpath=model.root_dir)
             jinja = jinja2.Environment(loader=fs_loader)
 
-            # this is a dumb jinja2 bug -- on windows, forward slashes
-            # are EXPECTED
-            posix_filepath = '/'.join(split_path(model.rel_filepath))
-            template = jinja.get_template(posix_filepath)
+            template_contents = dbt.clients.system.load_file_contents(
+                model.absolute_path)
+
+            template = jinja.from_string(template_contents)
             context = self.get_context(
                 linker, model, models, add_dependency=add_dependency
             )
@@ -521,7 +522,7 @@ class Compiler(object):
 
     def get_models(self):
         all_models = self.model_sources(this_project=self.project)
-        for project in dependency_projects(self.project):
+        for project in dbt.utils.dependency_projects(self.project):
             all_models.extend(
                 self.model_sources(
                     this_project=self.project, own_project=project
@@ -536,7 +537,7 @@ class Compiler(object):
         all_models = self.get_models()
         all_macros = self.get_macros(this_project=self.project)
 
-        for project in dependency_projects(self.project):
+        for project in dbt.utils.dependency_projects(self.project):
             all_macros.extend(
                 self.get_macros(this_project=self.project, own_project=project)
             )
