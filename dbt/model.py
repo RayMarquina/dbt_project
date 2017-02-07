@@ -7,6 +7,7 @@ from dbt.utils import split_path
 import dbt.schema_tester
 import dbt.project
 import dbt.archival
+from dbt.adapters.factory import get_adapter
 from dbt.utils import deep_merge, DBTConfigKeys, compiler_error, \
     compiler_warning
 
@@ -357,27 +358,8 @@ class Model(DBTSource):
 
         sort_type = sort_type.strip().lower()
 
-        valid_sort_types = ['compound', 'interleaved']
-        if sort_type not in valid_sort_types:
-            compiler_error(
-                self,
-                "Invalid sort_type given: {} -- must be one of {}".format(
-                    sort_type, valid_sort_types
-                )
-            )
-
-        if type(sort_keys) == str:
-            sort_keys = [sort_keys]
-
-        # remove existing quotes in field name, then wrap in quotes
-        formatted_sort_keys = [
-            '"{}"'.format(sort_key.replace('"', '')) for sort_key in sort_keys
-        ]
-        keys_csv = ', '.join(formatted_sort_keys)
-
-        return "{sort_type} sortkey ({keys_csv})".format(
-            sort_type=sort_type, keys_csv=keys_csv
-        )
+        adapter = get_adapter(self.project.run_environment())
+        return adapter.sort_qualifier(sort_type, sort_keys)
 
     def dist_qualifier(self, model_config):
         if 'dist' not in model_config:
@@ -396,10 +378,8 @@ class Model(DBTSource):
 
         dist_key = dist_key.strip().lower()
 
-        if dist_key in ['all', 'even']:
-            return 'diststyle {}'.format(dist_key)
-        else:
-            return 'diststyle key distkey ("{}")'.format(dist_key)
+        adapter = get_adapter(self.project.run_environment())
+        return adapter.dist_qualifier(dist_key)
 
     def build_path(self):
         build_dir = self.create_template.label
