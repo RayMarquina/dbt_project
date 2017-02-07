@@ -236,11 +236,6 @@ def parse_args(args):
 
     sub = subs.add_parser('compile', parents=[base_subparser])
     sub.add_argument(
-        '--dry',
-        action='store_true',
-        help="Compile 'dry run' models"
-    )
-    sub.add_argument(
         '--non-destructive',
         action='store_true',
         help="""
@@ -277,7 +272,6 @@ def parse_args(args):
     sub.set_defaults(cls=archive_task.ArchiveTask, which='archive')
 
     sub = subs.add_parser('run', parents=[base_subparser])
-    sub.add_argument('--dry', action='store_true', help="'dry run' models")
     sub.add_argument(
         '--models',
         required=False,

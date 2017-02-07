@@ -69,10 +69,7 @@ def get_options(args):
 
 
 def get_run_type(args):
-    if 'dry' in args and args.dry is True:
-        return 'dry'
-    else:
-        return 'regular'
+    return 'regular'
 
 
 def get_invocation_context(invocation_id, user, project, args):
