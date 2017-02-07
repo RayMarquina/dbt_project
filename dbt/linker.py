@@ -37,26 +37,12 @@ class Linker(object):
                 "{}".format(cycle)
             )
 
-    def as_dependency_list(self, limit_to=None):
+    def as_dependency_list(self, graph_nodes):
         """returns a list of list of nodes, eg. [[0,1], [2], [4,5,6]]. Each
         element contains nodes whose dependenices are subsumed by the union of
         all lists before it. In this way, all nodes in list `i` can be run
         simultaneously assuming that all lists before list `i` have been
         completed"""
-
-        if limit_to is None:
-            graph_nodes = set(self.graph.nodes())
-        else:
-            graph_nodes = set()
-            for node in limit_to:
-                graph_nodes.add(node)
-                if node in self.graph:
-                    graph_nodes.update(nx.descendants(self.graph, node))
-                else:
-                    raise RuntimeError(
-                        "Couldn't find model '{}' -- does it exist or is "
-                        "it disabled?".format(node)
-                    )
 
         depth_nodes = defaultdict(list)
 

@@ -37,9 +37,9 @@ class RunTask:
         )
 
         if self.args.dry:
-            results = runner.dry_run(self.args.models)
+            results = runner.dry_run(self.args.models, self.args.exclude)
         else:
-            results = runner.run(self.args.models)
+            results = runner.run(self.args.models, self.args.exclude)
 
         total = len(results)
         passed = len([r for r in results if not r.errored and not r.skipped])

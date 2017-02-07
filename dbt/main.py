@@ -283,8 +283,15 @@ def parse_args(args):
         required=False,
         nargs='+',
         help="""
-        Specify the models to run. All models depending on these models will
-        also be run.
+        Specify the models to include.
+        """
+    )
+    sub.add_argument(
+        '--exclude',
+        required=False,
+        nargs='+',
+        help="""
+        Specify the models to exclude.
         """
     )
     sub.add_argument(

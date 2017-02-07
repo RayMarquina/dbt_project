@@ -24,6 +24,7 @@ from dbt.compiled_model import make_compiled_model
 import dbt.exceptions
 import dbt.tracking
 import dbt.schema
+import dbt.graph.selector
 
 from multiprocessing.dummy import Pool as ThreadPool
 
@@ -467,18 +468,17 @@ class RunManager(object):
                               status=status,
                               execution_time=execution_time)
 
-    def as_concurrent_dep_list(self, linker, models, existing,
-                               limit_to):
+    def as_concurrent_dep_list(self, linker, all_models, existing, nodes):
         profile = self.project.run_environment()
         adapter = get_adapter(profile)
 
         model_dependency_list = []
-        dependency_list = linker.as_dependency_list(limit_to)
+        dependency_list = linker.as_dependency_list(nodes)
         for node_list in dependency_list:
             level = []
             for fqn in node_list:
                 try:
-                    model = find_model_by_fqn(models, fqn)
+                    model = find_model_by_fqn(all_models, fqn)
                 except RuntimeError as e:
                     continue
                 if model.should_execute(self.args, existing):
@@ -487,12 +487,13 @@ class RunManager(object):
             model_dependency_list.append(level)
         return model_dependency_list
 
-    def on_model_failure(self, linker, models):
+    def on_model_failure(self, linker, models, selected_nodes):
         def skip_dependent(model):
             dependent_nodes = linker.get_dependent_nodes(model.fqn)
             for node in dependent_nodes:
-                model_to_skip = find_model_by_fqn(models, node)
-                model_to_skip.do_skip()
+                if node in selected_nodes:
+                    model_to_skip = find_model_by_fqn(models, node)
+                    model_to_skip.do_skip()
         return skip_dependent
 
     def print_fancy_output_line(self, message, status, index, total,
@@ -627,11 +628,27 @@ class RunManager(object):
 
         return model_results
 
-    def run_from_graph(self, runner, limit_to):
+    def get_nodes_to_run(self, graph, include_spec, exclude_spec):
+        if include_spec is None:
+            include_spec = ['*']
+
+        if exclude_spec is None:
+            exclude_spec = []
+
+        selected_nodes = dbt.graph.selector.select_nodes(self.project,
+                                                         graph,
+                                                         include_spec,
+                                                         exclude_spec)
+        return selected_nodes
+
+    def run_from_graph(self, runner, include_spec, exclude_spec):
+
         logger.info("Loading dependency graph file")
         linker = self.deserialize_graph()
+        selected_nodes = self.get_nodes_to_run(linker.graph, include_spec,
+                                               exclude_spec)
         compiled_models = [make_compiled_model(fqn, linker.get_node(fqn))
-                           for fqn in linker.nodes()]
+                           for fqn in selected_nodes]
         relevant_compiled_models = [m for m in compiled_models
                                     if m.is_type(runner.run_type)]
 
@@ -657,21 +674,15 @@ class RunManager(object):
 
         existing = adapter.query_for_existing(profile, schema_name)
 
-        if limit_to is None:
-            specified_models = None
-        else:
-            specified_models = [find_model_by_name(
-                relevant_compiled_models, name
-            ).fqn for name in limit_to]
-
         model_dependency_list = self.as_concurrent_dep_list(
             linker,
             relevant_compiled_models,
             existing,
-            specified_models
+            selected_nodes
         )
 
-        on_failure = self.on_model_failure(linker, relevant_compiled_models)
+        on_failure = self.on_model_failure(linker, relevant_compiled_models,
+                                           selected_nodes)
         results = self.execute_models(
             runner, model_dependency_list, on_failure
         )
@@ -731,14 +742,14 @@ class RunManager(object):
     def run_tests(self, test_schemas=False, test_data=False, limit_to=None):
         return self.run_tests_from_graph(test_schemas, test_data)
 
-    def run(self, limit_to=None):
+    def run(self, include_spec, exclude_spec):
         runner = ModelRunner(self.project)
-        return self.run_from_graph(runner, limit_to)
+        return self.run_from_graph(runner, include_spec, exclude_spec)
 
-    def dry_run(self, limit_to=None):
+    def dry_run(self, include_spec, exclude_spec):
         runner = DryRunner(self.project)
-        return self.run_from_graph(runner, limit_to)
+        return self.run_from_graph(runner, include_spec, exclude_spec)
 
     def run_archive(self):
         runner = ArchiveRunner(self.project)
-        return self.run_from_graph(runner, None)
+        return self.run_from_graph(runner, None, None)
