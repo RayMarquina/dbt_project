@@ -37,7 +37,7 @@ class RedshiftAdapter(PostgresAdapter):
 
     @classmethod
     def dist_qualifier(cls, dist):
-        dist_key = dist_key.strip().lower()
+        dist_key = dist.strip().lower()
 
         if dist_key in ['all', 'even']:
             return 'diststyle({})'.format(dist_key)
@@ -53,8 +53,10 @@ class RedshiftAdapter(PostgresAdapter):
                 .format(sort_type, valid_sort_types)
             )
 
-        if type(sort_keys) == str:
-            sort_keys = [sort_keys]
+        if type(sort) == str:
+            sort_keys = [sort]
+        else:
+            sort_keys = sort
 
         formatted_sort_keys = ['"{}"'.format(sort_key)
                                for sort_key in sort_keys]
