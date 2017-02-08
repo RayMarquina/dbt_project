@@ -52,6 +52,16 @@ evil-corp:
             pass: pa55word
             dbname: warehouse
             schema: analytics     # use the prod schema instead
+        snowflake:                # specify the snowflake connection
+            type: snowflake
+            threads: 1
+            account: evilcorp     # the url prefix for your snowflake connection,
+                                  # i.e. evilcorp.snowflakecomputing.com
+            user: elliot
+            password: pa55word
+            database: warehouse
+            schema: analytics     # use the prod schema instead
+
     target: dev                   # default target is dev unless changed at run time
 
 mr-robot:
@@ -86,5 +96,3 @@ mr-robot:
 # $ dbt run --profile mr-robot
 # $ dbt run --profile mr-robot --target dev
 # $ dbt run --profile mr-robot --target prod
-
-
