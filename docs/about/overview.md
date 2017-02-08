@@ -47,4 +47,4 @@ Currently, dbt supports PostgreSQL and Amazon Redshift. We anticipate building s
 
 ## How do I get started?
 
-dbt is open source and completely free to download and use. See our [setup instructions](guide/setup/) for more.
+dbt is open source and completely free to download and use. See our [setup instructions](../guide/setup/) for more.
