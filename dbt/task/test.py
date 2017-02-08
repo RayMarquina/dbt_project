@@ -1,12 +1,7 @@
-import os
-import psycopg2
-import sys
-import yaml
 
 from dbt.compilation import Compiler, CompilableEntities
-from dbt.templates import DryCreateTemplate, BaseCreateTemplate
+from dbt.templates import BaseCreateTemplate
 from dbt.runner import RunManager
-from dbt.schema_tester import SchemaTester
 from dbt.logger import GLOBAL_LOGGER as logger
 
 

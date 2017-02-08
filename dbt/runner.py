@@ -205,51 +205,6 @@ class ModelRunner(BaseRunner):
         self.__run_hooks(hooks, context, 'on-run-end hooks')
 
 
-class DryRunner(ModelRunner):
-    run_type = 'dry-run'
-
-    def pre_run_msg(self, model):
-        output = ("DRY-RUN model {schema}.{model_name} "
-                  .format(
-                      schema=self.adapter.get_default_schema(self.profile),
-                      model_name=model.name))
-        return output
-
-    def post_run_msg(self, result):
-        model = result.model
-        output = ("DONE model {schema}.{model_name} "
-                  .format(
-                      schema=self.adapter.get_default_schema(self.profile),
-                      model_name=model.name))
-        return output
-
-    def pre_run_all_msg(self, models):
-        return "Dry-running {} models".format(len(models))
-
-    def post_run_all_msg(self, results):
-        return ("{} Finished dry-running {} models"
-                .format(get_timestamp(), len(results)))
-
-    def post_run_all(self, models, results, context):
-        profile = self.project.run_environment()
-        adapter = get_adapter(profile)
-
-        count_dropped = 0
-        for result in results:
-            if result.errored or result.skipped:
-                continue
-            model = result.model
-            schema_name = self.adapter.get_default_schema(self.profile)
-
-            relation_type = ('table' if model.materialization == 'incremental'
-                             else 'view')
-            adapter.drop(profile, model.name, relation_type, model.name)
-            count_dropped += 1
-
-        adapter.commit(profile)
-        logger.info("Dropped {} dry-run models".format(count_dropped))
-
-
 class TestRunner(ModelRunner):
     run_type = 'test'
 
@@ -734,10 +689,6 @@ class RunManager(object):
 
     def run(self, limit_to=None):
         runner = ModelRunner(self.project)
-        return self.run_from_graph(runner, limit_to)
-
-    def dry_run(self, limit_to=None):
-        runner = DryRunner(self.project)
         return self.run_from_graph(runner, limit_to)
 
     def run_archive(self):

@@ -63,12 +63,6 @@ class Compiler(object):
                 own_project=own_project
             ).get_models(paths, self.create_template)
 
-        elif self.create_template.label == 'test':
-            return Source(
-                this_project,
-                own_project=own_project
-            ).get_test_models(paths, self.create_template)
-
         elif self.create_template.label == 'archive':
             return []
         else:

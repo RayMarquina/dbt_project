@@ -118,56 +118,6 @@ delete from "{schema}"."{identifier}" where  ({unique_key}) in (
         return self.add_extras(opts, sql)
 
 
-class DryCreateTemplate(object):
-    base_template = u"""
-create view "{schema}"."{identifier}" as (
-    SELECT * FROM (
-        {query}
-    ) as tmp LIMIT 0
-);"""
-
-
-    incremental_template = u"""
-create table "{schema}"."{identifier}" {dist_qualifier} {sort_qualifier} as (
-    select * from (
-        {query}
-    ) s limit 0
-);
-    """
-
-    incremental_delete_template = u"""
-delete from "{schema}"."{identifier}" where  ({unique_key}) in (
-    select ({unique_key}) from "{identifier}__dbt_incremental_tmp"
-);
-"""
-
-    label = "test"
-
-    @classmethod
-    def model_name(cls, base_name):
-        return 'test_{}'.format(base_name)
-
-    def wrap(self, opts):
-        sql = ""
-        if opts['materialization'] in ('table', 'view'):
-            sql = self.base_template.format(**opts)
-        elif opts['materialization'] == 'incremental':
-            if opts.get('unique_key') is not None:
-                delete_sql = self.incremental_delete_template.format(**opts)
-            else:
-                delete_sql = "-- no unique key provided... skipping delete"
-
-            opts['incremental_delete_statement'] = delete_sql
-            sql = self.incremental_template.format(**opts)
-
-        elif opts['materialization'] == 'ephemeral':
-            sql = opts['query']
-        else:
-            raise RuntimeError("Invalid materialization parameter ({})".format(opts['materialization']))
-
-        return "{}\n\n{}".format(opts['prologue'], sql)
-
-
 SCDArchiveTemplate = u"""
 
     with "current_data" as (
