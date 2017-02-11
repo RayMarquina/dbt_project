@@ -61,6 +61,16 @@ Then, install using `pip`:
 pip install dbt
 ```
 
+### Windows
+
+Before starting, you'll need to install [Git for Windows](https://git-scm.com/downloads) and [Python version 3.5 or higher for Windows](https://www.python.org/downloads/windows/).
+
+Open up Windows powershell as an administrator, and install dbt with `pip`:
+
+```bash
+pip install dbt
+```
+
 ## Create a new dbt project
 
 To create your first dbt project, run:

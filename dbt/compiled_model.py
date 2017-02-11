@@ -1,6 +1,7 @@
 import hashlib
 import jinja2
 from dbt.utils import compiler_error, to_unicode
+from dbt.adapters.factory import get_adapter
 
 
 class CompiledModel(object):
@@ -157,7 +158,7 @@ class CompiledArchive(CompiledModel):
 def make_compiled_model(fqn, data):
     run_type = data['dbt_run_type']
 
-    if run_type in ['run', 'dry-run']:
+    if run_type == 'run':
         return CompiledModel(fqn, data)
     elif run_type == 'test':
         return CompiledTest(fqn, data)

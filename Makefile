@@ -1,6 +1,9 @@
-.PHONY: test test-unit test-integration
+.PHONY: install test test-unit test-integration
 
 changed_tests := `git status --porcelain | grep '^\(M\| M\|A\| A\)' | awk '{ print $$2 }' | grep '\/test_[a-zA-Z_\-\.]\+.py'`
+
+install:
+	pip install .
 
 it:
 	@echo "Unit test run starting..."

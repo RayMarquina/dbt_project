@@ -85,13 +85,7 @@ class Project(object):
         return self.cfg.get(key, default)
 
     def handle_deprecations(self):
-        if 'run-target' in self.cfg:
-            dbt.deprecations.warn('run-target')
-            self.cfg['target'] = self.cfg['run-target']
-
-        if not self.is_valid_package_name():
-            dbt.deprecations.warn(
-                'invalid-package-name', package_name=self['name'])
+        pass
 
     def is_valid_package_name(self):
         if re.match(r"^[^\d\W]\w*\Z", self['name']):
@@ -126,6 +120,11 @@ class Project(object):
         if package_name is None or package_version is None:
             raise DbtProjectError(
                 "Project name and version is not provided", self)
+
+        if not self.is_valid_package_name():
+            raise DbtProjectError(
+                ('Package name can only contain letters, numbers, and '
+                 'underscores, and must start with a letter.'), self)
 
         validator = dbt.contracts.connection.credentials_mapping.get(
             target_cfg.get('type'), None)

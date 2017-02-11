@@ -210,51 +210,6 @@ class ModelRunner(BaseRunner):
         self.__run_hooks(hooks, context, 'on-run-end hooks')
 
 
-class DryRunner(ModelRunner):
-    run_type = 'dry-run'
-
-    def pre_run_msg(self, model):
-        output = ("DRY-RUN model {schema}.{model_name} "
-                  .format(
-                      schema=self.adapter.get_default_schema(self.profile),
-                      model_name=model.name))
-        return output
-
-    def post_run_msg(self, result):
-        model = result.model
-        output = ("DONE model {schema}.{model_name} "
-                  .format(
-                      schema=self.adapter.get_default_schema(self.profile),
-                      model_name=model.name))
-        return output
-
-    def pre_run_all_msg(self, models):
-        return "Dry-running {} models".format(len(models))
-
-    def post_run_all_msg(self, results):
-        return ("{} Finished dry-running {} models"
-                .format(get_timestamp(), len(results)))
-
-    def post_run_all(self, models, results, context):
-        profile = self.project.run_environment()
-        adapter = get_adapter(profile)
-
-        count_dropped = 0
-        for result in results:
-            if result.errored or result.skipped:
-                continue
-            model = result.model
-            schema_name = self.adapter.get_default_schema(self.profile)
-
-            relation_type = ('table' if model.materialization == 'incremental'
-                             else 'view')
-            adapter.drop(profile, model.name, relation_type, model.name)
-            count_dropped += 1
-
-        adapter.commit(profile)
-        logger.info("Dropped {} dry-run models".format(count_dropped))
-
-
 class TestRunner(ModelRunner):
     run_type = 'test'
 
@@ -417,7 +372,7 @@ class RunManager(object):
 
         self.context = {
             "run_started_at": datetime.now(),
-            "invocation_id": dbt.tracking.invocation_id,
+            "invocation_id": dbt.tracking.active_user.invocation_id,
             "get_columns_in_table": call_get_columns_in_table,
             "get_missing_columns": call_get_missing_columns,
             "already_exists": call_table_exists,
@@ -580,8 +535,9 @@ class RunManager(object):
                         run_model_result.execution_time
                     )
 
+                    invocation_id = dbt.tracking.active_user.invocation_id
                     dbt.tracking.track_model_run({
-                        "invocation_id": dbt.tracking.invocation_id,
+                        "invocation_id": invocation_id,
                         "index": index,
                         "total": num_models,
                         "execution_time": run_model_result.execution_time,
@@ -766,10 +722,6 @@ class RunManager(object):
 
     def run(self, include_spec, exclude_spec):
         runner = ModelRunner(self.project)
-        return self.run_from_graph(runner, include_spec, exclude_spec)
-
-    def dry_run(self, include_spec, exclude_spec):
-        runner = DryRunner(self.project)
         return self.run_from_graph(runner, include_spec, exclude_spec)
 
     def run_archive(self):

@@ -43,6 +43,8 @@ def handle(args):
     # correct profiles.yml file
     if not config.send_anonymous_usage_stats(parsed.profiles_dir):
         dbt.tracking.do_not_track()
+    else:
+        dbt.tracking.initialize_tracking()
 
     res = run_from_args(parsed)
     dbt.tracking.flush()
@@ -92,10 +94,13 @@ def run_from_args(parsed):
         log_path = proj.get('log-path', 'logs')
 
     initialize_logger(parsed.debug, log_path)
+    logger.debug("Tracking: {}".format(dbt.tracking.active_user.state()))
 
     dbt.tracking.track_invocation_start(project=proj, args=parsed)
+
+    result = None
     try:
-        return task.run()
+        result = task.run()
         dbt.tracking.track_invocation_end(
             project=proj, args=parsed, result_type="ok", result=None
         )
@@ -109,6 +114,8 @@ def run_from_args(parsed):
             project=proj, args=parsed, result_type="error", result=str(e)
         )
         raise
+
+    return result
 
 
 def invoke_dbt(parsed):
@@ -237,11 +244,6 @@ def parse_args(args):
 
     sub = subs.add_parser('compile', parents=[base_subparser])
     sub.add_argument(
-        '--dry',
-        action='store_true',
-        help="Compile 'dry run' models"
-    )
-    sub.add_argument(
         '--non-destructive',
         action='store_true',
         help="""
@@ -278,7 +280,6 @@ def parse_args(args):
     sub.set_defaults(cls=archive_task.ArchiveTask, which='archive')
 
     sub = subs.add_parser('run', parents=[base_subparser])
-    sub.add_argument('--dry', action='store_true', help="'dry run' models")
     sub.add_argument(
         '--models',
         required=False,

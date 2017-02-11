@@ -2,7 +2,7 @@ import os.path
 import yaml
 import jinja2
 import re
-from dbt.templates import BaseCreateTemplate, DryCreateTemplate
+from dbt.templates import BaseCreateTemplate
 from dbt.utils import split_path
 import dbt.schema_tester
 import dbt.project
@@ -505,48 +505,6 @@ class Analysis(Model):
 
     def __repr__(self):
         return "<Analysis {}: {}>".format(self.name, self.filepath)
-
-
-class TestModel(Model):
-    dbt_run_type = 'dry-run'
-
-    def __init__(
-            self,
-            project,
-            target_dir,
-            rel_filepath,
-            own_project,
-            create_template
-    ):
-        return super(TestModel, self).__init__(
-            project, target_dir, rel_filepath, own_project, create_template
-        )
-
-    def build_path(self):
-        build_dir = self.create_template.label
-        filename = "{}.sql".format(self.name)
-        path_parts = [build_dir] + self.fqn[:-1] + [filename]
-        return os.path.join(*path_parts)
-
-    @property
-    def fqn(self):
-        """fully-qualified name for model. Includes all subdirs below 'models'
-        path and the filename"""
-        parts = split_path(self.filepath)
-        name, _ = os.path.splitext(parts[-1])
-        test_name = DryCreateTemplate.model_name(name)
-        return [self.own_project['name']] + parts[1:-1] + [test_name]
-
-    @property
-    def original_fqn(self):
-        parts = split_path(self.filepath)
-        name, _ = os.path.splitext(parts[-1])
-        return [self.project['name']] + parts[1:-1] + [name]
-
-    def __repr__(self):
-        return "<TestModel {}.{}: {}>".format(
-            self.project['name'], self.name, self.filepath
-        )
 
 
 class SchemaTest(DBTSource):
