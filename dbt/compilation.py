@@ -511,8 +511,7 @@ class Compiler(object):
             return macros
         return do_gen
 
-    def compile_archives(self):
-        linker = Linker()
+    def compile_archives(self, linker):
         all_archives = self.get_archives(self.project)
 
         for archive in all_archives:
@@ -521,7 +520,7 @@ class Compiler(object):
             linker.update_node_data(fqn, archive.serialize())
             self.__write(archive.build_path(), sql)
 
-        self.write_graph_file(linker, 'archive')
+        # self.write_graph_file(linker, 'archive')
         return all_archives
 
     def get_models(self):
@@ -566,18 +565,20 @@ class Compiler(object):
                 compiled_models, linker
         )
 
-        self.validate_models_unique(compiled_models)
-        self.validate_models_unique(written_schema_tests)
-        self.write_graph_file(linker, self.create_template.label)
+        written_archives = self.compile_archives(linker)
 
         written_analyses = self.compile_analyses(linker, compiled_models)
 
-        compiled_archives = self.compile_archives()
+        self.validate_models_unique(compiled_models)
+        self.validate_models_unique(written_schema_tests)
+        self.validate_models_unique(written_archives)
+
+        self.write_graph_file(linker, self.create_template.label)
 
         return {
             "models": len(written_models),
             "schema tests": len(written_schema_tests),
             "data tests": len(written_data_tests),
-            "archives": len(compiled_archives),
+            "archives": len(written_archives),
             "analyses": len(written_analyses)
         }
