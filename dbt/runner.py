@@ -25,6 +25,7 @@ import dbt.exceptions
 import dbt.tracking
 import dbt.schema
 import dbt.graph.selector
+import dbt.model
 
 from multiprocessing.dummy import Pool as ThreadPool
 
@@ -88,7 +89,7 @@ class BaseRunner(object):
 
 
 class ModelRunner(BaseRunner):
-    run_type = 'run'
+    run_type = dbt.model.NodeType.Model
 
     def pre_run_msg(self, model):
         print_vars = {
@@ -211,10 +212,10 @@ class ModelRunner(BaseRunner):
 
 
 class TestRunner(ModelRunner):
-    run_type = 'test'
+    run_type = dbt.model.NodeType.Test
 
-    test_data_type = 'data'
-    test_schema_type = 'schema'
+    test_data_type = dbt.model.TestNodeType.DataTest
+    test_schema_type = dbt.model.TestNodeType.SchemaTest
 
     def pre_run_msg(self, model):
         if model.is_test_type(self.test_data_type):
@@ -295,7 +296,7 @@ class TestRunner(ModelRunner):
 
 
 class ArchiveRunner(BaseRunner):
-    run_type = 'archive'
+    run_type = dbt.model.NodeType.Archive
 
     def pre_run_msg(self, model):
         print_vars = {
@@ -595,8 +596,17 @@ class RunManager(object):
         if exclude_spec is None:
             exclude_spec = []
 
+        model_nodes = [
+            n for n in graph.nodes()
+            if graph.node[n]['dbt_run_type'] == dbt.model.NodeType.Model
+        ]
+
+        # Only consider models when evaluating which models to select
+        # Later, we'll be able to grab dangling nodes (tests, hooks, etc)
+        # from the original graph
+        model_only_graph = graph.subgraph(model_nodes)
         selected_nodes = dbt.graph.selector.select_nodes(self.project,
-                                                         graph,
+                                                         model_only_graph,
                                                          include_spec,
                                                          exclude_spec)
         return selected_nodes
@@ -657,20 +667,22 @@ class RunManager(object):
 
         selected_models = self.get_nodes_to_run(linker.graph, include_spec,
                                                 exclude_spec)
-        compiled_models = [make_compiled_model(fqn, linker.get_node(fqn))
-                           for fqn in linker.nodes()]
 
-        selected_tests = []
-        for cm in compiled_models:
-            if not cm.is_test_type(test_runner.test_schema_type) and \
-               not cm.is_test_type(test_runner.test_data_type):
-                continue
+        selected_nodes = set()
 
-            model_name = cm['model_name']
-            attached_model = find_model_by_name(compiled_models, model_name)
+        # add all nodes here, then select out only the test nodes after
+        for model_node in selected_models:
+            selected_nodes.add(model_node)
+            neighbors = linker.graph.neighbors(model_node)
+            for neighbor in neighbors:
+                selected_nodes.add(neighbor)
 
-            if tuple(attached_model.fqn) in selected_models:
-                selected_tests.append(cm)
+        compiled_models = [
+            make_compiled_model(node, linker.get_node(node))
+            for node in selected_nodes
+        ]
+
+        compiled_test_models = [m for m in compiled_models if m.is_test()]
 
         profile = self.project.run_environment()
         adapter = get_adapter(profile)
@@ -686,27 +698,21 @@ class RunManager(object):
             logger.info(str(e))
             sys.exit(1)
 
+        all_tests = []
         if test_schemas:
-            schema_tests = [m for m in selected_tests
-                            if m.is_test_type(test_runner.test_schema_type)]
-        else:
-            schema_tests = []
+            all_tests.extend([m for m in compiled_test_models
+                             if m.is_test_type(test_runner.test_schema_type)])
 
         if test_data:
-            data_tests = [m for m in selected_tests
-                          if m.is_test_type(test_runner.test_data_type)]
-        else:
-            data_tests = []
-
-        all_tests = schema_tests + data_tests
+            all_tests.extend([m for m in compiled_test_models
+                              if m.is_test_type(test_runner.test_data_type)])
 
         for m in all_tests:
-            if m.should_execute(self.args, existing=[]):
-                context = self.context.copy()
-                context.update(m.context())
-                m.compile(context)
+            context = self.context.copy()
+            context.update(m.context())
+            m.compile(context)
 
-        dep_list = [schema_tests, data_tests]
+        dep_list = [all_tests]
 
         on_failure = self.on_model_failure(linker, all_tests, set())
         results = self.execute_models(test_runner, dep_list, on_failure)

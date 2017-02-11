@@ -5,6 +5,7 @@ import networkx as nx
 SELECTOR_PARENTS = '<'
 SELECTOR_CHILDREN = '>'
 SELECTOR_GLOB = '*'
+SELECTOR_LOCAL_PACKAGE = 'this'
 
 
 def parse_spec(node_spec):
@@ -69,10 +70,17 @@ def get_nodes_by_qualified_name(project, graph, qualified_name):
             if is_selected_node(node, qualified_name):
                 yield node
 
-        else:
-            local_qualified_node_name = (project['name'],) + qualified_name
+        elif qualified_name[0] == SELECTOR_LOCAL_PACKAGE:
+            local_qualified_node_name = (project['name'],) + qualified_name[1:]
             if is_selected_node(node, local_qualified_node_name):
                 yield node
+
+        else:
+            for package_name in package_names:
+                local_qualified_node_name = (package_name,) + qualified_name
+                if is_selected_node(node, local_qualified_node_name):
+                    yield node
+                    break
 
 
 def get_nodes_from_spec(project, graph, spec):

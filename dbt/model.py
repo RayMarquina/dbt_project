@@ -12,6 +12,18 @@ from dbt.utils import deep_merge, DBTConfigKeys, compiler_error, \
     compiler_warning
 
 
+class NodeType(object):
+    Base = 'base'
+    Model = 'model'
+    Test = 'test'
+    Archive = 'archive'
+
+
+class TestNodeType(object):
+    SchemaTest = 'schema'
+    DataTest = 'data'
+
+
 class SourceConfig(object):
     Materializations = ['view', 'table', 'incremental', 'ephemeral']
     ConfigKeys = DBTConfigKeys
@@ -192,7 +204,7 @@ class SourceConfig(object):
 
 
 class DBTSource(object):
-    dbt_run_type = 'base'
+    dbt_run_type = NodeType.Base
 
     def __init__(self, project, top_dir, rel_filepath, own_project):
         self.project = project
@@ -321,7 +333,7 @@ class DBTSource(object):
 
 
 class Model(DBTSource):
-    dbt_run_type = 'run'
+    dbt_run_type = NodeType.Model
 
     def __init__(
         self, project, model_dir, rel_filepath, own_project, create_template
@@ -509,8 +521,8 @@ class Analysis(Model):
 
 class SchemaTest(DBTSource):
     test_type = "base"
-    dbt_run_type = 'test'
-    dbt_test_type = 'schema'
+    dbt_run_type = NodeType.Test
+    dbt_test_type = TestNodeType.SchemaTest
 
     def __init__(self, project, target_dir, rel_filepath, model_name, options):
         self.schema = project.context()['env']['schema']
@@ -532,9 +544,6 @@ class SchemaTest(DBTSource):
     def serialize(self):
         serialized = DBTSource.serialize(self).copy()
         serialized['dbt_test_type'] = self.dbt_test_type
-
-        # TODO: add test for this attribute
-        serialized['model_name'] = self.model_name
 
         return serialized
 
@@ -744,7 +753,7 @@ class Macro(DBTSource):
 
 
 class ArchiveModel(DBTSource):
-    dbt_run_type = 'archive'
+    dbt_run_type = NodeType.Archive
 
     def __init__(self, project, create_template, archive_data):
 
@@ -824,8 +833,8 @@ class ArchiveModel(DBTSource):
 
 
 class DataTest(DBTSource):
-    dbt_run_type = 'test'
-    dbt_test_type = 'data'
+    dbt_run_type = NodeType.Test
+    dbt_test_type = TestNodeType.DataTest
 
     def __init__(self, project, target_dir, rel_filepath, own_project):
         super(DataTest, self).__init__(

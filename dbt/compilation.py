@@ -152,7 +152,7 @@ class Compiler(object):
             src_model.own_project['name'] == src_model.project['name']
         )
 
-    def __ref(self, linker, ctx, model, all_models, add_dependency=True):
+    def __ref(self, linker, ctx, model, all_models):
         schema = ctx['env']['schema']
 
         source_model = tuple(model.fqn)
@@ -193,7 +193,7 @@ class Compiler(object):
 
             # this creates a trivial cycle -- should this be a compiler error?
             # we can still interpolate the name w/o making a self-cycle
-            if source_model == other_model_fqn or not add_dependency:
+            if source_model == other_model_fqn:
                 pass
             else:
                 linker.dependency(source_model, other_model_fqn)
@@ -222,15 +222,13 @@ class Compiler(object):
 
         return wrapped_do_ref
 
-    def get_context(self, linker, model, models, add_dependency=False):
+    def get_context(self, linker, model, models):
         runtime = RuntimeContext(model=model)
 
         context = self.project.context()
 
         # built-ins
-        context['ref'] = self.__ref(
-            linker, context, model, models, add_dependency
-        )
+        context['ref'] = self.__ref(linker, context, model, models)
         context['config'] = self.__model_config(model, linker)
         context['this'] = This(
             context['env']['schema'], model.immediate_name, model.name
@@ -260,7 +258,7 @@ class Compiler(object):
 
         return runtime
 
-    def compile_model(self, linker, model, models, add_dependency=True):
+    def compile_model(self, linker, model, models):
         try:
             fs_loader = jinja2.FileSystemLoader(searchpath=model.root_dir)
             jinja = jinja2.Environment(loader=fs_loader)
@@ -269,9 +267,7 @@ class Compiler(object):
                 model.absolute_path)
 
             template = jinja.from_string(template_contents)
-            context = self.get_context(
-                linker, model, models, add_dependency=add_dependency
-            )
+            context = self.get_context(linker, model, models)
 
             rendered = template.render(context)
         except jinja2.exceptions.TemplateSyntaxError as e:
@@ -460,7 +456,7 @@ class Compiler(object):
 
         return all_sources
 
-    def compile_schema_tests(self, linker):
+    def compile_schema_tests(self, models, linker):
         all_schema_specs = self.get_local_and_package_sources(
                 self.project,
                 self.project_schemas
@@ -474,8 +470,14 @@ class Compiler(object):
 
         written_tests = []
         for schema_test in schema_tests:
+            source_model = find_model_by_name(models, schema_test.model_name)
             serialized = schema_test.serialize()
-            linker.update_node_data(tuple(schema_test.fqn), serialized)
+
+            model_node = tuple(source_model.fqn)
+            test_node = tuple(schema_test.fqn)
+
+            linker.dependency(test_node, model_node)
+            linker.update_node_data(test_node, serialized)
 
             query = schema_test.render()
             self.__write(schema_test.build_path(), query)
@@ -483,22 +485,17 @@ class Compiler(object):
 
         return written_tests
 
-    def compile_data_tests(self, linker):
+    def compile_data_tests(self, models, linker):
         tests = self.get_local_and_package_sources(
                 self.project,
                 self.project_tests
         )
 
-        all_models = self.get_models()
-        enabled_models = [model for model in all_models if model.is_enabled]
-
         written_tests = []
         for data_test in tests:
             serialized = data_test.serialize()
             linker.update_node_data(tuple(data_test.fqn), serialized)
-            query = self.compile_model(
-                linker, data_test, enabled_models, add_dependency=False
-            )
+            query = self.compile_model(linker, data_test, models)
             wrapped = data_test.render(query)
             self.__write(data_test.build_path(), wrapped)
             written_tests.append(data_test)
@@ -561,8 +558,13 @@ class Compiler(object):
         )
 
         # TODO : only compile schema tests for enabled models
-        written_schema_tests = self.compile_schema_tests(linker)
-        written_data_tests = self.compile_data_tests(linker)
+        written_schema_tests = self.compile_schema_tests(
+                compiled_models, linker
+        )
+
+        written_data_tests = self.compile_data_tests(
+                compiled_models, linker
+        )
 
         self.validate_models_unique(compiled_models)
         self.validate_models_unique(written_schema_tests)

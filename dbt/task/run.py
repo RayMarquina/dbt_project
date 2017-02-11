@@ -32,7 +32,7 @@ class RunTask:
             self.project, self.project['target-path'], graph_type, self.args
         )
 
-        results = runner.run(self.args.models)
+        results = runner.run(self.args.models, self.args.exclude)
 
         total = len(results)
         passed = len([r for r in results if not r.errored and not r.skipped])

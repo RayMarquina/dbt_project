@@ -2,6 +2,7 @@ import hashlib
 import jinja2
 from dbt.utils import compiler_error, to_unicode
 from dbt.adapters.factory import get_adapter
+import dbt.model
 
 
 class CompiledModel(object):
@@ -43,6 +44,9 @@ class CompiledModel(object):
 
     def is_test_type(self, test_type):
         return self.data.get('dbt_test_type') == test_type
+
+    def is_test(self):
+        return self.data['dbt_run_type'] == dbt.model.NodeType.Test
 
     @property
     def contents(self):
@@ -158,11 +162,14 @@ class CompiledArchive(CompiledModel):
 def make_compiled_model(fqn, data):
     run_type = data['dbt_run_type']
 
-    if run_type == 'run':
+    if run_type == dbt.model.NodeType.Model:
         return CompiledModel(fqn, data)
-    elif run_type == 'test':
+
+    elif run_type == dbt.model.NodeType.Test:
         return CompiledTest(fqn, data)
-    elif run_type == 'archive':
+
+    elif run_type == dbt.model.NodeType.Archive:
         return CompiledArchive(fqn, data)
+
     else:
         raise RuntimeError("invalid run_type given: {}".format(run_type))
