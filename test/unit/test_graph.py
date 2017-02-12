@@ -103,7 +103,6 @@ class GraphTest(unittest.TestCase):
     def get_compiler(self, project):
         compiler = dbt.compilation.Compiler(
             project,
-            dbt.templates.BaseCreateTemplate,
             FakeArgs())
 
         compiler.get_macros = MagicMock(return_value=[])
