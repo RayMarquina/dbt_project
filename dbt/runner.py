@@ -626,7 +626,9 @@ class RunManager(object):
 
             context = self.context.copy()
             context.update(compiled_model.context())
-            compiled_model.compile(context)
+
+            profile = self.project.run_environment()
+            compiled_model.compile(context, profile, self.existing_models)
             compiled_models.append(compiled_model)
 
         return compiled_models

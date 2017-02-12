@@ -55,7 +55,9 @@ class CompiledModel(object):
                 self._contents = to_unicode(fh.read(), 'utf-8')
         return self._contents
 
-    def compile(self, context):
+    def compile(self, context, profile, existing):
+        self.prepare(existing, profile)
+
         contents = self.contents
         try:
             env = jinja2.Environment()

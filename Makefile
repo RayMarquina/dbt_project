@@ -7,7 +7,7 @@ install:
 
 test:
 	@echo "Full test run starting..."
-	@time docker-compose run test tox
+	@time docker-compose run test tox -e integration-postgres-py27 -- -x
 
 test-unit:
 	@echo "Unit test run starting..."

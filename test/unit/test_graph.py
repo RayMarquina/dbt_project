@@ -11,14 +11,9 @@ import dbt.utils
 import dbt.linker
 
 import networkx as nx
+from test.integration.base import FakeArgs
 
 # from dbt.logger import GLOBAL_LOGGER as logger
-
-
-class FakeArgs:
-
-    def __init__(self):
-        self.full_refresh = False
 
 
 class GraphTest(unittest.TestCase):

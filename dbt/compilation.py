@@ -443,7 +443,7 @@ class Compiler(object):
 
         return all_sources
 
-    def compile_schema_tests(self, models, linker):
+    def compile_schema_tests(self, linker, models):
         all_schema_specs = self.get_local_and_package_sources(
                 self.project,
                 self.project_schemas
@@ -453,7 +453,13 @@ class Compiler(object):
 
         for schema in all_schema_specs:
             # compiling a SchemaFile returns >= 0 SchemaTest models
-            schema_tests.extend(schema.compile())
+            try:
+                schema_tests.extend(schema.compile())
+            except RuntimeError as e:
+                logger.info("\n" + str(e))
+                schema_test_path = schema.filepath
+                logger.info("Skipping compilation for {}...\n"
+                            .format(schema_test_path))
 
         written_tests = []
         for schema_test in schema_tests:
@@ -472,7 +478,7 @@ class Compiler(object):
 
         return written_tests
 
-    def compile_data_tests(self, models, linker):
+    def compile_data_tests(self, linker, models):
         tests = self.get_local_and_package_sources(
                 self.project,
                 self.project_tests
@@ -498,7 +504,7 @@ class Compiler(object):
             return macros
         return do_gen
 
-    def compile_archives(self, linker):
+    def compile_archives(self, linker, compiled_models):
         all_archives = self.get_archives(self.project)
 
         for archive in all_archives:
@@ -542,29 +548,23 @@ class Compiler(object):
             linker, enabled_models
         )
 
-        # TODO : only compile schema tests for enabled models
-        written_schema_tests = self.compile_schema_tests(
-                compiled_models, linker
-        )
+        compilers = {
+            'schema tests': self.compile_schema_tests,
+            'data tests': self.compile_data_tests,
+            'archives': self.compile_archives,
+            'analyses': self.compile_analyses
+        }
 
-        written_data_tests = self.compile_data_tests(
-                compiled_models, linker
-        )
+        compiled = {
+            'models': written_models
+        }
 
-        written_archives = self.compile_archives(linker)
-
-        written_analyses = self.compile_analyses(linker, compiled_models)
-
-        self.validate_models_unique(compiled_models)
-        self.validate_models_unique(written_schema_tests)
-        self.validate_models_unique(written_archives)
+        for (compile_type, compiler_f) in compilers.items():
+            newly_compiled = compiler_f(linker, compiled_models)
+            compiled[compile_type] = newly_compiled
+            self.validate_models_unique(newly_compiled)
 
         self.write_graph_file(linker)
 
-        return {
-            "models": len(written_models),
-            "schema tests": len(written_schema_tests),
-            "data tests": len(written_data_tests),
-            "archives": len(written_archives),
-            "analyses": len(written_analyses)
-        }
+        stats = {ttype: len(m) for (ttype, m) in compiled.items()}
+        return stats
