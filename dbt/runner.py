@@ -13,9 +13,8 @@ from datetime import datetime
 
 from dbt.adapters.factory import get_adapter
 from dbt.logger import GLOBAL_LOGGER as logger
-from dbt.compilation import compile_string
+import dbt.compilation
 from dbt.linker import Linker
-from dbt.templates import BaseCreateTemplate
 from dbt.source import Source
 from dbt.utils import find_model_by_fqn, find_model_by_name, \
     dependency_projects
@@ -190,7 +189,9 @@ class ModelRunner(BaseRunner):
             "run_started_at": context['run_started_at']
         }
 
-        compiled_hooks = [compile_string(hook, ctx) for hook in hooks]
+        compiled_hooks = [
+            dbt.compilation.compile_string(hook, ctx) for hook in hooks
+        ]
 
         profile = self.project.run_environment()
         adapter = get_adapter(profile)
@@ -341,10 +342,9 @@ class ArchiveRunner(BaseRunner):
 
 
 class RunManager(object):
-    def __init__(self, project, target_path, graph_type, args):
+    def __init__(self, project, target_path, args):
         self.project = project
         self.target_path = target_path
-        self.graph_type = graph_type
         self.args = args
 
         profile = self.project.run_environment()
@@ -356,6 +356,12 @@ class RunManager(object):
             self.threads = self.args.threads
 
         adapter = get_adapter(profile)
+        schema_name = adapter.get_default_schema(profile)
+
+        self.existing_models = adapter.query_for_existing(
+            profile,
+            schema_name
+        )
 
         def call_get_columns_in_table(schema_name, table_name):
             return adapter.get_columns_in_table(
@@ -380,10 +386,14 @@ class RunManager(object):
         }
 
     def deserialize_graph(self):
+        logger.info("Loading dependency graph file")
+
         linker = Linker()
         base_target_path = self.project['target-path']
-        filename = 'graph-{}.yml'.format(self.graph_type)
-        graph_file = os.path.join(base_target_path, filename)
+        graph_file = os.path.join(
+            base_target_path,
+            dbt.compilation.GraphFile
+        )
         linker.read_graph(graph_file)
 
         return linker
@@ -428,23 +438,17 @@ class RunManager(object):
                               status=status,
                               execution_time=execution_time)
 
-    def as_concurrent_dep_list(self, linker, all_models, existing, nodes):
-        profile = self.project.run_environment()
-        adapter = get_adapter(profile)
+    def as_concurrent_dep_list(self, linker, models_to_run):
+        # linker.as_dependency_list operates on nodes, but this method operates
+        # on compiled models. Use a dict to translate between the two
+        node_model_map = {m.fqn: m for m in models_to_run}
+        dependency_list = linker.as_dependency_list(node_model_map.keys())
 
         model_dependency_list = []
-        dependency_list = linker.as_dependency_list(nodes)
-        for node_list in dependency_list:
-            level = []
-            for fqn in node_list:
-                try:
-                    model = find_model_by_fqn(all_models, fqn)
-                except RuntimeError as e:
-                    continue
-                if model.should_execute(self.args, existing):
-                    model.prepare(existing, adapter)
-                    level.append(model)
-            model_dependency_list.append(level)
+        for node_level in dependency_list:
+            model_level = [node_model_map[n] for n in node_level]
+            model_dependency_list.append(model_level)
+
         return model_dependency_list
 
     def on_model_failure(self, linker, models, selected_nodes):
@@ -589,7 +593,7 @@ class RunManager(object):
 
         return model_results
 
-    def get_nodes_to_run(self, graph, include_spec, exclude_spec):
+    def get_nodes_to_run(self, graph, include_spec, exclude_spec, model_type):
         if include_spec is None:
             include_spec = ['*']
 
@@ -598,12 +602,9 @@ class RunManager(object):
 
         model_nodes = [
             n for n in graph.nodes()
-            if graph.node[n]['dbt_run_type'] == dbt.model.NodeType.Model
+            if graph.node[n]['dbt_run_type'] == model_type
         ]
 
-        # Only consider models when evaluating which models to select
-        # Later, we'll be able to grab dangling nodes (tests, hooks, etc)
-        # from the original graph
         model_only_graph = graph.subgraph(model_nodes)
         selected_nodes = dbt.graph.selector.select_nodes(self.project,
                                                          model_only_graph,
@@ -611,23 +612,26 @@ class RunManager(object):
                                                          exclude_spec)
         return selected_nodes
 
-    def run_from_graph(self, runner, include_spec, exclude_spec):
+    def get_compiled_models(self, linker, nodes, node_type):
+        compiled_models = []
+        for fqn in nodes:
+            compiled_model = make_compiled_model(fqn, linker.get_node(fqn))
 
-        logger.info("Loading dependency graph file")
-        linker = self.deserialize_graph()
-        selected_nodes = self.get_nodes_to_run(linker.graph, include_spec,
-                                               exclude_spec)
-        compiled_models = [make_compiled_model(fqn, linker.get_node(fqn))
-                           for fqn in selected_nodes]
-        relevant_compiled_models = [m for m in compiled_models
-                                    if m.is_type(runner.run_type)]
+            if not compiled_model.is_type(node_type):
+                continue
 
-        for m in relevant_compiled_models:
-            if m.should_execute(self.args, existing=[]):
-                context = self.context.copy()
-                context.update(m.context())
-                m.compile(context)
+            if not compiled_model.should_execute(self.args,
+                                                 self.existing_models):
+                continue
 
+            context = self.context.copy()
+            context.update(compiled_model.context())
+            compiled_model.compile(context)
+            compiled_models.append(compiled_model)
+
+        return compiled_models
+
+    def try_create_schema(self):
         profile = self.project.run_environment()
         adapter = get_adapter(profile)
 
@@ -640,18 +644,31 @@ class RunManager(object):
             logger.info("ERROR: Could not connect to the target database. Try "
                         "`dbt debug` for more information.")
             logger.info(str(e))
-            sys.exit(1)
+            raise
 
-        existing = adapter.query_for_existing(profile, schema_name)
+    def run_models_from_graph(self, include_spec, exclude_spec):
+        runner = ModelRunner(self.project)
+        linker = self.deserialize_graph()
+
+        selected_nodes = self.get_nodes_to_run(
+            linker.graph,
+            include_spec,
+            exclude_spec,
+            dbt.model.NodeType.Model)
+
+        compiled_models = self.get_compiled_models(
+            linker,
+            selected_nodes,
+            runner.run_type)
+
+        self.try_create_schema()
 
         model_dependency_list = self.as_concurrent_dep_list(
             linker,
-            relevant_compiled_models,
-            existing,
-            selected_nodes
+            compiled_models
         )
 
-        on_failure = self.on_model_failure(linker, relevant_compiled_models,
+        on_failure = self.on_model_failure(linker, compiled_models,
                                            selected_nodes)
         results = self.execute_models(
             runner, model_dependency_list, on_failure
@@ -662,60 +679,75 @@ class RunManager(object):
     def run_tests_from_graph(self, include_spec, exclude_spec,
                              test_schemas, test_data):
 
-        test_runner = TestRunner(self.project)
+        runner = TestRunner(self.project)
         linker = self.deserialize_graph()
 
-        selected_models = self.get_nodes_to_run(linker.graph, include_spec,
-                                                exclude_spec)
+        selected_model_nodes = self.get_nodes_to_run(
+            linker.graph,
+            include_spec,
+            exclude_spec,
+            dbt.model.NodeType.Model)
 
-        selected_nodes = set()
-
-        # add all nodes here, then select out only the test nodes after
-        for model_node in selected_models:
-            selected_nodes.add(model_node)
+        # just throw everything in this set, then pick out tests later
+        nodes_and_neighbors = set()
+        for model_node in selected_model_nodes:
+            nodes_and_neighbors.add(model_node)
             neighbors = linker.graph.neighbors(model_node)
             for neighbor in neighbors:
-                selected_nodes.add(neighbor)
+                nodes_and_neighbors.add(neighbor)
 
-        compiled_models = [
-            make_compiled_model(node, linker.get_node(node))
-            for node in selected_nodes
-        ]
+        compiled_models = self.get_compiled_models(
+            linker,
+            nodes_and_neighbors,
+            runner.run_type)
 
-        compiled_test_models = [m for m in compiled_models if m.is_test()]
+        selected_nodes = set(cm.fqn for cm in compiled_models)
 
-        profile = self.project.run_environment()
-        adapter = get_adapter(profile)
-
-        schema_name = adapter.get_default_schema(profile)
-
-        try:
-            adapter.create_schema(profile, schema_name)
-        except (dbt.exceptions.FailedToConnectException,
-                psycopg2.OperationalError) as e:
-            logger.info("ERROR: Could not connect to the target database. Try "
-                        "`dbt debug` for more information")
-            logger.info(str(e))
-            sys.exit(1)
+        self.try_create_schema()
 
         all_tests = []
         if test_schemas:
-            all_tests.extend([m for m in compiled_test_models
-                             if m.is_test_type(test_runner.test_schema_type)])
+            all_tests.extend([cm for cm in compiled_models
+                             if cm.is_test_type(runner.test_schema_type)])
 
         if test_data:
-            all_tests.extend([m for m in compiled_test_models
-                              if m.is_test_type(test_runner.test_data_type)])
-
-        for m in all_tests:
-            context = self.context.copy()
-            context.update(m.context())
-            m.compile(context)
+            all_tests.extend([cm for cm in compiled_models
+                              if cm.is_test_type(runner.test_data_type)])
 
         dep_list = [all_tests]
 
-        on_failure = self.on_model_failure(linker, all_tests, set())
-        results = self.execute_models(test_runner, dep_list, on_failure)
+        on_failure = self.on_model_failure(linker, all_tests, selected_nodes)
+        results = self.execute_models(runner, dep_list, on_failure)
+
+        return results
+
+    def run_archives_from_graph(self):
+        runner = ArchiveRunner(self.project)
+        linker = self.deserialize_graph()
+
+        selected_nodes = self.get_nodes_to_run(
+            linker.graph,
+            None,
+            None,
+            dbt.model.NodeType.Archive)
+
+        compiled_models = self.get_compiled_models(
+            linker,
+            selected_nodes,
+            runner.run_type)
+
+        self.try_create_schema()
+
+        model_dependency_list = self.as_concurrent_dep_list(
+            linker,
+            compiled_models
+        )
+
+        on_failure = self.on_model_failure(linker, compiled_models,
+                                           selected_nodes)
+        results = self.execute_models(
+            runner, model_dependency_list, on_failure
+        )
 
         return results
 
@@ -726,10 +758,8 @@ class RunManager(object):
         return self.run_tests_from_graph(include_spec, exclude_spec,
                                          test_schemas, test_data)
 
-    def run(self, include_spec, exclude_spec):
-        runner = ModelRunner(self.project)
-        return self.run_from_graph(runner, include_spec, exclude_spec)
+    def run_models(self, include_spec, exclude_spec):
+        return self.run_models_from_graph(include_spec, exclude_spec)
 
-    def run_archive(self):
-        runner = ArchiveRunner(self.project)
-        return self.run_from_graph(runner, None, None)
+    def run_archives(self):
+        return self.run_archives_from_graph()

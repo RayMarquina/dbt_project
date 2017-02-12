@@ -1,6 +1,5 @@
 
 from dbt.compilation import Compiler, CompilableEntities
-from dbt.templates import BaseCreateTemplate
 from dbt.runner import RunManager
 from dbt.logger import GLOBAL_LOGGER as logger
 
@@ -21,7 +20,7 @@ class TestTask:
         self.project = project
 
     def compile(self):
-        compiler = Compiler(self.project, BaseCreateTemplate, self.args)
+        compiler = Compiler(self.project, self.args)
         compiler.initialize()
         results = compiler.compile()
 
@@ -30,12 +29,11 @@ class TestTask:
         )
         logger.info("Compiled {}".format(stat_line))
 
-        return compiler
-
     def run(self):
         self.compile()
+
         runner = RunManager(
-            self.project, self.project['target-path'], 'build', self.args
+            self.project, self.project['target-path'], self.args
         )
 
         include = self.args.models

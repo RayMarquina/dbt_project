@@ -23,6 +23,8 @@ CompilableEntities = [
     "models", "data tests", "schema tests", "archives", "analyses"
 ]
 
+GraphFile = 'graph.yml'
+
 
 def compile_string(string, ctx):
     try:
@@ -36,9 +38,8 @@ def compile_string(string, ctx):
 
 
 class Compiler(object):
-    def __init__(self, project, create_template_class, args):
+    def __init__(self, project, args):
         self.project = project
-        self.create_template = create_template_class()
         self.args = args
 
         self.macro_generator = None
@@ -55,18 +56,10 @@ class Compiler(object):
             own_project = this_project
 
         paths = own_project.get('source-paths', [])
-        if self.create_template.label == 'build':
-            return Source(
-                this_project,
-                own_project=own_project
-            ).get_models(paths, self.create_template)
-
-        elif self.create_template.label == 'archive':
-            return []
-        else:
-            raise RuntimeError(
-                "unexpected create template "
-                "type: '{}'".format(self.create_template.label))
+        return Source(
+            this_project,
+            own_project=own_project
+        ).get_models(paths)
 
     def get_macros(self, this_project, own_project=None):
         if own_project is None:
@@ -75,11 +68,10 @@ class Compiler(object):
         return Source(this_project, own_project=own_project).get_macros(paths)
 
     def get_archives(self, project):
-        archive_template = dbt.templates.ArchiveInsertTemplate()
         return Source(
             project,
             own_project=project
-        ).get_archives(archive_template)
+        ).get_archives()
 
     def project_schemas(self, project):
         source_paths = project.get('source-paths', [])
@@ -160,13 +152,10 @@ class Compiler(object):
 
         def do_ref(*args):
             if len(args) == 1:
-                other_model_name = self.create_template.model_name(args[0])
+                other_model_name = args[0]
                 other_model = find_model_by_name(all_models, other_model_name)
             elif len(args) == 2:
                 other_model_package, other_model_name = args
-                other_model_name = self.create_template.model_name(
-                    other_model_name
-                )
 
                 other_model = find_model_by_name(
                     all_models,
@@ -277,8 +266,8 @@ class Compiler(object):
 
         return rendered
 
-    def write_graph_file(self, linker, label):
-        filename = 'graph-{}.yml'.format(label)
+    def write_graph_file(self, linker):
+        filename = GraphFile
         graph_path = os.path.join(self.project['target-path'], filename)
         linker.write_graph(graph_path)
 
@@ -407,9 +396,7 @@ class Compiler(object):
             )
 
             context = self.get_context(linker, model, models)
-            wrapped_stmt = model.compile(
-                injected_stmt, self.project, self.create_template, context
-            )
+            wrapped_stmt = model.compile(injected_stmt, self.project, context)
 
             serialized = model.serialize()
             linker.update_node_data(tuple(model.fqn), serialized)
@@ -520,7 +507,6 @@ class Compiler(object):
             linker.update_node_data(fqn, archive.serialize())
             self.__write(archive.build_path(), sql)
 
-        # self.write_graph_file(linker, 'archive')
         return all_archives
 
     def get_models(self):
@@ -573,7 +559,7 @@ class Compiler(object):
         self.validate_models_unique(written_schema_tests)
         self.validate_models_unique(written_archives)
 
-        self.write_graph_file(linker, self.create_template.label)
+        self.write_graph_file(linker)
 
         return {
             "models": len(written_models),

@@ -76,8 +76,6 @@ class Linker(object):
             ])
             depth_nodes[num_ancestors].append(node)
 
-        print(depth_nodes)
-
         dependency_list = []
         for depth in sorted(depth_nodes.keys()):
             dependency_list.append(depth_nodes[depth])
