@@ -148,7 +148,7 @@ class TestSimpleReference(DBTIntegrationTest):
         self.assertTablesEqual("seed","materialized_copy")
 
         created_models = self.get_models_in_schema()
-        self.assertEquals(created_models, ['materialized_copy'])
+        self.assertTrue('materialized_copy' in created_models)
 
     @attr(type='snowflake')
     def test__snowflake__simple_reference_with_models_and_children(self):
