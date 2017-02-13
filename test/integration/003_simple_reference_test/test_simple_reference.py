@@ -51,7 +51,7 @@ class TestSimpleReference(DBTIntegrationTest):
     @attr(type='snowflake')
     def test__snowflake__simple_reference(self):
         self.use_default_project()
-        self.use_profile('postgres')
+        self.use_profile('snowflake')
         self.run_sql_file("test/integration/003_simple_reference_test/seed.sql")
 
         self.run_dbt()
