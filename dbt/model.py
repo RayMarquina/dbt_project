@@ -503,8 +503,7 @@ class Analysis(Model):
             project,
             target_dir,
             rel_filepath,
-            own_project,
-            BaseCreateTemplate()
+            own_project
         )
 
     def build_path(self):

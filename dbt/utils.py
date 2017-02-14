@@ -38,14 +38,14 @@ def compiler_error(model, msg):
         name = model.nice_name
 
     raise RuntimeError(
-        "! Compilation error while compiling model {}:\n! {}"
+        "! Compilation error while compiling model {}:\n! {}\n"
         .format(name, msg)
     )
 
 
 def compiler_warning(model, msg):
     logger.info(
-        "* Compilation warning while compiling model {}:\n* {}"
+        "* Compilation warning while compiling model {}:\n* {}\n"
         .format(model.nice_name, msg)
     )
 

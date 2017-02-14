@@ -85,7 +85,7 @@ class Compiler(object):
         paths = project.get('analysis-paths', [])
         return Source(project).get_analyses(paths)
 
-    def validate_models_unique(self, models):
+    def validate_models_unique(self, models, error_type):
         found_models = defaultdict(list)
         for model in models:
             found_models[model.name].append(model)
@@ -94,12 +94,13 @@ class Compiler(object):
                 models_str = "\n  - ".join(
                     [str(model) for model in model_list])
 
-                raise RuntimeError(
-                    "Found {} models with the same name! Can't "
-                    "create tables. Name='{}'\n  - {}".format(
-                        len(model_list), model_name, models_str
-                    )
-                )
+                error_msg = "Found {} models with the same name.\n" \
+                            "  Name='{}'\n" \
+                            "  - {}".format(
+                                    len(model_list), model_name, models_str
+                            )
+
+                error_type(model_list[0], error_msg)
 
     def __write(self, build_filepath, payload):
         target_path = os.path.join(self.project['target-path'], build_filepath)
@@ -463,7 +464,14 @@ class Compiler(object):
 
         written_tests = []
         for schema_test in schema_tests:
-            source_model = find_model_by_name(models, schema_test.model_name)
+            # show a warning if the model being tested doesn't exist
+            try:
+                source_model = find_model_by_name(models,
+                                                  schema_test.model_name)
+            except RuntimeError as e:
+                dbt.utils.compiler_warning(schema_test, str(e))
+                continue
+
             serialized = schema_test.serialize()
 
             model_node = tuple(source_model.fqn)
@@ -562,7 +570,21 @@ class Compiler(object):
         for (compile_type, compiler_f) in compilers.items():
             newly_compiled = compiler_f(linker, compiled_models)
             compiled[compile_type] = newly_compiled
-            self.validate_models_unique(newly_compiled)
+
+        self.validate_models_unique(
+            compiled['models'],
+            dbt.utils.compiler_error
+        )
+
+        self.validate_models_unique(
+            compiled['data tests'],
+            dbt.utils.compiler_warning
+        )
+
+        self.validate_models_unique(
+            compiled['schema tests'],
+            dbt.utils.compiler_warning
+        )
 
         self.write_graph_file(linker)
 
