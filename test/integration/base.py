@@ -16,8 +16,8 @@ class FakeArgs(object):
         self.data = False
         self.schema = True
         self.full_refresh = False
-        self.models = []
-        self.exclude = []
+        self.models = None
+        self.exclude = None
 
 
 class DBTIntegrationTest(unittest.TestCase):

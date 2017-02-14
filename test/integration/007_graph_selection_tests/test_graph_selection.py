@@ -1,7 +1,7 @@
 from nose.plugins.attrib import attr
 from test.integration.base import DBTIntegrationTest
 
-class TestSimpleReference(DBTIntegrationTest):
+class TestGraphSelection(DBTIntegrationTest):
 
     @property
     def schema(self):
