@@ -40,7 +40,14 @@ def get_package_names(graph):
 def is_selected_node(real_node, node_selector):
     for i, selector_part in enumerate(node_selector):
 
+        is_last = (i == len(node_selector) - 1)
+
+        # if we hit a GLOB, then this node is selected
         if selector_part == SELECTOR_GLOB:
+            return True
+
+        # match package.node_name or package.dir.node_name
+        elif is_last and selector_part == real_node[-1]:
             return True
 
         elif len(real_node) <= i:
