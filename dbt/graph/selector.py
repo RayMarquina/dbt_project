@@ -23,7 +23,6 @@ def parse_spec(node_spec):
         index_end -= 1
 
     node_selector = node_spec[index_start:index_end]
-    # TODO: Validate node_selector here
     qualified_node_name = tuple(node_selector.split('.'))
 
     return {
