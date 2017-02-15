@@ -23,7 +23,7 @@ CompilableEntities = [
     "models", "data tests", "schema tests", "archives", "analyses"
 ]
 
-GraphFile = 'graph.yml'
+graph_file_name = 'graph.yml'
 
 
 def compile_string(string, ctx):
@@ -268,7 +268,7 @@ class Compiler(object):
         return rendered
 
     def write_graph_file(self, linker):
-        filename = GraphFile
+        filename = graph_file_name
         graph_path = os.path.join(self.project['target-path'], filename)
         linker.write_graph(graph_path)
 

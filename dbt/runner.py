@@ -392,7 +392,7 @@ class RunManager(object):
         base_target_path = self.project['target-path']
         graph_file = os.path.join(
             base_target_path,
-            dbt.compilation.GraphFile
+            dbt.compilation.graph_file_name
         )
         linker.read_graph(graph_file)
 
