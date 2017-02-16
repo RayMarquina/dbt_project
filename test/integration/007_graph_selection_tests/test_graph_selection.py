@@ -44,7 +44,7 @@ class TestGraphSelection(DBTIntegrationTest):
         self.use_profile('postgres')
         self.run_sql_file("test/integration/007_graph_selection_tests/seed.sql")
 
-        self.run_dbt(['run', '--models', 'users>'])
+        self.run_dbt(['run', '--models', 'users+'])
 
         self.assertTablesEqual("seed", "users")
         self.assertTablesEqual("summary_expected", "users_rollup")
@@ -57,7 +57,7 @@ class TestGraphSelection(DBTIntegrationTest):
         self.use_profile('snowflake')
         self.run_sql_file("test/integration/007_graph_selection_tests/seed.sql")
 
-        self.run_dbt(['run', '--models', 'users>'])
+        self.run_dbt(['run', '--models', 'users+'])
 
         self.assertTablesEqual("seed", "users")
         self.assertTablesEqual("summary_expected", "users_rollup")
@@ -71,7 +71,7 @@ class TestGraphSelection(DBTIntegrationTest):
         self.use_profile('postgres')
         self.run_sql_file("test/integration/007_graph_selection_tests/seed.sql")
 
-        self.run_dbt(['run', '--models', '<users_rollup'])
+        self.run_dbt(['run', '--models', '+users_rollup'])
 
         self.assertTablesEqual("seed", "users")
         self.assertTablesEqual("summary_expected", "users_rollup")
@@ -84,7 +84,7 @@ class TestGraphSelection(DBTIntegrationTest):
         self.use_profile('snowflake')
         self.run_sql_file("test/integration/007_graph_selection_tests/seed.sql")
 
-        self.run_dbt(['run', '--models', '<users_rollup'])
+        self.run_dbt(['run', '--models', '+users_rollup'])
 
         self.assertTablesEqual("seed", "users")
         self.assertTablesEqual("summary_expected", "users_rollup")
@@ -98,7 +98,7 @@ class TestGraphSelection(DBTIntegrationTest):
         self.use_profile('postgres')
         self.run_sql_file("test/integration/007_graph_selection_tests/seed.sql")
 
-        self.run_dbt(['run', '--models', '<users_rollup', '--exclude', 'users_rollup'])
+        self.run_dbt(['run', '--models', '+users_rollup', '--exclude', 'users_rollup'])
 
         self.assertTablesEqual("seed", "users")
         created_models = self.get_models_in_schema()
@@ -111,7 +111,7 @@ class TestGraphSelection(DBTIntegrationTest):
         self.use_profile('snowflake')
         self.run_sql_file("test/integration/007_graph_selection_tests/seed.sql")
 
-        self.run_dbt(['run', '--models', '<users_rollup', '--exclude', 'users_rollup'])
+        self.run_dbt(['run', '--models', '+users_rollup', '--exclude', 'users_rollup'])
 
         self.assertTablesEqual("seed", "users")
         created_models = self.get_models_in_schema()

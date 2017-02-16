@@ -83,25 +83,25 @@ class GraphSelectionTest(unittest.TestCase):
         self.run_specs_and_assert(self.simple_graph, ['a'], [], set('a'))
 
     def test__node_and_children(self):
-        self.run_specs_and_assert(self.simple_graph, ['a>'], [], set('abcdefg'))
+        self.run_specs_and_assert(self.simple_graph, ['a+'], [], set('abcdefg'))
 
     def test__node_and_parents(self):
-        self.run_specs_and_assert(self.simple_graph, ['<g'], [], set('acg'))
+        self.run_specs_and_assert(self.simple_graph, ['+g'], [], set('acg'))
 
     def test__node_and_children_and_parents(self):
-        self.run_specs_and_assert(self.simple_graph, ['<c>'], [], set('acfg'))
+        self.run_specs_and_assert(self.simple_graph, ['+c+'], [], set('acfg'))
 
     def test__node_and_children_and_parents_except_one(self):
-        self.run_specs_and_assert(self.simple_graph, ['<c>'], ['c'], set('afg'))
+        self.run_specs_and_assert(self.simple_graph, ['+c+'], ['c'], set('afg'))
 
     def test__node_and_children_and_parents_except_many(self):
-        self.run_specs_and_assert(self.simple_graph, ['<c>'], ['<f'], set('g'))
+        self.run_specs_and_assert(self.simple_graph, ['+c+'], ['+f'], set('g'))
 
     def test__multiple_node_selection(self):
         self.run_specs_and_assert(self.simple_graph, ['a', 'b'], [], set('ab'))
 
     def test__multiple_node_selection_mixed(self):
-        self.run_specs_and_assert(self.simple_graph, ['a>', 'b>'], ['b', '<c'], set('defg'))
+        self.run_specs_and_assert(self.simple_graph, ['a+', 'b+'], ['b', '+c'], set('defg'))
 
     def test__single_node_selection_in_package(self):
         self.run_specs_and_assert(
@@ -122,7 +122,7 @@ class GraphSelectionTest(unittest.TestCase):
     def test__select_children_except_in_package(self):
         self.run_specs_and_assert(
             self.package_graph,
-            ['X.a>'],
+            ['X.a+'],
             ['b'],
             set([
                 ('X', 'a'),
@@ -130,20 +130,6 @@ class GraphSelectionTest(unittest.TestCase):
                 ('X', 'c'),
                 ('Y', 'd'),
                 ('X', 'e'),
-                ('Y', 'f'),
-                ('X', 'g')
-            ])
-        )
-
-    def test__select_local_model_shortcut(self):
-        # you can use "this" in place of local project name
-        self.run_specs_and_assert(
-            self.package_graph,
-            ['this.a>'],
-            ['Y.b>'],
-            set([
-                ('X', 'a'),
-                ('X', 'c'),
                 ('Y', 'f'),
                 ('X', 'g')
             ])
@@ -162,19 +148,19 @@ class GraphSelectionTest(unittest.TestCase):
 
     def test__spec_parsing(self):
         self.parse_spec_and_assert('a', False, False, ('a',))
-        self.parse_spec_and_assert('<a', True, False, ('a',))
-        self.parse_spec_and_assert('a>', False, True, ('a',))
-        self.parse_spec_and_assert('<a>', True, True, ('a',))
+        self.parse_spec_and_assert('+a', True, False, ('a',))
+        self.parse_spec_and_assert('a+', False, True, ('a',))
+        self.parse_spec_and_assert('+a+', True, True, ('a',))
 
         self.parse_spec_and_assert('a.b', False, False, ('a', 'b'))
-        self.parse_spec_and_assert('<a.b', True, False, ('a', 'b'))
-        self.parse_spec_and_assert('a.b>', False, True, ('a', 'b'))
-        self.parse_spec_and_assert('<a.b>', True, True, ('a', 'b'))
+        self.parse_spec_and_assert('+a.b', True, False, ('a', 'b'))
+        self.parse_spec_and_assert('a.b+', False, True, ('a', 'b'))
+        self.parse_spec_and_assert('+a.b+', True, True, ('a', 'b'))
 
         self.parse_spec_and_assert('a.b.*', False, False, ('a', 'b', '*'))
-        self.parse_spec_and_assert('<a.b.*', True, False, ('a', 'b', '*'))
-        self.parse_spec_and_assert('a.b.*>', False, True, ('a', 'b', '*'))
-        self.parse_spec_and_assert('<a.b.*>', True, True, ('a', 'b', '*'))
+        self.parse_spec_and_assert('+a.b.*', True, False, ('a', 'b', '*'))
+        self.parse_spec_and_assert('a.b.*+', False, True, ('a', 'b', '*'))
+        self.parse_spec_and_assert('+a.b.*+', True, True, ('a', 'b', '*'))
 
     def test__package_name_getter(self):
         found = graph_selector.get_package_names(self.package_graph)

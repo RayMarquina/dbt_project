@@ -67,7 +67,7 @@ class TestSchemaTestGraphSelection(DBTIntegrationTest):
     @attr(type='postgres')
     def test__postgres__schema_tests_specify_model_and_children(self):
         self.run_schema_and_assert(
-            ['users>'],
+            ['users+'],
             None,
             ['unique_users_id', 'unique_users_rollup_gender']
         )
@@ -75,7 +75,7 @@ class TestSchemaTestGraphSelection(DBTIntegrationTest):
     @attr(type='postgres')
     def test__postgres__schema_tests_specify_model_and_parents(self):
         self.run_schema_and_assert(
-            ['<users_rollup'],
+            ['+users_rollup'],
             None,
             ['unique_users_id', 'unique_users_rollup_gender']
         )
@@ -83,7 +83,7 @@ class TestSchemaTestGraphSelection(DBTIntegrationTest):
     @attr(type='postgres')
     def test__postgres__schema_tests_specify_model_and_parents_with_exclude(self):
         self.run_schema_and_assert(
-            ['<users_rollup'],
+            ['+users_rollup'],
             ['users_rollup'],
             ['unique_users_id']
         )
@@ -134,20 +134,4 @@ class TestSchemaTestGraphSelection(DBTIntegrationTest):
             None,
             ['dbt_integration_project'],
             ['unique_users_id', 'unique_users_rollup_gender']
-        )
-
-    @attr(type='postgres')
-    def test__postgres__schema_tests_models_this(self):
-        self.run_schema_and_assert(
-            ["this"],
-            None,
-            ['unique_users_id', 'unique_users_rollup_gender']
-        )
-
-    @attr(type='postgres')
-    def test__postgres__schema_tests_this_and_dep(self):
-        self.run_schema_and_assert(
-            ["this", "dbt_integration_project"],
-            None,
-            ['unique_table_id', 'unique_users_id', 'unique_users_rollup_gender']
         )
