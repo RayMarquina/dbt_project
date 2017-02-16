@@ -27,10 +27,10 @@ class TestAnalyses(DBTIntegrationTest):
 
         self.run_dbt(["run"])
 
-        compiled_analysis_path = os.path.join(
+        compiled_analysis_path = os.path.normpath(os.path.join(
             'target/build-analysis',
             self.analysis_path()
-        )
+        ))
 
         self.assertEqual(
             ['analysis.sql'],
