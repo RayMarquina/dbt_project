@@ -23,11 +23,19 @@ class TestAnalyses(DBTIntegrationTest):
         }
 
     @attr(type='postgres')
-    def test_working_macros(self):
+    def test_analyses(self):
 
-        self.run_dbt(["compile"])
+        self.run_dbt(["run"])
 
-        self.assertEqual(['analysis.sql'], os.listdir('target/build-analysis/test'))
+        compiled_analysis_path = os.path.join(
+            'target/build-analysis',
+            self.analysis_path()
+        )
+
+        self.assertEqual(
+            ['analysis.sql'],
+            os.listdir(compiled_analysis_path)
+        )
 
         models = self.get_models_in_schema()
         self.assertTrue('my_model' in models.keys())
