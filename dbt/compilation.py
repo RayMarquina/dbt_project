@@ -428,6 +428,10 @@ class Compiler(object):
                 analysis,
                 referenceable_models
             )
+
+            serialized = analysis.serialize()
+            linker.update_node_data(tuple(analysis.fqn), serialized)
+
             build_path = analysis.build_path()
             self.__write(build_path, injected_stmt)
             written_analyses.append(analysis)

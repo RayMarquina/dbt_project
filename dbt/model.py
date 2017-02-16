@@ -17,6 +17,7 @@ class NodeType(object):
     Model = 'model'
     Test = 'test'
     Archive = 'archive'
+    Analysis = 'analysis'
 
 
 class TestNodeType(object):
@@ -498,6 +499,8 @@ class Model(DBTSource):
 
 
 class Analysis(Model):
+    dbt_run_type = NodeType.Analysis
+
     def __init__(self, project, target_dir, rel_filepath, own_project):
         return super(Analysis, self).__init__(
             project,
