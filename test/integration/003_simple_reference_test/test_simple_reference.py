@@ -107,7 +107,7 @@ class TestSimpleReference(DBTIntegrationTest):
         # Run materialized_copy, ephemeral_copy, and their dependents
         # ephemeral_copy should not actually be materialized b/c it is ephemeral
         # the dependent ephemeral_summary, however, should be materialized as a table
-        self.run_dbt(['run', '--models', 'materialized_copy>', 'ephemeral_copy>'])
+        self.run_dbt(['run', '--models', 'materialized_copy+', 'ephemeral_copy+'])
 
         # Copies should match
         self.assertTablesEqual("seed","materialized_copy")
@@ -140,7 +140,7 @@ class TestSimpleReference(DBTIntegrationTest):
         self.use_profile('snowflake')
         self.run_sql_file("test/integration/003_simple_reference_test/seed.sql")
 
-        # Run materialized_copy, ephemeral_copy, and their dependents
+        # Run materialized_copy & ephemeral_copy
         # ephemeral_copy should not actually be materialized b/c it is ephemeral
         self.run_dbt(['run', '--models', 'materialized_copy', 'ephemeral_copy'])
 
@@ -159,7 +159,7 @@ class TestSimpleReference(DBTIntegrationTest):
         # Run materialized_copy, ephemeral_copy, and their dependents
         # ephemeral_copy should not actually be materialized b/c it is ephemeral
         # the dependent ephemeral_summary, however, should be materialized as a table
-        self.run_dbt(['run', '--models', 'materialized_copy>', 'ephemeral_copy>'])
+        self.run_dbt(['run', '--models', 'materialized_copy+', 'ephemeral_copy+'])
 
         # Copies should match
         self.assertTablesEqual("seed","materialized_copy")
