@@ -1,10 +1,20 @@
 
 # import dbt.utils.compiler_error
 import networkx as nx
+from dbt.logger import GLOBAL_LOGGER as logger
 
 SELECTOR_PARENTS = '+'
 SELECTOR_CHILDREN = '+'
 SELECTOR_GLOB = '*'
+
+
+def split_specs(node_specs):
+    specs = set()
+    for spec in node_specs:
+        parts = spec.split(" ")
+        specs.update(parts)
+
+    return specs
 
 
 def parse_spec(node_spec):
@@ -27,7 +37,8 @@ def parse_spec(node_spec):
     return {
         "select_parents": select_parents,
         "select_children": select_children,
-        "qualified_node_name": qualified_node_name
+        "qualified_node_name": qualified_node_name,
+        "raw": node_spec
     }
 
 
@@ -106,18 +117,33 @@ def get_nodes_from_spec(project, graph, spec):
     return selected_nodes | additional_nodes
 
 
+def warn_if_useless_spec(spec, nodes):
+    if len(nodes) > 0:
+        return
+
+    logger.info(
+        "* Spec='{}' does not identify any models and was ignored\n"
+        .format(spec['raw'])
+    )
+
+
 def select_nodes(project, graph, raw_include_specs, raw_exclude_specs):
     selected_nodes = set()
 
-    include_specs = [parse_spec(spec) for spec in raw_include_specs]
-    exclude_specs = [parse_spec(spec) for spec in raw_exclude_specs]
+    split_include_specs = split_specs(raw_include_specs)
+    split_exclude_specs = split_specs(raw_exclude_specs)
+
+    include_specs = [parse_spec(spec) for spec in split_include_specs]
+    exclude_specs = [parse_spec(spec) for spec in split_exclude_specs]
 
     for spec in include_specs:
         included_nodes = get_nodes_from_spec(project, graph, spec)
+        warn_if_useless_spec(spec, included_nodes)
         selected_nodes = selected_nodes | included_nodes
 
     for spec in exclude_specs:
         excluded_nodes = get_nodes_from_spec(project, graph, spec)
+        warn_if_useless_spec(spec, excluded_nodes)
         selected_nodes = selected_nodes - excluded_nodes
 
     return selected_nodes
