@@ -5,10 +5,6 @@ changed_tests := `git status --porcelain | grep '^\(M\| M\|A\| A\)' | awk '{ pri
 install:
 	pip install .
 
-it:
-	@echo "Unit test run starting..."
-	@time docker-compose run test tox -e unit-py27,pep8
-
 test:
 	@echo "Full test run starting..."
 	@time docker-compose run test tox
