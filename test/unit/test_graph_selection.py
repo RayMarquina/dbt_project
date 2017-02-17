@@ -142,7 +142,8 @@ class GraphSelectionTest(unittest.TestCase):
             {
                 "select_parents": parents,
                 "select_children": children,
-                "qualified_node_name": qualified_node_name
+                "qualified_node_name": qualified_node_name,
+                "raw": spec
             }
         )
 
