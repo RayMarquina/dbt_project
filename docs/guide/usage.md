@@ -17,6 +17,7 @@ Deploying new models frequently involves destroying prior versions of these mode
 
 ### Specify the models to run
 
+TODO
 Using `dbt run --models [model names]` will cause dbt to only deploy the models you list, along with their dependents. This can significantly decrease deployment time for large projects when only deploying a subset of models.
 
 
