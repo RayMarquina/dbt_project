@@ -1,8 +1,18 @@
 ## dbt 0.7.1 (unreleased)
 
+### Overview
+
+- A new home for dbt
+- Snowflake improvements
+
 #### New Features
 
 - profiles.yml now supports Snowflake `role` as an option ([#291](https://github.com/fishtown-analytics/dbt/pull/291))
+
+#### A new home for dbt
+
+In v0.7.1, dbt was moved from the analyst-collective org to the fishtown-analytics org ([#300](https://github.com/fishtown-analytics/dbt/pull/300))
+
 
 ## dbt 0.7.0 (February 9, 2017)
 
