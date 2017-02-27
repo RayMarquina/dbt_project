@@ -41,14 +41,14 @@ dbt run --models my_project path.to.models a_specific_model
 Additionally, arguments to `--models` can be modified with the `+` and `*` operators. If placed at the front of the model specifier, `+` will select all parents of the selected model(s). If placed at the end, `+` will select all children of the selected models. The `*` operator matches all models within a package or directory.
 
 ```bash
-dbt run --models my_model+         # select my_model and all children
-dbt run --models +my_model         # select my_model and all parents
+dbt run --models my_model+          # select my_model and all children
+dbt run --models +my_model          # select my_model and all parents
 
-dbt run --models my_package.*      # select all models in my_package
-dbt run --models path.to.models.*  # select all models in path/to/models
+dbt run --models my_package.*       # select all models in my_package
+dbt run --models path.to.models.*   # select all models in path/to/models
 
-dbt run --models my_package.*+     # select all models in my_package and their children
-dbt run --models +some_model+      # select some_model and all parents and children
+dbt run --models my_package.*+      # select all models in my_package and their children
+dbt run --models +some_model+       # select some_model and all parents and children
 ```
 
 ### Run dbt non-destructively
