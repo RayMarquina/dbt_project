@@ -11,7 +11,7 @@ setup(
     description="Data build tool for Analyst Collective",
     author="Analyst Collective",
     author_email="admin@analystcollective.org",
-    url="https://github.com/analyst-collective/dbt",
+    url="https://github.com/fishtown-analytics/dbt",
     packages=find_packages(),
     test_suite='test',
     entry_points={
