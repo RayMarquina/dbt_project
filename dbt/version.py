@@ -10,7 +10,7 @@ except ImportError:
     from urllib2 import urlopen
 
 REMOTE_VERSION_FILE = \
-    'https://raw.githubusercontent.com/analyst-collective/dbt/' \
+    'https://raw.githubusercontent.com/fishtown-analytics/dbt/' \
     'master/.bumpversion.cfg'
 
 

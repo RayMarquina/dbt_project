@@ -25,8 +25,8 @@ data-paths: ["data"]       # load CSVs from this directory with `dbt seed`
 
 # uncomment below and add real repositories to add dependencies to this project
 #repositories:
-#  - "git@github.com:analyst-collective/repo-name-1"
-#  - "git@github.com:analyst-collective/repo-name-2"
+#  - "git@github.com:fishtown-analytics/repo-name-1"
+#  - "git@github.com:fishtown-analytics/repo-name-2"
 """
 
 GIT_IGNORE = """
