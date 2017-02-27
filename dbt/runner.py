@@ -456,8 +456,11 @@ class RunManager(object):
             dependent_nodes = linker.get_dependent_nodes(model.fqn)
             for node in dependent_nodes:
                 if node in selected_nodes:
-                    model_to_skip = find_model_by_fqn(models, node)
-                    model_to_skip.do_skip()
+                    try:
+                        model_to_skip = find_model_by_fqn(models, node)
+                        model_to_skip.do_skip()
+                    except RuntimeError as e:
+                        pass
         return skip_dependent
 
     def print_fancy_output_line(self, message, status, index, total,

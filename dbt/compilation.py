@@ -476,6 +476,9 @@ class Compiler(object):
                 dbt.utils.compiler_warning(schema_test, str(e))
                 continue
 
+            if not source_model.is_enabled:
+                continue
+
             serialized = schema_test.serialize()
 
             model_node = tuple(source_model.fqn)

@@ -161,6 +161,22 @@ class CompiledArchive(CompiledModel):
         )
 
 
+class CompiledAnalysis(CompiledModel):
+    def __init__(self, fqn, data):
+        super(CompiledAnalysis, self).__init__(fqn, data)
+
+    def should_rename(self):
+        return False
+
+    def should_execute(self, args, existing):
+        return False
+
+    def __repr__(self):
+        return "<CompiledAnalysis {}.{}: {}>".format(
+            self.data['project_name'], self.name, self.data['build_path']
+        )
+
+
 def make_compiled_model(fqn, data):
     run_type = data['dbt_run_type']
 
@@ -172,6 +188,9 @@ def make_compiled_model(fqn, data):
 
     elif run_type == dbt.model.NodeType.Archive:
         return CompiledArchive(fqn, data)
+
+    elif run_type == dbt.model.NodeType.Analysis:
+        return CompiledAnalysis(fqn, data)
 
     else:
         raise RuntimeError("invalid run_type given: {}".format(run_type))
