@@ -17,7 +17,7 @@ Deploying new models frequently involves destroying prior versions of these mode
 
 ### Specifying models to run
 
-By default, `dbt run` will execute _all_ of the models in the dependency graph. During development (and deployment), it is useful to specify only a subset of models to run. Use the `--models` flag with `dbt run` to select a subset of models to run.
+By default, `dbt run` will execute _all_ of the models in the dependency graph. During development (and deployment), it is useful to specify only a subset of models to run. Use the `--models` flag with `dbt run` to select a subset of models to run. Note that the following arguments (`--models` and `--exclude`) also apply to `dbt test`!
 
 The `--models` flag accepts one or more arguments. Each argument can be one of:
 1. a package name
@@ -49,6 +49,12 @@ dbt run --models path.to.models.*   # select all models in path/to/models
 
 dbt run --models my_package.*+      # select all models in my_package and their children
 dbt run --models +some_model+       # select some_model and all parents and children
+```
+
+Finally, dbt provides an `--exclude` flag with the same semantics as `--models`. Models specified with the `--exclude` flag will be removed from the set of models selected with `--models`
+
+```bash
+dbt run --models my_package.*+ --exclude my_package.a_big_model+
 ```
 
 ### Run dbt non-destructively

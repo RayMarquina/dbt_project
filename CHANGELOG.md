@@ -2,16 +2,22 @@
 
 ### Overview
 
+- Improved graph selection
 - A new home for dbt
 - Snowflake improvements
 
 #### New Features
 
+- improved graph selection for `dbt run` and `dbt test` ([more information])(http://dbt.readthedocs.io/en/master/guide/usage/)) ([#279](https://github.com/fishtown-analytics/dbt/pull/279))
 - profiles.yml now supports Snowflake `role` as an option ([#291](https://github.com/fishtown-analytics/dbt/pull/291))
 
 #### A new home for dbt
 
 In v0.7.1, dbt was moved from the analyst-collective org to the fishtown-analytics org ([#300](https://github.com/fishtown-analytics/dbt/pull/300))
+
+#### Bugfixes
+
+- nicer error if `run-target` was not changed to `target` during upgrade to dbt>=0.7.0
 
 
 ## dbt 0.7.0 (February 9, 2017)
