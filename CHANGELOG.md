@@ -2,7 +2,7 @@
 
 ### Overview
 
-- Improved graph selection
+- [Improved graph selection](http://dbt.readthedocs.io/en/master/guide/usage/)
 - A new home for dbt
 - Snowflake improvements
 
