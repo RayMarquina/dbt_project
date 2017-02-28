@@ -1,4 +1,4 @@
-## dbt 0.7.1 (unreleased)
+## dbt 0.7.1 (February 28, 2017)
 
 ### Overview
 
