@@ -2,13 +2,13 @@
 
 ### Overview
 
-- [Improved graph selection](http://dbt.readthedocs.io/en/master/guide/usage/)
+- [Improved graph selection](http://dbt.readthedocs.io/en/master/guide/usage/#run)
 - A new home for dbt
 - Snowflake improvements
 
 #### New Features
 
-- improved graph selection for `dbt run` and `dbt test` ([more information](http://dbt.readthedocs.io/en/master/guide/usage/)) ([#279](https://github.com/fishtown-analytics/dbt/pull/279))
+- improved graph selection for `dbt run` and `dbt test` ([more information](http://dbt.readthedocs.io/en/master/guide/usage/#run)) ([#279](https://github.com/fishtown-analytics/dbt/pull/279))
 - profiles.yml now supports Snowflake `role` as an option ([#291](https://github.com/fishtown-analytics/dbt/pull/291))
 
 #### A new home for dbt
