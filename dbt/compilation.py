@@ -206,10 +206,12 @@ class Compiler(object):
 
             target_model_id = target_model.get('unique_id')
 
-            model['depends_on'].append(target_model_id)
+            if target_model_id not in model['depends_on']:
+                model['depends_on'].append(target_model_id)
 
             if get_materialization(target_model) == 'ephemeral':
-                model['extra_cte_ids'].append(target_model_id)
+                if target_model_id not in model['extra_cte_ids']:
+                    model['extra_cte_ids'].append(target_model_id)
                 return '__dbt__CTE__{}'.format(target_model.get('name'))
             else:
                 return '"{}"."{}"'.format(schema, target_model.get('name'))
