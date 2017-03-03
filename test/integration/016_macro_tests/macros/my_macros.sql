@@ -6,3 +6,13 @@
         '{{ bar2 }}' as bar2
 
 {% endmacro %}
+
+
+{% macro with_ref() %}
+
+   {{ref('dep_macro')}}
+--   {{this}}
+--   {{var('test')}}
+--   {{target.name}}
+
+{% endmacro %}
