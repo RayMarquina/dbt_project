@@ -15,7 +15,7 @@ import dbt.utils
 import networkx as nx
 from test.integration.base import FakeArgs
 
-# from dbt.logger import GLOBAL_LOGGER as logger
+from dbt.logger import GLOBAL_LOGGER as logger # noqa
 
 
 class GraphTest(unittest.TestCase):
@@ -105,12 +105,9 @@ class GraphTest(unittest.TestCase):
         return project
 
     def get_compiler(self, project):
-        compiler = dbt.compilation.Compiler(
+        return dbt.compilation.Compiler(
             project,
             FakeArgs())
-
-        compiler.get_macros = MagicMock(return_value=[])
-        return compiler
 
     def use_models(self, models):
         for k, v in models.items():

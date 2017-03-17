@@ -6,13 +6,14 @@ import dbt.flags
 import dbt.model
 import dbt.utils
 
+import jinja2.runtime
 import dbt.clients.jinja
 
 import dbt.contracts.graph.parsed
 import dbt.contracts.graph.unparsed
 import dbt.contracts.project
 
-from dbt.model import NodeType
+from dbt.utils import NodeType
 from dbt.logger import GLOBAL_LOGGER as logger
 
 QUERY_VALIDATE_NOT_NULL = """
@@ -78,14 +79,6 @@ def get_macro_path(package_name, resource_name):
     return get_path('macros', package_name, resource_name)
 
 
-def __ref(model):
-
-    def ref(*args):
-        pass
-
-    return ref
-
-
 def __config(model, cfg):
 
     def config(*args, **kwargs):
@@ -114,10 +107,64 @@ def get_fqn(path, package_project_config, extra=[]):
     return fqn
 
 
+def parse_macro_file(macro_file_path,
+                     macro_file_contents,
+                     root_path,
+                     package_name,
+                     tags=None,
+                     context=None):
+
+    logger.debug("Parsing {}".format(macro_file_path))
+
+    to_return = {}
+
+    if tags is None:
+        tags = set()
+
+    if context is None:
+        context = {
+            'ref': lambda *args: '',
+            'var': lambda *args: '',
+            'target': property(lambda x: '', lambda x: x),
+            'this': ''
+        }
+
+    base_node = {
+        'resource_type': NodeType.Macro,
+        'package_name': package_name,
+        'depends_on': {
+            'macros': [],
+        }
+    }
+
+    template = dbt.clients.jinja.get_template(
+        macro_file_contents, context, node=base_node)
+
+    for key, item in template.module.__dict__.items():
+        if type(item) == jinja2.runtime.Macro:
+            unique_id = get_path(NodeType.Macro,
+                                 package_name,
+                                 key)
+
+            new_node = base_node.copy()
+            new_node.update({
+                'name': key,
+                'unique_id': unique_id,
+                'tags': tags,
+                'root_path': root_path,
+                'path': macro_file_path,
+                'raw_sql': macro_file_contents,
+                'parsed_macro': item
+            })
+            to_return[unique_id] = new_node
+
+    return to_return
+
+
 def parse_node(node, node_path, root_project_config, package_project_config,
-               macro_generator=None, tags=None, fqn_extra=None):
+               all_projects, tags=None, fqn_extra=None):
     logger.debug("Parsing {}".format(node_path))
-    parsed_node = copy.deepcopy(node)
+    node = copy.deepcopy(node)
 
     if tags is None:
         tags = set()
@@ -125,8 +172,11 @@ def parse_node(node, node_path, root_project_config, package_project_config,
     if fqn_extra is None:
         fqn_extra = []
 
-    parsed_node.update({
-        'depends_on': [],
+    node.update({
+        'depends_on': {
+            'nodes': [],
+            'macros': [],
+        }
     })
 
     fqn = get_fqn(node.get('path'), package_project_config, fqn_extra)
@@ -136,51 +186,35 @@ def parse_node(node, node_path, root_project_config, package_project_config,
 
     context = {}
 
-    context['ref'] = __ref(parsed_node)
-    context['config'] = __config(parsed_node, config)
+    context['ref'] = lambda *args: ''
+    context['config'] = __config(node, config)
     context['var'] = lambda *args: ''
     context['target'] = property(lambda x: '', lambda x: x)
     context['this'] = ''
 
-    if macro_generator is not None:
-        for macro_data in macro_generator(context):
-            macro = macro_data["macro"]
-            macro_name = macro_data["name"]
-            project = macro_data["project"]
-
-            if context.get(project.get('name')) is None:
-                context[project.get('name')] = {}
-
-            context.get(project.get('name'), {}) \
-                   .update({macro_name: macro})
-
-            if node.get('package_name') == project.get('name'):
-                context.update({macro_name: macro})
-
     dbt.clients.jinja.get_rendered(
-        node.get('raw_sql'), context, node, silent_on_undefined=True)
+        node.get('raw_sql'), context, node,
+        capture_macros=True)
 
     config_dict = node.get('config', {})
     config_dict.update(config.config)
 
-    parsed_node['unique_id'] = node_path
-    parsed_node['config'] = config_dict
-    parsed_node['empty'] = (len(node.get('raw_sql').strip()) == 0)
-    parsed_node['fqn'] = fqn
-    parsed_node['tags'] = tags
+    node['unique_id'] = node_path
+    node['config'] = config_dict
+    node['empty'] = (len(node.get('raw_sql').strip()) == 0)
+    node['fqn'] = fqn
+    node['tags'] = tags
 
-    return parsed_node
+    return node
 
 
-def parse_sql_nodes(nodes, root_project, projects, macro_generator=None,
-                    tags=None):
-
+def parse_sql_nodes(nodes, root_project, projects, tags=None):
     if tags is None:
         tags = set()
 
     to_return = {}
 
-    dbt.contracts.graph.unparsed.validate(nodes)
+    dbt.contracts.graph.unparsed.validate_nodes(nodes)
 
     for node in nodes:
         package_name = node.get('package_name')
@@ -194,17 +228,16 @@ def parse_sql_nodes(nodes, root_project, projects, macro_generator=None,
                                           node_path,
                                           root_project,
                                           projects.get(package_name),
-                                          macro_generator,
+                                          projects,
                                           tags=tags)
 
-    dbt.contracts.graph.parsed.validate(to_return)
+    dbt.contracts.graph.parsed.validate_nodes(to_return)
 
     return to_return
 
 
 def load_and_parse_sql(package_name, root_project, all_projects, root_dir,
-                       relative_dirs, resource_type, macro_generator,
-                       tags=None):
+                       relative_dirs, resource_type, tags=None):
     extension = "[!.#~]*.sql"
 
     if tags is None:
@@ -242,8 +275,40 @@ def load_and_parse_sql(package_name, root_project, all_projects, root_dir,
             'raw_sql': file_contents
         })
 
-    return parse_sql_nodes(result, root_project, all_projects, macro_generator,
-                           tags)
+    return parse_sql_nodes(result, root_project, all_projects, tags)
+
+
+def load_and_parse_macros(package_name, root_project, all_projects, root_dir,
+                          relative_dirs, resource_type, tags=None):
+    extension = "[!.#~]*.sql"
+
+    if tags is None:
+        tags = set()
+
+    if dbt.flags.STRICT_MODE:
+        dbt.contracts.project.validate_list(all_projects)
+
+    file_matches = dbt.clients.system.find_matching(
+        root_dir,
+        relative_dirs,
+        extension)
+
+    result = {}
+
+    for file_match in file_matches:
+        file_contents = dbt.clients.system.load_file_contents(
+            file_match.get('absolute_path'))
+
+        result.update(
+            parse_macro_file(
+                file_match.get('relative_path'),
+                file_contents,
+                root_dir,
+                package_name))
+
+    dbt.contracts.graph.parsed.validate_macros(result)
+
+    return result
 
 
 def parse_schema_tests(tests, root_project, projects):
@@ -267,7 +332,8 @@ def parse_schema_tests(tests, root_project, projects):
                     to_add = parse_schema_test(
                         test, model_name, config, test_type,
                         root_project,
-                        projects.get(test.get('package_name')))
+                        projects.get(test.get('package_name')),
+                        all_projects=projects)
 
                     if to_add is not None:
                         to_return[to_add.get('unique_id')] = to_add
@@ -276,7 +342,8 @@ def parse_schema_tests(tests, root_project, projects):
 
 
 def parse_schema_test(test_base, model_name, test_config, test_type,
-                      root_project_config, package_project_config):
+                      root_project_config, package_project_config,
+                      all_projects):
     if test_type == 'not_null':
         raw_sql = QUERY_VALIDATE_NOT_NULL.format(
             ref="{{ref('"+model_name+"')}}", field=test_config)
@@ -339,6 +406,7 @@ def parse_schema_test(test_base, model_name, test_config, test_type,
                                     name),
                       root_project_config,
                       package_project_config,
+                      all_projects,
                       tags={'schema'},
                       fqn_extra=None)
 
@@ -392,7 +460,8 @@ def parse_archives_from_projects(root_project, all_projects):
             archive,
             node_path,
             root_project,
-            all_projects.get(archive.get('package_name')))
+            all_projects.get(archive.get('package_name')),
+            all_projects)
 
     return to_return
 

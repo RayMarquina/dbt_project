@@ -1,15 +1,12 @@
 import os
-from collections import defaultdict, OrderedDict
-import time
+from collections import OrderedDict, defaultdict
 import sqlparse
 
 import dbt.project
 import dbt.utils
 
-from dbt.model import Model, NodeType
-from dbt.source import Source
-from dbt.utils import find_model_by_fqn, find_model_by_name, \
-     split_path, This, Var, is_enabled, get_materialization
+from dbt.model import Model
+from dbt.utils import This, Var, is_enabled, get_materialization, NodeType
 
 from dbt.linker import Linker
 from dbt.runtime import RuntimeContext
@@ -30,6 +27,45 @@ CompilableEntities = [
 ]
 
 graph_file_name = 'graph.gpickle'
+
+
+def recursively_parse_macros_for_node(node, flat_graph, context):
+    # this once worked, but is now long dead
+    # for unique_id in node.get('depends_on', {}).get('macros'):
+    # TODO: make it so that we only parse the necessary macros for any node.
+
+    for unique_id, macro in flat_graph.get('macros').items():
+        if macro is None:
+            dbt.exceptions.macro_not_found(node, unique_id)
+
+        name = macro.get('name')
+        package_name = macro.get('package_name')
+
+        if context.get(package_name, {}).get(name) is not None:
+            # we've already re-parsed this macro and added it to
+            # the context.
+            continue
+
+        reparsed = dbt.parser.parse_macro_file(
+            macro_file_path=macro.get('path'),
+            macro_file_contents=macro.get('raw_sql'),
+            root_path=macro.get('root_path'),
+            package_name=package_name,
+            context=context)
+
+        for unique_id, macro in reparsed.items():
+            macro_map = {macro.get('name'): macro.get('parsed_macro')}
+
+            if context.get(package_name) is None:
+                context[package_name] = {}
+
+            context.get(package_name, {}) \
+                   .update(macro_map)
+
+            if package_name == node.get('package_name'):
+                context.update(macro_map)
+
+    return context
 
 
 def compile_and_print_status(project, args):
@@ -57,27 +93,27 @@ def compile_and_print_status(project, args):
     logger.info("Compiled {}".format(stat_line))
 
 
-def prepend_ctes(model, all_models):
-    model, _, all_models = recursively_prepend_ctes(model, all_models)
+def prepend_ctes(model, flat_graph):
+    model, _, flat_graph = recursively_prepend_ctes(model, flat_graph)
 
-    return (model, all_models)
+    return (model, flat_graph)
 
 
-def recursively_prepend_ctes(model, all_models):
+def recursively_prepend_ctes(model, flat_graph):
     if dbt.flags.STRICT_MODE:
-        dbt.contracts.graph.compiled.validate_one(model)
-        dbt.contracts.graph.compiled.validate(all_models)
+        dbt.contracts.graph.compiled.validate_node(model)
+        dbt.contracts.graph.compiled.validate(flat_graph)
 
     model = model.copy()
     prepend_ctes = OrderedDict()
 
     if model.get('all_ctes_injected') is True:
-        return (model, model.get('extra_ctes').keys(), all_models)
+        return (model, model.get('extra_ctes').keys(), flat_graph)
 
     for cte_id in model.get('extra_ctes').keys():
-        cte_to_add = all_models.get(cte_id)
-        cte_to_add, new_prepend_ctes, all_models = recursively_prepend_ctes(
-            cte_to_add, all_models)
+        cte_to_add = flat_graph.get('nodes').get(cte_id)
+        cte_to_add, new_prepend_ctes, flat_graph = recursively_prepend_ctes(
+            cte_to_add, flat_graph)
 
         prepend_ctes.update(new_prepend_ctes)
         new_cte_name = '__dbt__CTE__{}'.format(cte_to_add.get('name'))
@@ -91,9 +127,9 @@ def recursively_prepend_ctes(model, all_models):
         model.get('compiled_sql'),
         model.get('extra_ctes'))
 
-    all_models[model.get('unique_id')] = model
+    flat_graph['nodes'][model.get('unique_id')] = model
 
-    return (model, prepend_ctes, all_models)
+    return (model, prepend_ctes, flat_graph)
 
 
 def inject_ctes_into_sql(sql, ctes):
@@ -161,12 +197,6 @@ class Compiler(object):
         if not os.path.exists(self.project['modules-path']):
             os.makedirs(self.project['modules-path'])
 
-    def get_macros(self, this_project, own_project=None):
-        if own_project is None:
-            own_project = this_project
-        paths = own_project.get('macro-paths', [])
-        return Source(this_project, own_project=own_project).get_macros(paths)
-
     def __write(self, build_filepath, payload):
         target_path = os.path.join(self.project['target-path'], build_filepath)
 
@@ -210,8 +240,8 @@ class Compiler(object):
 
             target_model_id = target_model.get('unique_id')
 
-            if target_model_id not in model['depends_on']:
-                model['depends_on'].append(target_model_id)
+            if target_model_id not in model['depends_on']['nodes']:
+                model['depends_on']['nodes'].append(target_model_id)
 
             if get_materialization(target_model) == 'ephemeral':
                 model['extra_ctes'][target_model_id] = None
@@ -232,13 +262,12 @@ class Compiler(object):
 
         return wrapped_do_ref
 
-    def get_compiler_context(self, linker, model, models,
-                             macro_generator=None):
+    def get_compiler_context(self, linker, model, flat_graph):
         context = self.project.context()
         adapter = get_adapter(self.project.run_environment())
 
         # built-ins
-        context['ref'] = self.__ref(context, model, models)
+        context['ref'] = self.__ref(context, model, flat_graph)
         context['config'] = self.__model_config(model, linker)
         context['this'] = This(
             context['env']['schema'],
@@ -254,20 +283,8 @@ class Compiler(object):
         context['invocation_id'] = '{{ invocation_id }}'
         context['sql_now'] = adapter.date_function
 
-        if macro_generator is not None:
-            for macro_data in macro_generator(context):
-                macro = macro_data["macro"]
-                macro_name = macro_data["name"]
-                project = macro_data["project"]
-
-                if context.get(project.get('name')) is None:
-                    context[project.get('name')] = {}
-
-                context.get(project.get('name'), {}) \
-                       .update({macro_name: macro})
-
-                if model.get('package_name') == project.get('name'):
-                    context.update({macro_name: macro})
+        context = recursively_parse_macros_for_node(
+            model, flat_graph, context)
 
         return context
 
@@ -298,7 +315,7 @@ class Compiler(object):
 
         return runtime
 
-    def compile_node(self, linker, node, nodes, macro_generator):
+    def compile_node(self, linker, node, flat_graph):
         logger.debug("Compiling {}".format(node.get('unique_id')))
 
         compiled_node = node.copy()
@@ -310,8 +327,7 @@ class Compiler(object):
             'injected_sql': None,
         })
 
-        context = self.get_compiler_context(linker, compiled_node, nodes,
-                                            macro_generator)
+        context = self.get_compiler_context(linker, compiled_node, flat_graph)
 
         compiled_node['compiled_sql'] = dbt.clients.jinja.get_rendered(
             node.get('raw_sql'),
@@ -327,29 +343,38 @@ class Compiler(object):
         graph_path = os.path.join(self.project['target-path'], filename)
         linker.write_graph(graph_path)
 
-    def compile_nodes(self, linker, nodes, macro_generator):
+    def compile_graph(self, linker, flat_graph):
         all_projects = self.get_all_projects()
 
-        compiled_nodes = {}
-        injected_nodes = {}
-        wrapped_nodes = {}
+        compiled_graph = {
+            'nodes': {},
+            'macros': {},
+        }
+        injected_graph = {
+            'nodes': {},
+            'macros': {},
+        }
+        wrapped_graph = {
+            'nodes': {},
+            'macros': {},
+        }
         written_nodes = []
 
-        for name, node in nodes.items():
-            compiled_nodes[name] = self.compile_node(linker, node, nodes,
-                                                     macro_generator)
+        for name, node in flat_graph.get('nodes').items():
+            compiled_graph['nodes'][name] = \
+                self.compile_node(linker, node, flat_graph)
 
         if dbt.flags.STRICT_MODE:
-            dbt.contracts.graph.compiled.validate(compiled_nodes)
+            dbt.contracts.graph.compiled.validate(compiled_graph)
 
-        for name, node in compiled_nodes.items():
-            node, compiled_nodes = prepend_ctes(node, compiled_nodes)
-            injected_nodes[name] = node
+        for name, node in compiled_graph.get('nodes').items():
+            node, compiled_graph = prepend_ctes(node, compiled_graph)
+            injected_graph['nodes'][name] = node
 
         if dbt.flags.STRICT_MODE:
-            dbt.contracts.graph.compiled.validate(injected_nodes)
+            dbt.contracts.graph.compiled.validate(injected_graph)
 
-        for name, injected_node in injected_nodes.items():
+        for name, injected_node in injected_graph.get('nodes').items():
             # now turn model nodes back into the old-style model object for
             # wrapping
             if injected_node.get('resource_type') in [NodeType.Test,
@@ -366,7 +391,7 @@ class Compiler(object):
                     injected_node['wrapped_sql'] = injected_node.get(
                         'injected_sql')
 
-                wrapped_nodes[name] = injected_node
+                wrapped_graph['nodes'][name] = injected_node
 
             elif injected_node.get('resource_type') == NodeType.Archive:
                 # unfortunately we do everything automagically for
@@ -384,13 +409,15 @@ class Compiler(object):
                 cfg = injected_node.get('config', {})
                 model._config = cfg
 
-                context = self.get_context(linker, model, injected_nodes)
+                context = self.get_context(linker,
+                                           model,
+                                           injected_graph.get('nodes'))
 
                 wrapped_stmt = model.compile(
                     injected_node.get('injected_sql'), self.project, context)
 
                 injected_node['wrapped_sql'] = wrapped_stmt
-                wrapped_nodes[name] = injected_node
+                wrapped_graph['nodes'][name] = injected_node
 
             build_path = os.path.join('build',
                                       injected_node.get('package_name'),
@@ -406,17 +433,18 @@ class Compiler(object):
                 injected_node['build_path'] = written_path
 
             linker.add_node(injected_node.get('unique_id'))
-            project = all_projects[injected_node.get('package_name')]
 
             linker.update_node_data(
                 injected_node.get('unique_id'),
                 injected_node)
 
-            for dependency in injected_node.get('depends_on'):
-                if compiled_nodes.get(dependency):
+            for dependency in injected_node.get('depends_on', {}).get('nodes'):
+                if compiled_graph.get('nodes').get(dependency):
                     linker.dependency(
                         injected_node.get('unique_id'),
-                        compiled_nodes.get(dependency).get('unique_id'))
+                        (compiled_graph.get('nodes')
+                                       .get(dependency)
+                                       .get('unique_id')))
                 else:
                     dbt.exceptions.dependency_not_found(model, dependency)
 
@@ -425,16 +453,7 @@ class Compiler(object):
         if cycle:
             raise RuntimeError("Found a cycle: {}".format(cycle))
 
-        return wrapped_nodes, written_nodes
-
-    def generate_macros(self, all_macros):
-        def do_gen(ctx):
-            macros = []
-            for macro in all_macros:
-                new_macros = macro.get_macros(ctx)
-                macros.extend(new_macros)
-            return macros
-        return do_gen
+        return wrapped_graph, written_nodes
 
     def get_all_projects(self):
         root_project = self.project.cfg
@@ -450,7 +469,22 @@ class Compiler(object):
 
         return all_projects
 
-    def get_parsed_models(self, root_project, all_projects, macro_generator):
+    def get_parsed_macros(self, root_project, all_projects):
+        parsed_macros = {}
+
+        for name, project in all_projects.items():
+            parsed_macros.update(
+                dbt.parser.load_and_parse_macros(
+                    package_name=name,
+                    root_project=root_project,
+                    all_projects=all_projects,
+                    root_dir=project.get('project-root'),
+                    relative_dirs=project.get('macro-paths', []),
+                    resource_type=NodeType.Macro))
+
+        return parsed_macros
+
+    def get_parsed_models(self, root_project, all_projects):
         parsed_models = {}
 
         for name, project in all_projects.items():
@@ -461,12 +495,11 @@ class Compiler(object):
                     all_projects=all_projects,
                     root_dir=project.get('project-root'),
                     relative_dirs=project.get('source-paths', []),
-                    resource_type=NodeType.Model,
-                    macro_generator=macro_generator))
+                    resource_type=NodeType.Model))
 
         return parsed_models
 
-    def get_parsed_analyses(self, root_project, all_projects, macro_generator):
+    def get_parsed_analyses(self, root_project, all_projects):
         parsed_models = {}
 
         for name, project in all_projects.items():
@@ -477,13 +510,11 @@ class Compiler(object):
                     all_projects=all_projects,
                     root_dir=project.get('project-root'),
                     relative_dirs=project.get('analysis-paths', []),
-                    resource_type=NodeType.Analysis,
-                    macro_generator=macro_generator))
+                    resource_type=NodeType.Analysis))
 
         return parsed_models
 
-    def get_parsed_data_tests(self, root_project, all_projects,
-                              macro_generator):
+    def get_parsed_data_tests(self, root_project, all_projects):
         parsed_tests = {}
 
         for name, project in all_projects.items():
@@ -495,7 +526,6 @@ class Compiler(object):
                     root_dir=project.get('project-root'),
                     relative_dirs=project.get('test-paths', []),
                     resource_type=NodeType.Test,
-                    macro_generator=macro_generator,
                     tags={'data'}))
 
         return parsed_tests
@@ -514,16 +544,16 @@ class Compiler(object):
 
         return parsed_tests
 
-    def load_all_nodes(self, root_project, all_projects, macro_generator):
+    def load_all_macros(self, root_project, all_projects):
+        return self.get_parsed_macros(root_project, all_projects)
+
+    def load_all_nodes(self, root_project, all_projects):
         all_nodes = {}
 
-        all_nodes.update(self.get_parsed_models(root_project, all_projects,
-                                                macro_generator))
-        all_nodes.update(self.get_parsed_analyses(root_project, all_projects,
-                                                  macro_generator))
+        all_nodes.update(self.get_parsed_models(root_project, all_projects))
+        all_nodes.update(self.get_parsed_analyses(root_project, all_projects))
         all_nodes.update(
-            self.get_parsed_data_tests(root_project, all_projects,
-                                       macro_generator))
+            self.get_parsed_data_tests(root_project, all_projects))
         all_nodes.update(
             self.get_parsed_schema_tests(root_project, all_projects))
         all_nodes.update(
@@ -538,27 +568,24 @@ class Compiler(object):
         root_project = self.project.cfg
         all_projects = self.get_all_projects()
 
-        all_macros = self.get_macros(this_project=self.project)
+        all_macros = self.load_all_macros(root_project, all_projects)
+        all_nodes = self.load_all_nodes(root_project, all_projects)
 
-        for project in dbt.utils.dependency_projects(self.project):
-            all_macros.extend(
-                self.get_macros(this_project=self.project,
-                                own_project=project))
+        flat_graph = {
+            'nodes': all_nodes,
+            'macros': all_macros
+        }
 
-        macro_generator = self.generate_macros(all_macros)
-
-        all_nodes = self.load_all_nodes(root_project, all_projects,
-                                        macro_generator)
-
-        compiled_nodes, written_nodes = self.compile_nodes(linker, all_nodes,
-                                                           macro_generator)
+        compiled_graph, written_nodes = self.compile_graph(linker, flat_graph)
 
         self.write_graph_file(linker)
 
-        stats = {}
+        stats = defaultdict(int)
 
-        for node_name, node in compiled_nodes.items():
-            stats[node.get('resource_type')] = stats.get(
-                node.get('resource_type'), 0) + 1
+        for node_name, node in compiled_graph.get('nodes').items():
+            stats[node.get('resource_type')] += 1
+
+        for node_name, node in compiled_graph.get('macros').items():
+            stats[node.get('resource_type')] += 1
 
         return stats
