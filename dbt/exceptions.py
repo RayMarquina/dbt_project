@@ -5,6 +5,10 @@ class Exception(BaseException):
     pass
 
 
+class InternalException(Exception):
+    pass
+
+
 class RuntimeException(RuntimeError, Exception):
     pass
 

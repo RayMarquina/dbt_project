@@ -1,13 +1,15 @@
-from voluptuous import Schema, Required, All, Any, Extra, Range, Optional
+from voluptuous import Schema, Required, All, Any, Range, Optional
 
 from dbt.compat import basestring
 from dbt.contracts.common import validate_with
-from dbt.logger import GLOBAL_LOGGER as logger
+from dbt.logger import GLOBAL_LOGGER as logger  # noqa
 
 
 connection_contract = Schema({
     Required('type'): Any('postgres', 'redshift', 'snowflake'),
+    Required('name'): Any(None, basestring),
     Required('state'): Any('init', 'open', 'closed', 'fail'),
+    Required('transaction_open'): bool,
     Required('handle'): Any(None, object),
     Required('credentials'): object,
 })

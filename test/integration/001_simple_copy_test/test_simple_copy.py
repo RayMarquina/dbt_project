@@ -1,6 +1,7 @@
 from nose.plugins.attrib import attr
 from test.integration.base import DBTIntegrationTest
 
+
 class TestSimpleCopy(DBTIntegrationTest):
 
     def setUp(self):

@@ -282,7 +282,7 @@ class Compiler(object):
         # these get re-interpolated at runtime!
         context['run_started_at'] = '{{ run_started_at }}'
         context['invocation_id'] = '{{ invocation_id }}'
-        context['sql_now'] = adapter.date_function
+        context['sql_now'] = adapter.date_function()
 
         context = recursively_parse_macros_for_node(
             model, flat_graph, context)
@@ -310,7 +310,7 @@ class Compiler(object):
         context['invocation_id'] = '{{ invocation_id }}'
 
         adapter = get_adapter(self.project.run_environment())
-        context['sql_now'] = adapter.date_function
+        context['sql_now'] = adapter.date_function()
 
         runtime.update_global(context)
 

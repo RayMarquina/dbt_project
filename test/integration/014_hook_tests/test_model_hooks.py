@@ -124,7 +124,7 @@ class TestPrePostModelHooks(DBTIntegrationTest):
         self.assertEqual(ctx['target.name'], 'default2')
         self.assertEqual(ctx['target.port'], 5432)
         self.assertEqual(ctx['target.schema'], self.schema)
-        self.assertEqual(ctx['target.threads'], 1)
+        self.assertEqual(ctx['target.threads'], 4)
         self.assertEqual(ctx['target.type'], 'postgres')
         self.assertEqual(ctx['target.user'], 'root')
         self.assertEqual(ctx['target.pass'], '')

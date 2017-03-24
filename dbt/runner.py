@@ -171,16 +171,12 @@ def print_archive_result_line(result, index, total):
 
 def execute_test(profile, test):
     adapter = get_adapter(profile)
-    _, cursor = adapter.execute_one(
+    handle, cursor = adapter.execute_one(
         profile,
         test.get('wrapped_sql'),
         test.get('name'))
 
     rows = cursor.fetchall()
-
-    adapter.commit(profile)
-
-    cursor.close()
 
     if len(rows) > 1:
         raise RuntimeError(
@@ -267,7 +263,10 @@ def execute_model(profile, model, existing):
             model_name=model.get('name'))
 
         # and update the list of what exists
-        existing = adapter.query_for_existing(profile, schema)
+        existing = adapter.query_for_existing(
+            profile,
+            schema,
+            model_name=model.get('name'))
 
     # EXECUTE
     if get_materialization(model) == 'view' and dbt.flags.NON_DESTRUCTIVE and \
@@ -330,7 +329,8 @@ def execute_archive(profile, node, context):
         table=node_cfg.get('target_table'),
         columns=dest_columns,
         sort='dbt_updated_at',
-        dist='scd_id')
+        dist='scd_id',
+        model_name=node.get('name'))
 
     # TODO move this to inject_runtime_config, generate archive SQL
     # in wrap step. can't do this right now because we actually need
@@ -375,12 +375,23 @@ def run_hooks(profile, hooks, context, source):
 
     adapter = get_adapter(profile)
 
-    adapter.execute_all(
-        profile=profile,
-        queries=compiled_hooks,
-        model_name=source)
+    return adapter.execute_all(profile=profile, sqls=compiled_hooks)
 
-    adapter.commit(profile)
+
+def track_model_run(index, num_nodes, run_model_result):
+    invocation_id = dbt.tracking.active_user.invocation_id
+    dbt.tracking.track_model_run({
+        "invocation_id": invocation_id,
+        "index": index,
+        "total": num_nodes,
+        "execution_time": run_model_result.execution_time,
+        "run_status": run_model_result.status,
+        "run_skipped": run_model_result.skip,
+        "run_error": run_model_result.error,
+        "model_materialization": get_materialization(run_model_result.node),  # noqa
+        "model_id": get_hash(run_model_result.node),
+        "hashed_contents": get_hashed_contents(run_model_result.node),  # noqa
+    })
 
 
 class RunModelResult(object):
@@ -415,23 +426,27 @@ class RunManager(object):
         else:
             self.threads = self.args.threads
 
+    def node_context(self, node):
+        profile = self.project.run_environment()
         adapter = get_adapter(profile)
 
         def call_get_columns_in_table(schema_name, table_name):
             return adapter.get_columns_in_table(
-                profile, schema_name, table_name)
+                profile, schema_name, table_name, node.get('name'))
 
         def call_get_missing_columns(from_schema, from_table,
                                      to_schema, to_table):
             return adapter.get_missing_columns(
                 profile, from_schema, from_table,
-                to_schema, to_table)
+                to_schema, to_table, node.get('name'))
 
         def call_table_exists(schema, table):
             return adapter.table_exists(
-                profile, schema, table)
+                profile, schema, table, node.get('name'))
 
-        self.context = {
+        self.run_started_at = datetime.now()
+
+        return {
             "run_started_at": datetime.now(),
             "invocation_id": dbt.tracking.active_user.invocation_id,
             "get_columns_in_table": call_get_columns_in_table,
@@ -441,7 +456,7 @@ class RunManager(object):
 
     def inject_runtime_config(self, node):
         sql = dbt.clients.jinja.get_rendered(node.get('wrapped_sql'),
-                                             self.context)
+                                             self.node_context(node))
 
         node['wrapped_sql'] = sql
 
@@ -460,11 +475,13 @@ class RunManager(object):
 
     def execute_node(self, node, existing):
         profile = self.project.run_environment()
+        adapter = get_adapter(profile)
+        connection = adapter.begin(profile, node.get('name'))
 
         logger.debug("executing node %s", node.get('unique_id'))
 
         if node.get('skip') is True:
-            return RunModelResult(node, skip=True)
+            return "SKIP"
 
         node = self.inject_runtime_config(node)
 
@@ -473,19 +490,29 @@ class RunManager(object):
         elif is_type(node, NodeType.Test):
             result = execute_test(profile, node)
         elif is_type(node, NodeType.Archive):
-            result = execute_archive(profile, node, self.context)
+            result = execute_archive(profile, node, self.node_context(node))
+
+        adapter.commit(connection)
+        adapter.close(connection)
+        adapter.release_connection(profile, node.get('name'))
 
         return result
 
     def safe_execute_node(self, data):
-        node, existing = data
+        node, existing, schema_name, node_index, num_nodes = data
 
         start_time = time.time()
 
         error = None
 
         try:
+            print_start_line(node,
+                             schema_name,
+                             node_index,
+                             num_nodes)
+
             status = self.execute_node(node, existing)
+
         except (RuntimeError,
                 dbt.exceptions.ProgrammingException,
                 psycopg2.ProgrammingError,
@@ -500,6 +527,16 @@ class RunManager(object):
                     node,
                     error='{}\n'.format(ABORTED_TRANSACTION_STRING),
                     status="SKIP")
+
+        except dbt.exceptions.InternalException as e:
+            error = ("Internal error executing {filepath}\n\n{error}"
+                     "\n\nThis is an error in dbt. Please try again. If "
+                     "the error persists, open an issue at "
+                     "https://github.com/fishtown-analytics/dbt").format(
+                         filepath=node.get('build_path'),
+                         error=str(e).strip())
+            status = "ERROR"
+
         except Exception as e:
             error = ("Unhandled error while executing {filepath}\n{error}"
                      .format(
@@ -510,10 +547,14 @@ class RunManager(object):
 
         execution_time = time.time() - start_time
 
-        return RunModelResult(node,
-                              error=error,
-                              status=status,
-                              execution_time=execution_time)
+        result = RunModelResult(node,
+                                error=error,
+                                status=status,
+                                execution_time=execution_time)
+
+        print_result_line(result, schema_name, node_index, num_nodes)
+
+        return result
 
     def as_flat_dep_list(self, linker, nodes_to_run):
         return [[linker.get_node(node) for node in nodes_to_run]]
@@ -543,6 +584,7 @@ class RunManager(object):
                       should_run_hooks=False):
         profile = self.project.run_environment()
         adapter = get_adapter(profile)
+        master_connection = adapter.get_connection(profile)
         schema_name = adapter.get_default_schema(profile)
 
         flat_nodes = list(itertools.chain.from_iterable(
@@ -561,7 +603,9 @@ class RunManager(object):
             num_threads, self.project.get_target().get('name'))
         )
 
+        master_connection = adapter.begin(profile)
         existing = adapter.query_for_existing(profile, schema_name)
+        master_connection = adapter.commit(master_connection)
 
         pool = ThreadPool(num_threads)
 
@@ -570,10 +614,12 @@ class RunManager(object):
         start_time = time.time()
 
         if should_run_hooks:
+            master_connection = adapter.begin(profile)
             run_hooks(self.project.get_target(),
                       self.project.cfg.get('on-run-start', []),
-                      self.context,
+                      self.node_context({}),
                       'on-run-start hooks')
+            master_connection = adapter.commit(master_connection)
 
         node_id_to_index_map = {node.get('unique_id'): i + 1 for (i, node)
                                 in enumerate(flat_nodes)}
@@ -582,6 +628,7 @@ class RunManager(object):
             return node_id_to_index_map[node.get('unique_id')]
 
         node_results = []
+
         for node_list in node_dependency_list:
             for i, node in enumerate([node for node in node_list
                                       if node.get('skip')]):
@@ -594,69 +641,29 @@ class RunManager(object):
             nodes_to_execute = [node for node in node_list
                                 if not node.get('skip')]
 
-            threads = self.threads
-            num_nodes_this_batch = len(nodes_to_execute)
-            node_index = 0
-
-            def on_complete(run_model_results):
-                for run_model_result in run_model_results:
-                    node_results.append(run_model_result)
-
-                    index = get_idx(run_model_result.node)
-
-                    print_result_line(run_model_result,
-                                      schema_name,
-                                      index,
-                                      num_nodes)
-
-                    invocation_id = dbt.tracking.active_user.invocation_id
-                    dbt.tracking.track_model_run({
-                        "invocation_id": invocation_id,
-                        "index": index,
-                        "total": num_nodes,
-                        "execution_time": run_model_result.execution_time,
-                        "run_status": run_model_result.status,
-                        "run_skipped": run_model_result.skip,
-                        "run_error": run_model_result.error,
-                        "model_materialization": get_materialization(run_model_result.node),  # noqa
-                        "model_id": get_hash(run_model_result.node),
-                        "hashed_contents": get_hashed_contents(run_model_result.node),  # noqa
-                    })
-
-                    if run_model_result.errored:
-                        on_failure(run_model_result.node)
-                        logger.info(run_model_result.error)
-
-            while node_index < num_nodes_this_batch:
-                local_nodes = []
-                for i in range(
-                        node_index,
-                        min(node_index + threads, num_nodes_this_batch)):
-                    node = nodes_to_execute[i]
-                    local_nodes.append(node)
-
-                    print_start_line(node,
-                                     schema_name,
-                                     get_idx(node),
-                                     num_nodes)
-
-                map_result = pool.map_async(
+            for result in pool.imap_unordered(
                     self.safe_execute_node,
-                    [(local_node, existing,) for local_node in local_nodes],
-                    callback=on_complete
-                )
-                map_result.wait()
+                    [(node, existing, schema_name, get_idx(node), num_nodes,)
+                     for node in nodes_to_execute]):
 
-                node_index += threads
+                node_results.append(result)
+                index = get_idx(result.node)
+                track_model_run(index, num_nodes, result)
+
+                if result.errored:
+                    on_failure(result.node)
+                    logger.info(result.error)
 
         pool.close()
         pool.join()
 
         if should_run_hooks:
+            adapter.begin(profile)
             run_hooks(self.project.get_target(),
                       self.project.cfg.get('on-run-end', []),
-                      self.context,
+                      self.node_context({}),
                       'on-run-end hooks')
+            adapter.commit(master_connection)
 
         execution_time = time.time() - start_time
 
@@ -703,7 +710,10 @@ class RunManager(object):
         try:
             schema_name = adapter.get_default_schema(profile)
 
+            connection = adapter.begin(profile)
             adapter.create_schema(profile, schema_name)
+            adapter.commit(connection)
+
         except (dbt.exceptions.FailedToConnectException,
                 psycopg2.OperationalError) as e:
             logger.info("ERROR: Could not connect to the target database. Try "
@@ -731,13 +741,19 @@ class RunManager(object):
         else:
             dependency_list = self.as_flat_dep_list(linker,
                                                     selected_nodes)
+        profile = self.project.run_environment()
+        adapter = get_adapter(profile)
 
-        self.try_create_schema()
+        try:
+            self.try_create_schema()
 
-        on_failure = self.on_model_failure(linker, selected_nodes)
+            on_failure = self.on_model_failure(linker, selected_nodes)
 
-        results = self.execute_nodes(dependency_list, on_failure,
-                                     should_run_hooks)
+            results = self.execute_nodes(dependency_list, on_failure,
+                                         should_run_hooks)
+
+        finally:
+            adapter.cleanup_connections()
 
         return results
 

@@ -1,8 +1,6 @@
 from mock import MagicMock, patch
 import unittest
 
-import os
-
 import dbt.flags
 import dbt.parser
 import dbt.runner
@@ -69,7 +67,7 @@ class TestRunner(unittest.TestCase):
         def fake_drop(profile, relation, relation_type, model_name):
             del self.existing[relation]
 
-        def fake_query_for_existing(profile, schema):
+        def fake_query_for_existing(profile, schema, model_name):
             return self.existing
 
         self._drop = dbt.adapters.postgres.PostgresAdapter.drop
@@ -86,8 +84,6 @@ class TestRunner(unittest.TestCase):
         dbt.adapters.postgres.PostgresAdapter.drop = self._drop
         dbt.adapters.postgres.PostgresAdapter.query_for_existing = \
             self._query_for_existing
-
-
 
     @patch('dbt.adapters.postgres.PostgresAdapter.execute_model', return_value=1)
     @patch('dbt.adapters.postgres.PostgresAdapter.rename', return_value=None)

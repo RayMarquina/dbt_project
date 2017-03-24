@@ -1,9 +1,6 @@
 from __future__ import absolute_import
 
-import copy
 import re
-import time
-import yaml
 
 import snowflake.connector
 import snowflake.connector.errors
@@ -17,74 +14,53 @@ from dbt.adapters.postgres import PostgresAdapter
 from dbt.contracts.connection import validate_connection
 from dbt.logger import GLOBAL_LOGGER as logger
 
-connection_cache = {}
-
-
-@contextmanager
-def exception_handler(connection, cursor, model_name, query):
-    handle = connection.get('handle')
-    schema = connection.get('credentials', {}).get('schema')
-
-    try:
-        yield
-    except snowflake.connector.errors.ProgrammingError as e:
-        if 'Empty SQL statement' in e.msg:
-            logger.debug("got empty sql statement, moving on")
-        elif 'This session does not have a current database' in e.msg:
-            handle.rollback()
-            raise dbt.exceptions.FailedToConnectException(
-                ('{}\n\nThis error sometimes occurs when invalid credentials '
-                 'are provided, or when your default role does not have '
-                 'access to use the specified database. Please double check '
-                 'your profile and try again.').format(str(e)))
-        else:
-            handle.rollback()
-            raise dbt.exceptions.ProgrammingException(str(e))
-    except Exception as e:
-        handle.rollback()
-        logger.debug("Error running SQL: %s", query)
-        logger.debug("rolling back connection")
-        raise e
-
 
 class SnowflakeAdapter(PostgresAdapter):
 
-    date_function = 'CURRENT_TIMESTAMP()'
+    @classmethod
+    @contextmanager
+    def exception_handler(cls, profile, sql, model_name=None,
+                          connection_name='master'):
+        connection = cls.get_connection(profile, connection_name)
+
+        try:
+            yield
+        except snowflake.connector.errors.ProgrammingError as e:
+            if 'Empty SQL statement' in e.msg:
+                logger.debug("got empty sql statement, moving on")
+            elif 'This session does not have a current database' in e.msg:
+                cls.rollback(connection)
+                raise dbt.exceptions.FailedToConnectException(
+                    ('{}\n\nThis error sometimes occurs when invalid '
+                     'credentials are provided, or when your default role '
+                     'does not have access to use the specified database. '
+                     'Please double check your profile and try again.')
+                    .format(str(e)))
+            else:
+                cls.rollback(connection)
+                raise dbt.exceptions.ProgrammingException(str(e))
+        except Exception as e:
+            logger.debug("Error running SQL: %s", sql)
+            logger.debug("Rolling back transaction.")
+            cls.rollback(connection)
+            raise e
 
     @classmethod
-    def acquire_connection(cls, profile):
+    def type(cls):
+        return 'snowflake'
 
-        # profile requires some marshalling right now because it includes a
-        # wee bit of global config.
-        # TODO remove this
-        credentials = copy.deepcopy(profile)
+    @classmethod
+    def date_function(cls):
+        return 'CURRENT_TIMESTAMP()'
 
-        credentials.pop('type', None)
-        credentials.pop('threads', None)
+    @classmethod
+    def get_status(cls, cursor):
+        state = cursor.sqlstate
 
-        result = {
-            'type': 'snowflake',
-            'state': 'init',
-            'handle': None,
-            'credentials': credentials
-        }
+        if state is None:
+            state = 'SUCCESS'
 
-        logger.info('Connecting to snowflake.')
-
-        if flags.STRICT_MODE:
-            validate_connection(result)
-
-        return cls.open_connection(result)
-
-    @staticmethod
-    def hash_profile(profile):
-        return ("{}--{}--{}--{}--{}".format(
-            profile.get('account'),
-            profile.get('database'),
-            profile.get('schema'),
-            profile.get('user'),
-            profile.get('warehouse'),
-        ))
+        return "{} {}".format(state, cursor.rowcount)
 
     @classmethod
     def open_connection(cls, connection):
@@ -122,20 +98,14 @@ class SnowflakeAdapter(PostgresAdapter):
         return result
 
     @classmethod
-    def query_for_existing(cls, profile, schema):
-        query = """
+    def query_for_existing(cls, profile, schema, model_name=None):
+        sql = """
         select TABLE_NAME as name, TABLE_TYPE as type
         from INFORMATION_SCHEMA.TABLES
         where TABLE_SCHEMA = '{schema}'
         """.format(schema=schema).strip()  # noqa
 
-        connection = cls.get_connection(profile)
-
-        if flags.STRICT_MODE:
-            validate_connection(connection)
-
-        _, cursor = cls.add_query_to_transaction(
-            query, connection, schema)
+        _, cursor = cls.add_query(profile, sql, model_name)
         results = cursor.fetchall()
 
         relation_type_lookup = {
@@ -149,89 +119,37 @@ class SnowflakeAdapter(PostgresAdapter):
         return dict(existing)
 
     @classmethod
-    def get_status(cls, cursor):
-        state = cursor.sqlstate
-
-        if state is None:
-            state = 'SUCCESS'
-
-        return "{} {}".format(state, cursor.rowcount)
-
-    @classmethod
     def rename(cls, profile, from_name, to_name, model_name=None):
-        connection = cls.get_connection(profile)
+        schema = cls.get_default_schema(profile)
 
-        if flags.STRICT_MODE:
-            validate_connection(connection)
+        sql = (('alter table "{schema}"."{from_name}" '
+                'rename to "{schema}"."{to_name}"')
+               .format(schema=schema,
+                       from_name=from_name,
+                       to_name=to_name))
 
-        schema = connection.get('credentials', {}).get('schema')
-
-        # in snowflake, if you fail to include the quoted schema in the
-        # identifier, the new table will have `schema.upper()` as its new
-        # schema
-        query = ('''
-        alter table "{schema}"."{from_name}"
-        rename to "{schema}"."{to_name}"
-        '''.format(
-            schema=schema,
-            from_name=from_name,
-            to_name=to_name)).strip()
-
-        handle, cursor = cls.add_query_to_transaction(
-            query, connection, model_name)
+        connection, cursor = cls.add_query(profile, sql, model_name)
 
     @classmethod
     def execute_model(cls, profile, model):
-        parts = re.split(r'-- (DBT_OPERATION .*)', model.get('wrapped_sql'))
-        connection = cls.get_connection(profile)
+        connection = cls.get_connection(profile, model.get('name'))
 
         if flags.STRICT_MODE:
             validate_connection(connection)
 
-        # snowflake requires a schema to be specified for temporary tables
-        # TODO setup templates to be adapter-specific. then we can just use
-        #      the existing schema for temp tables.
-        cls.add_query_to_transaction(
-            'USE SCHEMA "{}"'.format(
-                connection.get('credentials', {}).get('schema')),
-            connection)
-
-        for i, part in enumerate(parts):
-            matches = re.match(r'^DBT_OPERATION ({.*})$', part)
-            if matches is not None:
-                instruction_string = matches.groups()[0]
-                instruction = yaml.safe_load(instruction_string)
-                function = instruction['function']
-                kwargs = instruction['args']
-
-                def call_expand_target_column_types(kwargs):
-                    kwargs.update({'profile': profile})
-                    return cls.expand_target_column_types(**kwargs)
-
-                func_map = {
-                    'expand_column_types_if_needed':
-                    call_expand_target_column_types
-                }
-
-                func_map[function](kwargs)
-            else:
-                handle, cursor = cls.add_query_to_transaction(
-                    part, connection, model.get('name'))
-
-        handle.commit()
-
-        status = cls.get_status(cursor)
-        cursor.close()
-
-        return status
+        return super(PostgresAdapter, cls).execute_model(
+            profile, model)
 
     @classmethod
-    def add_query_to_transaction(cls, query, connection, model_name=None):
-        handle = connection.get('handle')
-        cursor = handle.cursor()
-
+    def add_query(cls, profile, sql, model_name=None):
         # snowflake only allows one query per api call.
-        queries = query.strip().split(";")
+        queries = sql.strip().split(";")
+        cursor = None
+
+        super(PostgresAdapter, cls).add_query(
+            profile,
+            'use schema "{}"'.format(cls.get_default_schema(profile)),
+            model_name)
 
         for individual_query in queries:
             # hack -- after the last ';', remove comments and don't run
@@ -243,15 +161,7 @@ class SnowflakeAdapter(PostgresAdapter):
 
             if without_comments == "":
                 continue
+            connection, cursor = super(PostgresAdapter, cls).add_query(
+                profile, individual_query, model_name)
 
-            with exception_handler(connection, cursor,
-                                   model_name, individual_query):
-                logger.debug("SQL: %s", individual_query)
-                pre = time.time()
-                cursor.execute(individual_query)
-                post = time.time()
-                logger.debug(
-                    "SQL status: %s in %0.2f seconds",
-                    cls.get_status(cursor), post-pre)
-
-        return handle, cursor
+        return connection, cursor

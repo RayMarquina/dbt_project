@@ -34,7 +34,7 @@ class DBTIntegrationTest(unittest.TestCase):
                 'outputs': {
                     'default2': {
                         'type': 'postgres',
-                        'threads': 1,
+                        'threads': 4,
                         'host': 'database',
                         'port': 5432,
                         'user': 'root',
@@ -44,7 +44,7 @@ class DBTIntegrationTest(unittest.TestCase):
                     },
                     'noaccess': {
                         'type': 'postgres',
-                        'threads': 1,
+                        'threads': 4,
                         'host': 'database',
                         'port': 5432,
                         'user': 'noaccess',
@@ -66,7 +66,7 @@ class DBTIntegrationTest(unittest.TestCase):
                 'outputs': {
                     'default2': {
                         'type': 'snowflake',
-                        'threads': 1,
+                        'threads': 4,
                         'account': os.getenv('SNOWFLAKE_TEST_ACCOUNT'),
                         'user': os.getenv('SNOWFLAKE_TEST_USER'),
                         'password': os.getenv('SNOWFLAKE_TEST_PASSWORD'),
@@ -76,7 +76,7 @@ class DBTIntegrationTest(unittest.TestCase):
                     },
                     'noaccess': {
                         'type': 'snowflake',
-                        'threads': 1,
+                        'threads': 4,
                         'account': os.getenv('SNOWFLAKE_TEST_ACCOUNT'),
                         'user': 'noaccess',
                         'password': 'password',
@@ -137,7 +137,7 @@ class DBTIntegrationTest(unittest.TestCase):
 
         # it's important to use a different connection handle here so
         # we don't look into an incomplete transaction
-        connection = adapter.acquire_connection(profile)
+        connection = adapter.acquire_connection(profile, '__test')
         self.handle = connection.get('handle')
         self.adapter_type = profile.get('type')
 
@@ -179,7 +179,7 @@ class DBTIntegrationTest(unittest.TestCase):
 
         # it's important to use a different connection handle here so
         # we don't look into an incomplete transaction
-        connection = adapter.acquire_connection(profile)
+        connection = adapter.acquire_connection(profile, '__test')
         self.handle = connection.get('handle')
         self.adapter_type = profile.get('type')
 
@@ -325,6 +325,13 @@ class DBTIntegrationTest(unittest.TestCase):
             )
         )
 
+    def assertTableDoesNotExist(self, table):
+        columns = self.get_table_columns(table)
+
+        self.assertEquals(
+            len(columns),
+            0
+        )
 
     def assertTableColumnsEqual(self, table_a, table_b):
         table_a_result = self.get_table_columns(table_a)
