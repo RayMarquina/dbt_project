@@ -2,6 +2,7 @@ import os
 import json
 
 import dbt.project
+from dbt.include import GLOBAL_DBT_MODULES_PATH
 
 from dbt.compat import basestring
 from dbt.logger import GLOBAL_LOGGER as logger
@@ -42,16 +43,21 @@ class This(object):
         return self.schema_table(self.schema, self.table)
 
 
-def compiler_error(model, msg):
+def get_model_name_or_none(model):
     if model is None:
         name = '<None>'
-    elif isinstance(model, str):
+
+    elif isinstance(model, basestring):
         name = model
     elif isinstance(model, dict):
         name = model.get('name')
     else:
         name = model.nice_name
+    return name
 
+
+def compiler_error(model, msg):
+    name = get_model_name_or_none(model)
     raise RuntimeError(
         "! Compilation error while compiling model {}:\n! {}\n"
         .format(name, msg)
@@ -59,9 +65,10 @@ def compiler_error(model, msg):
 
 
 def compiler_warning(model, msg):
+    name = get_model_name_or_none(model)
     logger.info(
         "* Compilation warning while compiling model {}:\n* {}\n"
-        .format(model.nice_name, msg)
+        .format(name, msg)
     )
 
 
@@ -153,9 +160,23 @@ def find_model_by_fqn(models, fqn):
 
 
 def dependency_projects(project):
-    for obj in os.listdir(project['modules-path']):
-        full_obj = os.path.join(project['modules-path'], obj)
-        if os.path.isdir(full_obj):
+    module_paths = [
+        GLOBAL_DBT_MODULES_PATH,
+        os.path.join(project['project-root'], project['modules-path'])
+    ]
+
+    for module_path in module_paths:
+        logger.debug("Loading dependency project from {}".format(module_path))
+
+        for obj in os.listdir(module_path):
+            full_obj = os.path.join(module_path, obj)
+
+            if not os.path.isdir(full_obj) or obj.startswith('__'):
+                # exclude non-dirs and dirs that start with __
+                # the latter could be something like __pycache__
+                # for the global dbt modules dir
+                continue
+
             try:
                 yield dbt.project.read_project(
                     os.path.join(full_obj, 'dbt_project.yml'),
@@ -164,7 +185,8 @@ def dependency_projects(project):
                     args=project.args)
             except dbt.project.DbtProjectError as e:
                 logger.info(
-                    "Error reading dependency project at {}".format(full_obj)
+                    "Error reading dependency project at {}".format(
+                        full_obj)
                 )
                 logger.info(str(e))
 
@@ -208,8 +230,7 @@ def to_string(s):
 
 
 def is_blocking_dependency(node):
-    return (is_type(node, NodeType.Model) and
-            get_materialization(node) != 'ephemeral')
+    return (is_type(node, NodeType.Model))
 
 
 def get_materialization(node):

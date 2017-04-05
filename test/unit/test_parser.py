@@ -69,6 +69,7 @@ class ParserTest(unittest.TestCase):
                     'empty': False,
                     'package_name': 'root',
                     'root_path': get_os_path('/usr/src/app'),
+                    'refs': [],
                     'depends_on': {
                         'nodes': [],
                         'macros': []
@@ -129,6 +130,7 @@ class ParserTest(unittest.TestCase):
                     'empty': False,
                     'package_name': 'root',
                     'root_path': get_os_path('/usr/src/app'),
+                    'refs': [],
                     'depends_on': {
                         'nodes': [],
                         'macros': []
@@ -165,6 +167,7 @@ class ParserTest(unittest.TestCase):
                     'fqn': ['root', 'model_one'],
                     'empty': True,
                     'package_name': 'root',
+                    'refs': [],
                     'depends_on': {
                         'nodes': [],
                         'macros': [],
@@ -210,6 +213,7 @@ class ParserTest(unittest.TestCase):
                     'fqn': ['root', 'base'],
                     'empty': False,
                     'package_name': 'root',
+                    'refs': [],
                     'depends_on': {
                         'nodes': [],
                         'macros': []
@@ -228,6 +232,7 @@ class ParserTest(unittest.TestCase):
                     'fqn': ['root', 'events_tx'],
                     'empty': False,
                     'package_name': 'root',
+                    'refs': [('base',)],
                     'depends_on': {
                         'nodes': [],
                         'macros': []
@@ -298,6 +303,7 @@ class ParserTest(unittest.TestCase):
                     'fqn': ['root', 'events'],
                     'empty': False,
                     'package_name': 'root',
+                    'refs': [],
                     'depends_on': {
                         'nodes': [],
                         'macros': []
@@ -316,6 +322,7 @@ class ParserTest(unittest.TestCase):
                     'fqn': ['root', 'sessions'],
                     'empty': False,
                     'package_name': 'root',
+                    'refs': [],
                     'depends_on': {
                         'nodes': [],
                         'macros': []
@@ -334,6 +341,7 @@ class ParserTest(unittest.TestCase):
                     'fqn': ['root', 'events_tx'],
                     'empty': False,
                     'package_name': 'root',
+                    'refs': [('events',)],
                     'depends_on': {
                         'nodes': [],
                         'macros': []
@@ -352,6 +360,7 @@ class ParserTest(unittest.TestCase):
                     'fqn': ['root', 'sessions_tx'],
                     'empty': False,
                     'package_name': 'root',
+                    'refs': [('sessions',)],
                     'depends_on': {
                         'nodes': [],
                         'macros': []
@@ -370,6 +379,7 @@ class ParserTest(unittest.TestCase):
                     'fqn': ['root', 'multi'],
                     'empty': False,
                     'package_name': 'root',
+                    'refs': [('sessions_tx',), ('events_tx',)],
                     'depends_on': {
                         'nodes': [],
                         'macros': []
@@ -442,6 +452,7 @@ class ParserTest(unittest.TestCase):
                     'fqn': ['snowplow', 'events'],
                     'empty': False,
                     'package_name': 'snowplow',
+                    'refs': [],
                     'depends_on': {
                         'nodes': [],
                         'macros': []
@@ -460,6 +471,7 @@ class ParserTest(unittest.TestCase):
                     'fqn': ['snowplow', 'sessions'],
                     'empty': False,
                     'package_name': 'snowplow',
+                    'refs': [],
                     'depends_on': {
                         'nodes': [],
                         'macros': []
@@ -478,6 +490,7 @@ class ParserTest(unittest.TestCase):
                     'fqn': ['snowplow', 'events_tx'],
                     'empty': False,
                     'package_name': 'snowplow',
+                    'refs': [('events',)],
                     'depends_on': {
                         'nodes': [],
                         'macros': []
@@ -496,6 +509,7 @@ class ParserTest(unittest.TestCase):
                     'fqn': ['snowplow', 'sessions_tx'],
                     'empty': False,
                     'package_name': 'snowplow',
+                    'refs': [('sessions',)],
                     'depends_on': {
                         'nodes': [],
                         'macros': []
@@ -514,6 +528,8 @@ class ParserTest(unittest.TestCase):
                     'fqn': ['root', 'multi'],
                     'empty': False,
                     'package_name': 'root',
+                    'refs': [('snowplow', 'sessions_tx'),
+                             ('snowplow', 'events_tx')],
                     'depends_on': {
                         'nodes': [],
                         'macros': []
@@ -557,6 +573,7 @@ class ParserTest(unittest.TestCase):
                     'fqn': ['root', 'model_one'],
                     'empty': False,
                     'package_name': 'root',
+                    'refs': [],
                     'depends_on': {
                         'nodes': [],
                         'macros': [],
@@ -639,6 +656,7 @@ class ParserTest(unittest.TestCase):
                     'fqn': ['root', 'table'],
                     'empty': False,
                     'package_name': 'root',
+                    'refs': [],
                     'depends_on': {
                         'nodes': [],
                         'macros': []
@@ -657,6 +675,7 @@ class ParserTest(unittest.TestCase):
                     'fqn': ['root', 'ephemeral'],
                     'empty': False,
                     'package_name': 'root',
+                    'refs': [],
                     'depends_on': {
                         'nodes': [],
                         'macros': []
@@ -675,6 +694,7 @@ class ParserTest(unittest.TestCase):
                     'fqn': ['root', 'view'],
                     'empty': False,
                     'package_name': 'root',
+                    'refs': [],
                     'depends_on': {
                         'nodes': [],
                         'macros': []
@@ -806,6 +826,7 @@ class ParserTest(unittest.TestCase):
                     'fqn': ['root', 'table'],
                     'empty': False,
                     'package_name': 'root',
+                    'refs': [],
                     'depends_on': {
                         'nodes': [],
                         'macros': []
@@ -824,6 +845,7 @@ class ParserTest(unittest.TestCase):
                     'fqn': ['root', 'ephemeral'],
                     'empty': False,
                     'package_name': 'root',
+                    'refs': [],
                     'depends_on': {
                         'nodes': [],
                         'macros': []
@@ -842,6 +864,7 @@ class ParserTest(unittest.TestCase):
                     'fqn': ['root', 'view'],
                     'empty': False,
                     'package_name': 'root',
+                    'refs': [],
                     'depends_on': {
                         'nodes': [],
                         'macros': []
@@ -860,6 +883,7 @@ class ParserTest(unittest.TestCase):
                     'fqn': ['snowplow', 'disabled'],
                     'empty': False,
                     'package_name': 'snowplow',
+                    'refs': [],
                     'depends_on': {
                         'nodes': [],
                         'macros': []
@@ -878,6 +902,7 @@ class ParserTest(unittest.TestCase):
                     'fqn': ['snowplow', 'views', 'package'],
                     'empty': False,
                     'package_name': 'snowplow',
+                    'refs': [],
                     'depends_on': {
                         'nodes': [],
                         'macros': []
@@ -903,32 +928,14 @@ class ParserTest(unittest.TestCase):
             'raw_yml': ('{model_one: {constraints: {not_null: [id],'
                         'unique: [id],'
                         'accepted_values: [{field: id, values: ["a","b"]}],'
-                        'relationships: [{from: id, to: model_two, field: id}]'
+                        'relationships: [{from: id, to: ref(\'model_two\'), field: id}]' # noqa
                         '}}}')
         }]
 
-        not_null_sql = dbt.parser.QUERY_VALIDATE_NOT_NULL \
-                                 .format(
-                                     field='id',
-                                     ref="{{ref('model_one')}}")
-
-        unique_sql = dbt.parser.QUERY_VALIDATE_UNIQUE \
-                               .format(
-                                   field='id',
-                                   ref="{{ref('model_one')}}")
-
-        accepted_values_sql = dbt.parser.QUERY_VALIDATE_ACCEPTED_VALUES \
-                                        .format(
-                                            field='id',
-                                            ref="{{ref('model_one')}}",
-                                            values_csv="'a','b'")
-
-        relationships_sql = dbt.parser.QUERY_VALIDATE_REFERENTIAL_INTEGRITY \
-                                      .format(
-                                          parent_field='id',
-                                          parent_ref="{{ref('model_two')}}",
-                                          child_field='id',
-                                          child_ref="{{ref('model_one')}}")
+        not_null_sql = "{{ test_not_null(model=ref('model_one'), arg='id') }}"
+        unique_sql = "{{ test_unique(model=ref('model_one'), arg='id') }}"
+        accepted_values_sql = "{{ test_accepted_values(model=ref('model_one'), field='id', values=['a', 'b']) }}" # noqa
+        relationships_sql = "{{ test_relationships(model=ref('model_one'), field='id', from='id', to=ref('model_two')) }}" # noqa
 
         self.assertEquals(
             dbt.parser.parse_schema_tests(
@@ -945,9 +952,10 @@ class ParserTest(unittest.TestCase):
                     'empty': False,
                     'package_name': 'root',
                     'root_path': get_os_path('/usr/src/app'),
+                    'refs': [('model_one',)],
                     'depends_on': {
                         'nodes': [],
-                        'macros': []
+                        'macros': ['macro.root.test_not_null']
                     },
                     'config': self.model_config,
                     'path': get_os_path(
@@ -963,49 +971,52 @@ class ParserTest(unittest.TestCase):
                     'empty': False,
                     'package_name': 'root',
                     'root_path': get_os_path('/usr/src/app'),
+                    'refs': [('model_one',)],
                     'depends_on': {
                         'nodes': [],
-                        'macros': []
+                        'macros': ['macro.root.test_unique']
                     },
                     'config': self.model_config,
                     'path': get_os_path('schema_test/unique_model_one_id.sql'),
                     'tags': set(['schema']),
                     'raw_sql': unique_sql,
                 },
-                'test.root.accepted_values_model_one_id': {
-                    'name': 'accepted_values_model_one_id',
+                'test.root.accepted_values_model_one_id__a__b': {
+                    'name': 'accepted_values_model_one_id__a__b',
                     'resource_type': 'test',
-                    'unique_id': 'test.root.accepted_values_model_one_id',
+                    'unique_id': 'test.root.accepted_values_model_one_id__a__b', # noqa
                     'fqn': ['root', 'schema_test',
-                            'accepted_values_model_one_id'],
+                            'accepted_values_model_one_id__a__b'],
                     'empty': False,
                     'package_name': 'root',
                     'root_path': get_os_path('/usr/src/app'),
+                    'refs': [('model_one',)],
                     'depends_on': {
                         'nodes': [],
-                        'macros': []
+                        'macros': ['macro.root.test_accepted_values']
                     },
                     'config': self.model_config,
                     'path': get_os_path(
-                        'schema_test/accepted_values_model_one_id.sql'),
+                        'schema_test/accepted_values_model_one_id__a__b.sql'),
                     'tags': set(['schema']),
                     'raw_sql': accepted_values_sql,
                 },
-                'test.root.relationships_model_one_id_to_model_two_id': {
-                    'name': 'relationships_model_one_id_to_model_two_id',
+                'test.root.relationships_model_one_id__id__ref_model_two_': {
+                    'name': 'relationships_model_one_id__id__ref_model_two_',
                     'resource_type': 'test',
-                    'unique_id': 'test.root.relationships_model_one_id_to_model_two_id', # noqa
+                    'unique_id': 'test.root.relationships_model_one_id__id__ref_model_two_', # noqa
                     'fqn': ['root', 'schema_test',
-                            'relationships_model_one_id_to_model_two_id'],
+                            'relationships_model_one_id__id__ref_model_two_'],
                     'empty': False,
                     'package_name': 'root',
                     'root_path': get_os_path('/usr/src/app'),
+                    'refs': [('model_one',), ('model_two',)],
                     'depends_on': {
                         'nodes': [],
-                        'macros': []
+                        'macros': ['macro.root.test_relationships']
                     },
                     'config': self.model_config,
-                    'path': get_os_path('schema_test/relationships_model_one_id_to_model_two_id.sql'), # noqa
+                    'path': get_os_path('schema_test/relationships_model_one_id__id__ref_model_two_.sql'), # noqa
                     'tags': set(['schema']),
                     'raw_sql': relationships_sql,
                 }
@@ -1086,6 +1097,7 @@ another_model:
                     'fqn': ['root', 'no_events'],
                     'empty': False,
                     'package_name': 'root',
+                    'refs': [('base',)],
                     'depends_on': {
                         'nodes': [],
                         'macros': []
@@ -1137,6 +1149,38 @@ another_model:
                 }
             }
         )
+
+    def test__macro_with_ref__invalid(self):
+        macro_file_contents = """
+{% macro with_ref(a) -%}
+  {% if a: %}
+    {{ ref(a) }}
+  {% endif %}
+{%- endmacro %}
+"""
+
+        with self.assertRaises(dbt.exceptions.CompilationException):
+            dbt.parser.parse_macro_file(
+                macro_file_path='macro_with_ref.sql',
+                macro_file_contents=macro_file_contents,
+                root_path=get_os_path('/usr/src/app'),
+                package_name='root')
+
+    def test__macro_with_var__invalid(self):
+        macro_file_contents = """
+{% macro with_var(a) -%}
+  {% if a: %}
+    {{ var('abc') }}
+  {% endif %}
+{%- endmacro %}
+"""
+
+        with self.assertRaises(dbt.exceptions.CompilationException):
+            dbt.parser.parse_macro_file(
+                macro_file_path='macro_with_var.sql',
+                macro_file_contents=macro_file_contents,
+                root_path=get_os_path('/usr/src/app'),
+                package_name='root')
 
     def test__simple_macro_used_in_model(self):
         macro_file_contents = """
@@ -1200,6 +1244,7 @@ another_model:
                     'empty': False,
                     'package_name': 'root',
                     'root_path': get_os_path('/usr/src/app'),
+                    'refs': [],
                     'depends_on': {
                         'nodes': [],
                         'macros': [
@@ -1240,6 +1285,7 @@ another_model:
                     'empty': False,
                     'package_name': 'root',
                     'root_path': get_os_path('/usr/src/app'),
+                    'refs': [],
                     'depends_on': {
                         'nodes': [],
                         'macros': [

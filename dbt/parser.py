@@ -1,6 +1,7 @@
 import copy
 import os
 import yaml
+import re
 
 import dbt.flags
 import dbt.model
@@ -13,54 +14,9 @@ import dbt.contracts.graph.parsed
 import dbt.contracts.graph.unparsed
 import dbt.contracts.project
 
-from dbt.utils import NodeType
+from dbt.utils import NodeType, get_materialization
+from dbt.compat import basestring, to_string
 from dbt.logger import GLOBAL_LOGGER as logger
-
-QUERY_VALIDATE_NOT_NULL = """
-with validation as (
-  select {field} as f
-  from {ref}
-)
-select count(*) from validation where f is null
-"""
-
-
-QUERY_VALIDATE_UNIQUE = """
-with validation as (
-  select {field} as f
-  from {ref}
-  where {field} is not null
-),
-validation_errors as (
-    select f from validation group by f having count(*) > 1
-)
-select count(*) from validation_errors
-"""
-
-
-QUERY_VALIDATE_ACCEPTED_VALUES = """
-with all_values as (
-  select distinct {field} as f
-  from {ref}
-),
-validation_errors as (
-    select f from all_values where f not in ({values_csv})
-)
-select count(*) from validation_errors
-"""
-
-
-QUERY_VALIDATE_REFERENTIAL_INTEGRITY = """
-with parent as (
-  select {parent_field} as id
-  from {parent_ref}
-), child as (
-  select {child_field} as id
-  from {child_ref}
-)
-select count(*) from child
-where id not in (select id from parent) and id is not null
-"""
 
 
 def get_path(resource_type, package_name, resource_name):
@@ -96,6 +52,51 @@ def __config(model, cfg):
     return config
 
 
+def __ref(model):
+
+    def ref(*args):
+        if len(args) == 1 or len(args) == 2:
+            model['refs'].append(args)
+
+        else:
+            dbt.exceptions.ref_invalid_args(model, args)
+
+    return ref
+
+
+def process_refs(flat_graph):
+    for _, node in flat_graph.get('nodes').items():
+        target_model_name = None
+        target_model_package = None
+
+        for ref in node.get('refs', []):
+            if len(ref) == 1:
+                target_model_name = ref[0]
+            elif len(ref) == 2:
+                target_model_package, target_model_name = ref
+
+            target_model = dbt.utils.find_model_by_name(
+                flat_graph,
+                target_model_name,
+                target_model_package)
+
+            if target_model is None:
+                dbt.exceptions.ref_target_not_found(
+                    node,
+                    target_model_name)
+
+            if (dbt.utils.is_enabled(node) and
+                    not dbt.utils.is_enabled(target_model)):
+                dbt.exceptions.ref_disabled_dependency(node, target_model)
+
+            target_model_id = target_model.get('unique_id')
+
+            node['depends_on']['nodes'].append(target_model_id)
+            flat_graph['nodes'][node['unique_id']] = node
+
+    return flat_graph
+
+
 def get_fqn(path, package_project_config, extra=[]):
     parts = dbt.utils.split_path(path)
     name, _ = os.path.splitext(parts[-1])
@@ -121,15 +122,11 @@ def parse_macro_file(macro_file_path,
     if tags is None:
         tags = set()
 
-    if context is None:
-        context = {
-            'ref': lambda *args: '',
-            'var': lambda *args: '',
-            'target': property(lambda x: '', lambda x: x),
-            'this': ''
-        }
+    context = {}
 
     base_node = {
+        'name': 'macro',
+        'path': macro_file_path,
         'resource_type': NodeType.Macro,
         'package_name': package_name,
         'depends_on': {
@@ -138,7 +135,7 @@ def parse_macro_file(macro_file_path,
     }
 
     template = dbt.clients.jinja.get_template(
-        macro_file_contents, context, node=base_node)
+        macro_file_contents, context, node=base_node, validate_macro=True)
 
     for key, item in template.module.__dict__.items():
         if type(item) == jinja2.runtime.Macro:
@@ -173,6 +170,7 @@ def parse_node(node, node_path, root_project_config, package_project_config,
         fqn_extra = []
 
     node.update({
+        'refs': [],
         'depends_on': {
             'nodes': [],
             'macros': [],
@@ -186,11 +184,12 @@ def parse_node(node, node_path, root_project_config, package_project_config,
 
     context = {}
 
-    context['ref'] = lambda *args: ''
+    context['ref'] = __ref(node)
     context['config'] = __config(node, config)
     context['var'] = lambda *args: ''
     context['target'] = property(lambda x: '', lambda x: x)
     context['this'] = ''
+    context['already_exists'] = lambda *args: lambda *args: ''
 
     dbt.clients.jinja.get_rendered(
         node.get('raw_sql'), context, node,
@@ -328,6 +327,15 @@ def parse_schema_tests(tests, root_project, projects):
                 if configs is None:
                     continue
 
+                if not isinstance(configs, (list, tuple)):
+
+                    dbt.utils.compiler_warning(
+                        model_name,
+                        "Invalid test config given in {} near {}".format(
+                            test.get('path'),
+                            configs))
+                    continue
+
                 for config in configs:
                     to_add = parse_schema_test(
                         test, model_name, config, test_type,
@@ -341,57 +349,61 @@ def parse_schema_tests(tests, root_project, projects):
     return to_return
 
 
+def get_nice_schema_test_name(test_type, test_name, args):
+
+    flat_args = []
+    for arg_name in sorted(args):
+        arg_val = args[arg_name]
+
+        if isinstance(arg_val, dict):
+            parts = arg_val.values()
+        elif isinstance(arg_val, (list, tuple)):
+            parts = arg_val
+        else:
+            parts = [arg_val]
+
+        flat_args.extend([str(part) for part in parts])
+
+    clean_flat_args = [re.sub('[^0-9a-zA-Z_]+', '_', arg) for arg in flat_args]
+    unique = "__".join(clean_flat_args)
+    return '{}_{}_{}'.format(test_type, test_name, unique)
+
+
+def as_kwarg(key, value):
+    test_value = to_string(value)
+    is_function = re.match(r'^\s*(ref|var)\s*\(.+\)\s*$', test_value)
+
+    # if the value is a function, don't wrap it in quotes!
+    if is_function:
+        formatted_value = value
+    else:
+        formatted_value = value.__repr__()
+
+    return "{key}={value}".format(key=key, value=formatted_value)
+
+
 def parse_schema_test(test_base, model_name, test_config, test_type,
                       root_project_config, package_project_config,
                       all_projects):
-    if test_type == 'not_null':
-        raw_sql = QUERY_VALIDATE_NOT_NULL.format(
-            ref="{{ref('"+model_name+"')}}", field=test_config)
-        name_key = test_config
 
-    elif test_type == 'unique':
-        raw_sql = QUERY_VALIDATE_UNIQUE.format(
-            ref="{{ref('"+model_name+"')}}", field=test_config)
-        name_key = test_config
-
-    elif test_type == 'relationships':
-        if not isinstance(test_config, dict):
-            return None
-
-        child_field = test_config.get('from')
-        parent_field = test_config.get('field')
-        parent_model = test_config.get('to')
-
-        raw_sql = QUERY_VALIDATE_REFERENTIAL_INTEGRITY.format(
-            child_field=child_field,
-            child_ref="{{ref('"+model_name+"')}}",
-            parent_field=parent_field,
-            parent_ref=("{{ref('"+parent_model+"')}}"))
-
-        name_key = '{}_to_{}_{}'.format(child_field, parent_model,
-                                        parent_field)
-
-    elif test_type == 'accepted_values':
-        if not isinstance(test_config, dict):
-            return None
-
-        raw_sql = QUERY_VALIDATE_ACCEPTED_VALUES.format(
-            ref="{{ref('"+model_name+"')}}",
-            field=test_config.get('field', ''),
-            values_csv="'{}'".format(
-                "','".join([str(v) for v in test_config.get('values', [])])))
-
-        name_key = test_config.get('field')
-
+    if isinstance(test_config, (basestring, int, float, bool)):
+        test_args = {'arg': test_config}
     else:
-        raise dbt.exceptions.ValidationException(
-            'Unknown schema test type {}'.format(test_type))
+        test_args = test_config
 
-    name = '{}_{}_{}'.format(test_type, model_name, name_key)
+    # sort the dict so the keys are rendered deterministically (for tests)
+    kwargs = [as_kwarg(key, test_args[key]) for key in sorted(test_args)]
+
+    raw_sql = "{{{{ {macro}(model=ref('{model}'), {kwargs}) }}}}".format(**{
+        'model': model_name,
+        'macro': "test_{}".format(test_type),
+        'kwargs': ", ".join(kwargs)
+    })
+
+    name = get_nice_schema_test_name(test_type, model_name, test_args)
 
     pseudo_path = dbt.utils.get_pseudo_test_path(name, test_base.get('path'),
                                                  'schema_test')
-
     to_return = {
         'name': name,
         'resource_type': test_base.get('resource_type'),
