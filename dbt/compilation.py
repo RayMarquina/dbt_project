@@ -220,9 +220,12 @@ class Compiler(object):
 
     def get_compiler_context(self, model, flat_graph):
         context = self.project.context()
-        adapter = get_adapter(self.project.run_environment())
+        profile = self.project.run_environment()
+        adapter = get_adapter(profile)
 
         this_table = model.get('name')
+
+        wrapper = dbt.wrapper.DatabaseWrapper(model, adapter, profile)
 
         # built-ins
         context['ref'] = self.__ref(context, model, flat_graph)
@@ -234,8 +237,9 @@ class Compiler(object):
         )
         context['var'] = Var(model, context=context)
         context['target'] = self.project.get_target()
+        context['adapter'] = wrapper
+        context['flags'] = dbt.flags
 
-        # these get re-interpolated at runtime!
         context['run_started_at'] = '{{ run_started_at }}'
         context['invocation_id'] = '{{ invocation_id }}'
         context['sql_now'] = adapter.date_function()
