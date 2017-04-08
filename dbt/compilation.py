@@ -223,8 +223,6 @@ class Compiler(object):
         profile = self.project.run_environment()
         adapter = get_adapter(profile)
 
-        this_table = model.get('name')
-
         wrapper = dbt.wrapper.DatabaseWrapper(model, adapter, profile)
 
         # built-ins
@@ -232,7 +230,7 @@ class Compiler(object):
         context['config'] = self.__model_config(model)
         context['this'] = This(
             context['env']['schema'],
-            this_table,
+            dbt.utils.model_immediate_name(model, dbt.flags.NON_DESTRUCTIVE),
             model.get('name')
         )
         context['var'] = Var(model, context=context)
