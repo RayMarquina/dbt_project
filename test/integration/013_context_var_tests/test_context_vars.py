@@ -80,10 +80,10 @@ class TestContextVars(DBTIntegrationTest):
         self.run_dbt(['run'])
         ctx = self.get_ctx_vars()
 
-        self.assertEqual(ctx['this'], '"context_vars_013"."context"')
+        self.assertEqual(ctx['this'], '"context_vars_013"."context__dbt_tmp"')
         self.assertEqual(ctx['this.name'], 'context')
         self.assertEqual(ctx['this.schema'], 'context_vars_013')
-        self.assertEqual(ctx['this.table'], 'context')
+        self.assertEqual(ctx['this.table'], 'context__dbt_tmp')
 
         self.assertEqual(ctx['target.dbname'], 'dbt')
         self.assertEqual(ctx['target.host'], 'database')
@@ -100,10 +100,10 @@ class TestContextVars(DBTIntegrationTest):
         self.run_dbt(['run', '--target', 'prod'])
         ctx = self.get_ctx_vars()
 
-        self.assertEqual(ctx['this'], '"context_vars_013"."context"')
+        self.assertEqual(ctx['this'], '"context_vars_013"."context__dbt_tmp"')
         self.assertEqual(ctx['this.name'], 'context')
         self.assertEqual(ctx['this.schema'], 'context_vars_013')
-        self.assertEqual(ctx['this.table'], 'context')
+        self.assertEqual(ctx['this.table'], 'context__dbt_tmp')
 
         self.assertEqual(ctx['target.dbname'], 'dbt')
         self.assertEqual(ctx['target.host'], 'database')
