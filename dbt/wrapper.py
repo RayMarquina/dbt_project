@@ -148,10 +148,19 @@ class DatabaseWrapper(object):
     functions.
     """
 
+    context_functions = [
+        "already_exists",
+        "get_columns_in_table",
+        "get_missing_columns"
+    ]
+
     def __init__(self, model, adapter, profile):
         self.model = model
         self.adapter = adapter
         self.profile = profile
+
+    def get_context_functions(self):
+        return {name: getattr(self, name) for name in self.context_functions}
 
     def already_exists(self, schema, table):
         return self.adapter.already_exists(
@@ -184,6 +193,8 @@ def wrap(model, project, context, injected_graph):
 
     profile = project.run_environment()
 
+    db_wrapper = DatabaseWrapper(model, adapter, profile)
+
     opts = {
         "materialization": get_materialization(model),
         "model": model,
@@ -194,7 +205,9 @@ def wrap(model, project, context, injected_graph):
         "post_hooks": post_hooks,
         "sql": rendered_query,
         "flags": dbt.flags,
-        "adapter": DatabaseWrapper(model, adapter, profile),
+        "adapter": db_wrapper
     }
+
+    opts.update(db_wrapper.get_context_functions())
 
     return do_wrap(model, opts, injected_graph, context, project)

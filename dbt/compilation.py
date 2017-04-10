@@ -238,6 +238,8 @@ class Compiler(object):
         context['adapter'] = wrapper
         context['flags'] = dbt.flags
 
+        context.update(wrapper.get_context_functions())
+
         context['run_started_at'] = '{{ run_started_at }}'
         context['invocation_id'] = '{{ invocation_id }}'
         context['sql_now'] = adapter.date_function()
