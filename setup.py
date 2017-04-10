@@ -14,6 +14,12 @@ setup(
     author_email="admin@analystcollective.org",
     url="https://github.com/fishtown-analytics/dbt",
     packages=find_packages(),
+    package_data={
+        'dbt': [
+            'include/global_project/dbt_project.yml',
+            'include/global_project/macros/**/*.sql',
+        ]
+    },
     test_suite='test',
     entry_points={
         'console_scripts': [
