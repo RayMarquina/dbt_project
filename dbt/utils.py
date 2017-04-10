@@ -125,6 +125,15 @@ def model_cte_name(model):
     return '__dbt__CTE__{}'.format(model.get('name'))
 
 
+def model_immediate_name(model, non_destructive):
+    "The name of the model table/view within the transaction"
+    model_name = model.get('name')
+    if non_destructive or get_materialization(model) == 'incremental':
+        return model_name
+    else:
+        return "{}__dbt_tmp".format(model_name)
+
+
 def find_model_by_name(flat_graph, target_name, target_package):
     return find_by_name(flat_graph, target_name, target_package,
                         'nodes', NodeType.Model)
