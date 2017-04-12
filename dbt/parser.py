@@ -83,7 +83,8 @@ def process_refs(flat_graph):
             if target_model is None:
                 dbt.exceptions.ref_target_not_found(
                     node,
-                    target_model_name)
+                    target_model_name,
+                    target_model_package)
 
             if (dbt.utils.is_enabled(node) and
                     not dbt.utils.is_enabled(target_model)):
@@ -199,7 +200,6 @@ def parse_node(node, node_path, root_project_config, package_project_config,
     context['config'] = __config(node, config)
     context['target'] = property(lambda x: '', lambda x: x)
     context['this'] = ''
-    context['already_exists'] = lambda *args: lambda *args: ''
 
     context['var'] = Var(node, context)
 

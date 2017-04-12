@@ -62,18 +62,40 @@ def ref_invalid_args(model, args):
             len(args)))
 
 
-def ref_bad_context(model):
+def ref_bad_context(model, target_model_name, target_model_package):
+    ref_string = "{{ ref('" + target_model_name + "}') }}}}"
+
+    if target_model_package is not None:
+        ref_string = ("{{ ref('" + target_model_package +
+                      "', '" + target_model_name + "') }}")
+
+    base_error_msg = """dbt was unable to infer all dependencies for the model "{model_name}".
+This typically happens when ref() is placed within a conditional block.
+
+To fix this, add the following hint to the top of the model "{model_name}":
+
+-- depends_on: {ref_string}"""
+    error_msg = base_error_msg.format(
+        model_name=model['name'],
+        model_path=model['path'],
+        ref_string=ref_string
+    )
     raise_compiler_error(
-        model,
-        ("ref() was used in an invalid context (probably in a "
-         "{% raw %} tag, or macro"))
+        model, error_msg)
 
 
-def ref_target_not_found(model, target_model_name):
+def ref_target_not_found(model, target_model_name, target_model_package):
+    target_package_string = ''
+
+    if target_model_package is not None:
+        target_package_string = "in package '{}' ".format(target_model_package)
+
     raise_compiler_error(
         model,
-        "Model '{}' depends on model '{}' which was not found."
-        .format(model.get('unique_id'), target_model_name))
+        "Model '{}' depends on model '{}' {}which was not found."
+        .format(model.get('unique_id'),
+                target_model_name,
+                target_package_string))
 
 
 def ref_disabled_dependency(model, target_model):

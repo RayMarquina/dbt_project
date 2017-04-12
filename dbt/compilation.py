@@ -194,10 +194,18 @@ class Compiler(object):
                 target_model_name,
                 target_model_package)
 
+            if target_model is None:
+                dbt.exceptions.ref_target_not_found(
+                    model,
+                    target_model_name,
+                    target_model_package)
+
             target_model_id = target_model.get('unique_id')
 
             if target_model_id not in model.get('depends_on', {}).get('nodes'):
-                dbt.exceptions.ref_bad_context(model)
+                dbt.exceptions.ref_bad_context(model,
+                                               target_model_name,
+                                               target_model_package)
 
             if get_materialization(target_model) == 'ephemeral':
                 model['extra_ctes'][target_model_id] = None
@@ -205,18 +213,7 @@ class Compiler(object):
             else:
                 return '"{}"."{}"'.format(schema, target_model.get('name'))
 
-        def wrapped_do_ref(*args):
-            try:
-                return do_ref(*args)
-            except RuntimeError as e:
-                logger.info("Compiler error in {}".format(model.get('path')))
-                logger.info("Enabled models:")
-                for n, m in all_models.items():
-                    if is_type(m, NodeType.Model):
-                        logger.info(" - {}".format(m.get('unique_id')))
-                raise e
-
-        return wrapped_do_ref
+        return do_ref
 
     def get_compiler_context(self, model, flat_graph):
         context = self.project.context()
