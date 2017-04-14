@@ -82,7 +82,7 @@ def get_nodes_by_qualified_name(project, graph, qualified_name):
     for node in graph.nodes():
         # node naming has changed to dot notation. split to tuple for
         # compatibility with this code.
-        fqn_ish = node.split('.')[1:]
+        fqn_ish = graph.node[node].get('fqn', [])
 
         if len(qualified_name) == 1 and fqn_ish == qualified_name[0]:
             yield node
