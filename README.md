@@ -9,6 +9,10 @@ dbt (data build tool) helps analysts write reliable, modular code using a workfl
 - [Installation]
 - Join the [chat][slack-url] on Slack for live questions and support.
 
+---
+
+[![Code Climate](https://codeclimate.com/github/fishtown-analytics/dbt/badges/gpa.svg)](https://codeclimate.com/github/fishtown-analytics/dbt)
+
 ### Testing
 
 | service | development | master |
