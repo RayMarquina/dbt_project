@@ -21,6 +21,9 @@ class GraphSelectionTest(unittest.TestCase):
         # Edges: [(X.a, Y.b), (X.a, X.c), (Y.b, Y.d), (Y.b, X.e), (X.c, Y.f), (X.c, X.g)]
         self.package_graph = nx.relabel_nodes(integer_graph, package_mapping)
 
+        for node in self.package_graph:
+            self.package_graph.node[node]['fqn'] = node.split('.')[1:]
+
         self.project = self.get_project()
 
     def get_project(self, extra_cfg=None):

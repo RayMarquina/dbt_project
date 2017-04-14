@@ -80,11 +80,9 @@ def get_nodes_by_qualified_name(project, graph, qualified_name):
     package_names = get_package_names(graph)
 
     for node in graph.nodes():
-        # node naming has changed to dot notation. split to tuple for
-        # compatibility with this code.
-        fqn_ish = graph.node[node].get('fqn', [])
+        fqn_ish = graph.node[node]['fqn']
 
-        if len(qualified_name) == 1 and fqn_ish == qualified_name[0]:
+        if len(qualified_name) == 1 and fqn_ish[-1] == qualified_name[0]:
             yield node
 
         elif qualified_name[0] in package_names:
