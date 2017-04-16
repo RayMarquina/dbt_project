@@ -630,8 +630,7 @@ class RunManager(object):
 
         if len(flat_nodes) == 0:
             logger.info("WARNING: Nothing to do. Try checking your model "
-                        "configs and running `dbt compile`".format(
-                            self.target_path))
+                        "configs and model specification args")
             return []
 
         num_threads = self.threads
