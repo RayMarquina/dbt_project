@@ -79,7 +79,7 @@ There are generally two ways to configure incremental models: Simple and Advance
 
 Incremental models accept two configuration options: `sql_where` and `unique_key`.
 
-#### sql_where
+#### sql_where (required)
 
 `sql_where` identifies the rows that have been updated or added since the most recent run. For instance, in a clickstream table, you might apply the condition:
 
@@ -89,7 +89,7 @@ WHERE [source].session_end_timestamp >= (select max(session_end_timestamp) from 
 
 dbt applies this `WHERE` condition automatically, so it shouldn't be present in the model code: specify it in your model config as so `sql_where = "[condition]"`.
 
-#### unique_key
+#### unique_key (optional)
 
 `unique_key` is an optional parameter that specifies uniqueness on this table. Records matching this UK that are found in the table will be deleted before new records are inserted. Functionally, this allows for modification of existing rows in an incremental table. `unique_key` can be any valid SQL expression, including a single field, or a function. A common use case is concatenating multiple fields together to create a single unique key, as such: `user_id || session_index`.
 
@@ -105,7 +105,7 @@ See [context variables](context-variables/) for more information on `this`.
 
 ### Advanced incremental model usage
 
-Simple incremental models blindly apply the `sql_where` filter to the entire model SELECT query. Depending on the complexity of the SQL in the model, the database planner may be able to optimize the number of records it scans while executing your query. Generally though, the database will build the entire model, then filter the modeled dataset on `sql_where`. This can take as long, or in some cases _even longer_ than a simple `table` materialization! Advanced incremental model usage involves adding a few extra lines of code to your model to ensure that only new or changed data is processed during the dbt run.
+Simple incremental models blindly apply the `sql_where` filter to the entire model SELECT query. Depending on the complexity of the SQL in the model, the query planner may be able to optimize the number of records it scans while executing your query. Generally though, the database will build the entire model, then filter the modeled dataset on `sql_where`. This can take as long, or in some cases _even longer_ than a simple `table` materialization! Advanced incremental model usage involves adding a few extra lines of code to your model to ensure that only new or changed data is processed during the dbt run.
 
 With incremental models, there are two scenarios that need to be accounted for.
 
