@@ -77,7 +77,7 @@ It's highly recommended to use incremental models rather than table models in pr
 
 There are generally two ways to configure incremental models: Simple and Advanced. While the "simple" incremental models only require a configuration change (and not a code change), they are generally less performant than an "advanced" incremental model setup. First, understand the process of setting up a simple incremental model. Then, read on to understand how to tune your incremental models for optimal performance.
 
-Incremental models require two configuration options: `sql_where` and `unique_key`.
+Incremental models accept two configuration options: `sql_where` and `unique_key`.
 
 #### sql_where
 
@@ -105,7 +105,7 @@ See [context variables](context-variables/) for more information on `this`.
 
 ### Advanced incremental model usage
 
-Simple incremental models blindly apply the `sql_where` filter to the entire model SELECT query. Depending on the complexity of the SQL in the model, the database planner may be able to optimize the number of records it scans while executing your query. Generally though, the database will build the entire model, then filter the modeled dataset. This can take as long, or in some cases _longer_ than a simple `table` materialization! Advanced incremental model usage involves adding a few extra lines of code to your model to ensure that only new or changed data is processed during the dbt run.
+Simple incremental models blindly apply the `sql_where` filter to the entire model SELECT query. Depending on the complexity of the SQL in the model, the database planner may be able to optimize the number of records it scans while executing your query. Generally though, the database will build the entire model, then filter the modeled dataset on `sql_where`. This can take as long, or in some cases _even longer_ than a simple `table` materialization! Advanced incremental model usage involves adding a few extra lines of code to your model to ensure that only new or changed data is processed during the dbt run.
 
 With incremental models, there are two scenarios that need to be accounted for.
 
@@ -117,6 +117,7 @@ It's important to differentiate between these two scenarios. Typically, an advan
 ```sql
 -- sessions.sql : Creates sessions from raw clickstream events
 
+-- The event source
 with all_events as (
 
     select * from {{ ref('events') }}
@@ -156,7 +157,8 @@ new_events as (
     select *
     from all_events
 
-    -- This is executed just before the model is executed and returns either True or False
+    -- This conditional is executed just before the model is executed and returns either True or False
+    -- The enclosed where filter will be conditionally applied only if this model exists in the current schema
     {% if already_exists(this.schema, this.table) %}
         where received_at > (select max(received_at) from {{ this }})
     {% endif %}
@@ -166,6 +168,10 @@ new_events as (
 sessions as (
 ...
 ```
+
+For backwards compatibility reasons, `sql_where` is required even for "advanced" incremental models. Set `sql_where='TRUE'` to avoid any compilation errors while essentially discarding the associated filtering logic.
+
+Advanced incremental models are, suitably, an advanced dbt feature! They're incredibly powerful, but also not incredibly intuitive. If you have any troubles, please reach out to us in the [dbt slack group](http://ac-slackin.herokuapp.com/).
 
 ## Database-specific configuration
 
