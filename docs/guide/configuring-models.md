@@ -75,6 +75,10 @@ Incremental models are a powerful feature in production dbt deployments. Frequen
 
 It's highly recommended to use incremental models rather than table models in production whenever the schema allows for it. This will minimize your model build times and minimize the use of database resources.
 
+There are generally two ways to configure incremental models: Simple and Advanced. While the "simple" incremental models only require a configuration change (and not a code change), they are generally less performant than an "advanced" incremental model setup. First, understand the process of setting up a simple incremental model. Then, read on to understand how to tune your incremental models for optimal performance.
+
+Incremental models require two configuration options: `sql_where` and `unique_key`.
+
 #### sql_where
 
 `sql_where` identifies the rows that have been updated or added since the most recent run. For instance, in a clickstream table, you might apply the condition:
@@ -85,9 +89,13 @@ WHERE [source].session_end_timestamp >= (select max(session_end_timestamp) from 
 
 dbt applies this `WHERE` condition automatically, so it shouldn't be present in the model code: specify it in your model config as so `sql_where = "[condition]"`.
 
+#### unique_key
+
+`unique_key` is an optional parameter that specifies uniqueness on this table. Records matching this UK that are found in the table will be deleted before new records are inserted. Functionally, this allows for modification of existing rows in an incremental table. `unique_key` can be any valid SQL expression, including a single field, or a function. A common use case is concatenating multiple fields together to create a single unique key, as such: `user_id || session_index`.
+
 #### using {{this}}
 
-`{{this}}` is a special variable that returns the schema and table name of the current model and is useful when defining a `sql_where` clause. The `sql_where` we wrote earlier would actually be written as such:
+`{{this}}` is a special variable that returns the schema and table name of the currently executing model. It is useful when defining a `sql_where` clause. The `sql_where` written above would in practice be written as:
 
 ```SQL
 WHERE session_end_timestamp >= (select max(session_end_timestamp) from {{this}})
@@ -95,9 +103,69 @@ WHERE session_end_timestamp >= (select max(session_end_timestamp) from {{this}})
 
 See [context variables](context-variables/) for more information on `this`.
 
-#### unique_key
+### Advanced incremental model usage
 
-`unique_key` is an optional parameter that specifies uniqueness on this table. Records matching this UK that are found in the table will be deleted before new records are inserted. Functionally, this allows for modification of existing rows in an incremental table. `unique_key` can be any valid SQL expression, including a single field, or a function. A common use case is concatenating multiple fields together to create a single unique key, as such: `user_id || session_index`.
+Simple incremental models blindly apply the `sql_where` filter to the entire model SELECT query. Depending on the complexity of the SQL in the model, the database planner may be able to optimize the number of records it scans while executing your query. Generally though, the database will build the entire model, then filter the modeled dataset. This can take as long, or in some cases _longer_ than a simple `table` materialization! Advanced incremental model usage involves adding a few extra lines of code to your model to ensure that only new or changed data is processed during the dbt run.
+
+With incremental models, there are two scenarios that need to be accounted for.
+
+1. This is the first time the incremental model is running, and the table _does not_ already exist
+2. The incremental model has run before, and the table _does_ already exist
+
+It's important to differentiate between these two scenarios. Typically, an advanced incremental model will introspectively look at the `max()` value in one of its own columns to determine the cutoff for new data from some other source table. Consider the case of an clickstream events table:
+
+```sql
+-- sessions.sql : Creates sessions from raw clickstream events
+
+with all_events as (
+
+    select * from {{ ref('events') }}
+
+),
+
+-- Filter out only the events that have arrived since events have last been processed
+new_events as (
+
+    select *
+    from all_events
+
+    -- The line below is problematic! If this model hasn't been run before, then {{ this }}
+    -- points to a table which doesn't exist yet. We need to know if {{ this }} already exists
+    where received_at > (select max(received_at) from {{ this }})
+
+),
+
+sessions as (
+...
+```
+
+The above scenario is typical for incremental model use cases. To avoid this "already exists?" problem, dbt provides a function in the dbt environment called... `already_exists`! The above example could be rewritten as:
+
+```sql
+-- sessions.sql : Creates sessions from raw clickstream events
+
+with all_events as (
+
+    select * from {{ ref('events') }}
+
+),
+
+-- Filter out only the events that have arrived since events have last been processed
+new_events as (
+
+    select *
+    from all_events
+
+    -- This is executed just before the model is executed and returns either True or False
+    {% if already_exists(this.schema, this.table) %}
+        where received_at > (select max(received_at) from {{ this }})
+    {% endif %}
+
+),
+
+sessions as (
+...
+```
 
 ## Database-specific configuration
 
