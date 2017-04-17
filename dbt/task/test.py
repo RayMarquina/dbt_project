@@ -37,3 +37,5 @@ class TestTask:
             raise RuntimeError("unexpected")
 
         logger.info(dbt.utils.get_run_status_line(results))
+
+        return results
