@@ -11,7 +11,7 @@ The following commands are available from the command line to interact with dbt.
 
 ## Run
 
-`dbt run` first compiles, and then runs, model files against the current `target` database. dbt connects to the target database and runs the relevant SQL required to materialize all data models using the specified materialization strategies. Models are run in the order defined by the dependency graph generated during compilation. Intelligent multi-threading is used to minimize execution time without violating dependencies.
+`dbt run` executes compiled sql model files against the current `target` database. dbt connects to the target database and runs the relevant SQL required to materialize all data models using the specified materialization strategies. Models are run in the order defined by the dependency graph generated during compilation. Intelligent multi-threading is used to minimize execution time without violating dependencies.
 
 Deploying new models frequently involves destroying prior versions of these models. In these cases, `dbt run` minimizes the amount of time in which a model is unavailable by first building each model with a temporary name, then dropping the existing model, then renaming the model to its correct name. The drop and rename happen within a single database transaction for database adapters that support transactions.
 
@@ -107,12 +107,6 @@ Model validation is discussed in more detail [here](testing/).
 ## Dependencies
 
 `dbt deps` pulls the most recent version of the dependencies listed in your `dbt_project.yml` from git. See [here](package-management/) for more information on dependencies.
-
-## Compile
-
-`dbt compile` generates runnable SQL from model files. All templating is completed and the dependency graph is built. Resulting SQL files are stored in the `target` directory.
-
-Note that `dbt run` already includes this compilation step. As such, it is not necessary to use `dbt compile` before `dbt run`. Use `dbt compile` to compile SQL models without running them against your database.
 
 ## Debug
 

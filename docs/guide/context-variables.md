@@ -61,7 +61,7 @@ To add a variable to a model, use the var() function:
 select * from events where event_type = '{{ var("event_type") }}'
 ```
 
-If you try to compile this model without supplying an `event_type` variable, you'll recieve
+If you try to run this model without supplying an `event_type` variable, you'll recieve
 a compilation error that looks like this:
 
 ```
