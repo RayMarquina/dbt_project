@@ -38,4 +38,4 @@ class TestTask:
 
         logger.info(dbt.utils.get_run_status_line(results))
 
-        return res
+        return results
