@@ -1,4 +1,11 @@
-## dbt 0.7.2 (unreleased)
+## dbt 0.8.0 (April 17, 2017)
+
+
+### Overview
+
+- Bugfixes
+- True concurrency
+- More control over "advanced" incremental model configurations [more info](http://dbt.readthedocs.io/en/master/guide/configuring-models/)
 
 ### Bugfixes
 
@@ -13,6 +20,7 @@
 
 ### Changes
 
+- Added: `already_exists` context function ([#372](https://github.com/fishtown-analytics/dbt/pull/372))
 - Graph refactor: fix common issues with load order ([#292](https://github.com/fishtown-analytics/dbt/pull/292))
 - Graph refactor: multiple references to an ephemeral models should share a CTE ([#316](https://github.com/fishtown-analytics/dbt/pull/316))
 - Graph refactor: macros in flat graph ([#332](https://github.com/fishtown-analytics/dbt/pull/332))
