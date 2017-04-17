@@ -140,7 +140,7 @@ sessions as (
 ...
 ```
 
-The above scenario is typical for incremental model use cases. To avoid this "already exists?" problem, dbt provides a function in the dbt environment called... `already_exists`! The above example could be rewritten as:
+The above scenario is typical for incremental model use cases. To avoid this "already exists?" problem, dbt provides an adapter function in the dbt environment called... `already_exists`! You can access this function with `adapter.already_exists([schema], [table])`. The above example could be rewritten as:
 
 ```sql
 -- sessions.sql : Creates sessions from raw clickstream events
@@ -159,7 +159,7 @@ new_events as (
 
     -- This conditional is executed just before the model is executed and returns either True or False
     -- The enclosed where filter will be conditionally applied only if this model exists in the current schema
-    {% if already_exists(this.schema, this.table) %}
+    {% if adapter.already_exists(this.schema, this.table) %}
         where received_at > (select max(received_at) from {{ this }})
     {% endif %}
 
