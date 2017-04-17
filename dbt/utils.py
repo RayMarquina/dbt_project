@@ -261,3 +261,19 @@ def get_pseudo_test_path(node_name, source_path, test_type):
     suffix = [test_type, "{}.sql".format(node_name)]
     pseudo_path_parts = source_path_parts + suffix
     return os.path.join(*pseudo_path_parts)
+
+
+def get_run_status_line(results):
+    total = len(results)
+    errored = len([r for r in results if r.errored or r.failed])
+    skipped = len([r for r in results if r.skipped])
+    passed = total - errored - skipped
+
+    return (
+        "Done. PASS={passed} ERROR={errored} SKIP={skipped} TOTAL={total}"
+        .format(
+            total=total,
+            passed=passed,
+            errored=errored,
+            skipped=skipped
+        ))
