@@ -20,6 +20,7 @@
 
 ### Changes
 
+- Changed: different syntax for "relationships" schema tests ([#339](https://github.com/fishtown-analytics/dbt/pull/339))
 - Added: `already_exists` context function ([#372](https://github.com/fishtown-analytics/dbt/pull/372))
 - Graph refactor: fix common issues with load order ([#292](https://github.com/fishtown-analytics/dbt/pull/292))
 - Graph refactor: multiple references to an ephemeral models should share a CTE ([#316](https://github.com/fishtown-analytics/dbt/pull/316))

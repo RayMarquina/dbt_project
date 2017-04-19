@@ -44,7 +44,7 @@ This validates that all records in a child table have a corresponding record in 
 people:
   constraints:
     relationships:
-      - {from: account_id, to: accounts, field: id}
+      - {from: account_id, to: ref('accounts'), field: id}
 ```
 
 ### Accepted values
