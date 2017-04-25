@@ -26,7 +26,7 @@ config_contract = {
     Optional('unique_key'): basestring,
 
     # adapter optional fields
-    Optional('sort'): basestring,
+    Optional('sort'): Any(basestring, list),
     Optional('dist'): basestring,
 }
 
