@@ -163,7 +163,12 @@ class Compiler(object):
         target_path = os.path.join(self.project['target-path'], build_filepath)
 
         if not os.path.exists(os.path.dirname(target_path)):
-            os.makedirs(os.path.dirname(target_path))
+            # concurrent writes that try to create the same dir can fail
+            try:
+                os.makedirs(os.path.dirname(target_path))
+            except FileExistsError:
+                logger.debug("Caught concurrent write: {}".format(target_path))
+                pass
 
         dbt.compat.write_file(target_path, payload)
 
