@@ -2,10 +2,9 @@ from __future__ import print_function
 
 from dbt.logger import GLOBAL_LOGGER as logger
 from dbt.runner import RunManager
-import dbt.utils
 
 
-class RunTask:
+class CompileTask:
     def __init__(self, args, project):
         self.args = args
         self.project = project
@@ -15,6 +14,6 @@ class RunTask:
             self.project, self.project['target-path'], self.args
         )
 
-        results = runner.run_models(self.args.models, self.args.exclude)
+        runner.compile_models(self.args.models, self.args.exclude)
 
-        logger.info(dbt.utils.get_run_status_line(results))
+        logger.info('Done.')
