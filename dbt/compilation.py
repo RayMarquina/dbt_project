@@ -6,6 +6,7 @@ import dbt.project
 import dbt.utils
 import dbt.include
 import dbt.wrapper
+import dbt.tracking
 
 from dbt.model import Model
 from dbt.utils import This, Var, is_enabled, get_materialization, NodeType, \
@@ -38,6 +39,7 @@ def print_compile_stats(stats):
         NodeType.Archive: 'archives',
         NodeType.Analysis: 'analyses',
         NodeType.Macro: 'macros',
+        NodeType.Operation: 'operations',
     }
 
     results = {
@@ -46,6 +48,7 @@ def print_compile_stats(stats):
         NodeType.Archive: 0,
         NodeType.Analysis: 0,
         NodeType.Macro: 0,
+        NodeType.Operation: 0,
     }
 
     results.update(stats)
@@ -235,8 +238,8 @@ class Compiler(object):
 
         context.update(wrapper.get_context_functions())
 
-        context['run_started_at'] = '{{ run_started_at }}'
-        context['invocation_id'] = '{{ invocation_id }}'
+        context['run_started_at'] = dbt.tracking.active_user.run_started_at
+        context['invocation_id'] = dbt.tracking.active_user.invocation_id
         context['sql_now'] = adapter.date_function()
 
         for unique_id, macro in flat_graph.get('macros').items():
@@ -280,7 +283,8 @@ class Compiler(object):
         injected_node, _ = prepend_ctes(compiled_node, flat_graph)
 
         if compiled_node.get('resource_type') in [NodeType.Test,
-                                                  NodeType.Analysis]:
+                                                  NodeType.Analysis,
+                                                  NodeType.Operation]:
             # data tests get wrapped in count(*)
             # TODO : move this somewhere more reasonable
             if 'data' in injected_node['tags'] and \
@@ -350,7 +354,7 @@ class Compiler(object):
     def link_graph(self, linker, flat_graph):
         linked_graph = {
             'nodes': {},
-            'macros': flat_graph.get('macros'),
+            'macros': flat_graph.get('macros')
         }
 
         for name, node in flat_graph.get('nodes').items():
@@ -468,6 +472,8 @@ class Compiler(object):
         all_nodes.update(
             dbt.parser.parse_archives_from_projects(root_project,
                                                     all_projects))
+        all_nodes.update(
+            dbt.parser.load_and_parse_run_hooks(root_project, all_projects))
 
         return all_nodes
 
@@ -478,6 +484,7 @@ class Compiler(object):
         all_projects = self.get_all_projects()
 
         all_macros = self.load_all_macros(root_project, all_projects)
+
         all_nodes = self.load_all_nodes(root_project, all_projects)
 
         flat_graph = {
