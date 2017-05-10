@@ -4,7 +4,7 @@
 ### Overview
 - Bugfixes
 - Reintroduce `compile` command
-- Moved docs to [readme.io](https://dbt.readme.io/v0.8.1)
+- Moved docs to [readme.io](https://dbt.readme.io/)
 
 
 ### Bugfixes
