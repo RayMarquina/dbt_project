@@ -29,6 +29,10 @@ def main(args=None):
     try:
         handle(args)
 
+    except KeyboardInterrupt as e:
+        logger.info("ctrl-c")
+        sys.exit(1)
+
     except RuntimeError as e:
         logger.info("Encountered an error:")
         logger.info(str(e))
