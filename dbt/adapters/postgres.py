@@ -160,6 +160,16 @@ class PostgresAdapter(dbt.adapters.default.DefaultAdapter):
         return dict(existing)
 
     @classmethod
+    def check_schema_exists(cls, profile, schema, model_name=None):
+        sql = """
+        select count(*) from pg_namespace where nspname = '{schema}'
+        """.format(schema=schema).strip()  # noqa
+
+        connection, cursor = cls.add_query(profile, sql, model_name)
+        results = cursor.fetchone()
+
+        return results[0] > 0
+
     def cancel_connection(cls, profile, connection):
         connection_name = connection.get('name')
         pid = connection.get('handle').get_backend_pid()
