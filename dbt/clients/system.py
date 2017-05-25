@@ -2,6 +2,7 @@ import errno
 import fnmatch
 import os
 import os.path
+import sys
 
 
 def find_matching(root_path,
@@ -70,3 +71,28 @@ def make_directory(path):
                 pass
             else:
                 raise e
+
+
+def make_file(path, contents='', overwrite=False):
+    """
+    Make a file at `path` assuming that the directory it resides in already
+    exists. The file is saved with contents `contents`
+    """
+    if overwrite or not os.path.exists(path):
+        with open(path, 'w') as fh:
+            fh.write(contents)
+        return True
+
+    return False
+
+
+def open_dir_cmd():
+    # https://docs.python.org/2/library/sys.html#sys.platform
+    if sys.platform == 'win32':
+        return 'start'
+
+    elif sys.platform == 'darwin':
+        return 'open'
+
+    else:
+        return 'xdg-open'
