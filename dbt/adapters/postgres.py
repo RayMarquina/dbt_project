@@ -170,6 +170,7 @@ class PostgresAdapter(dbt.adapters.default.DefaultAdapter):
 
         return results[0] > 0
 
+    @classmethod
     def cancel_connection(cls, profile, connection):
         connection_name = connection.get('name')
         pid = connection.get('handle').get_backend_pid()
