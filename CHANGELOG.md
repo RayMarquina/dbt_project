@@ -1,3 +1,31 @@
+## dbt 0.8.2 (Unreleased)
+
+### Overview
+
+- UI/UX improvements (colorized output, failures summary, better error messages)
+- Cancel running queries on ctrl+c
+- Bugfixes
+- Docs
+
+### Bugfixes
+
+- Fix bug for interleaved sort keys on Redshift ([#430](https://github.com/fishtown-analytics/dbt/pull/430))
+
+### Changes
+- Don't try to create schema if it already exists ([#446](https://github.com/fishtown-analytics/dbt/pull/446))
+- Summarize failures for dbt invocations ([#443](https://github.com/fishtown-analytics/dbt/pull/443))
+- Colorized dbt output ([#441](https://github.com/fishtown-analytics/dbt/pull/441))
+- Cancel running queries on ctrl-c ([#444](https://github.com/fishtown-analytics/dbt/pull/444))
+- Better error messages for common failure modes ([#445](https://github.com/fishtown-analytics/dbt/pull/445))
+- Upgrade dependencies ([#431](https://github.com/fishtown-analytics/dbt/pull/431))
+- Improvements to `dbt init` and first time dbt usage experience ([#439](https://github.com/fishtown-analytics/dbt/pull/439))
+
+### Documentation
+- Document full-refresh requirements for incremental models ([#417](https://github.com/fishtown-analytics/dbt/issues/417))
+- Document archival ([#433](https://github.com/fishtown-analytics/dbt/issues/433))
+- Document the two-version variant of `ref` ([#432](https://github.com/fishtown-analytics/dbt/issues/432))
+
+
 ## dbt 0.8.1 (May 10, 2017)
 
 
