@@ -18,7 +18,6 @@ import dbt.task.test as test_task
 import dbt.task.archive as archive_task
 import dbt.tracking
 import dbt.config as config
-import dbt.adapters.cache as adapter_cache
 import dbt.ui.printer
 import dbt.compat
 
@@ -136,8 +135,6 @@ def run_from_args(parsed):
 def invoke_dbt(parsed):
     task = None
     proj = None
-
-    adapter_cache.reset()
 
     try:
         proj = project.read_project(
@@ -272,23 +269,6 @@ def parse_args(args):
 
     sub = subs.add_parser('clean', parents=[base_subparser])
     sub.set_defaults(cls=clean_task.CleanTask, which='clean')
-
-    sub.add_argument(
-        '--non-destructive',
-        action='store_true',
-        help="""
-        If specified, DBT will not drop views. Tables will be truncated instead
-        of dropped.
-        """
-    )
-    sub.add_argument(
-        '--full-refresh',
-        action='store_true',
-        help="""
-        If specified, DBT will drop incremental models and fully-recalculate
-        the incremental table from the model definition.
-        """
-    )
 
     sub = subs.add_parser('debug', parents=[base_subparser])
     sub.add_argument(

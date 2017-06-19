@@ -3,6 +3,7 @@ import dbt.main as dbt
 import os, shutil
 import yaml
 import time
+import json
 
 from dbt.adapters.factory import get_adapter
 
@@ -94,6 +95,30 @@ class DBTIntegrationTest(unittest.TestCase):
             }
         }
 
+    def bigquery_profile(self):
+        credentials_json_str = os.getenv('BIGQUERY_SERVICE_ACCOUNT_JSON').replace("'", '')
+        credentials = json.loads(credentials_json_str)
+        project_id = credentials.get('project_id')
+
+        return {
+            'config': {
+                'send_anonymous_usage_stats': False
+            },
+            'test': {
+                'outputs': {
+                    'default2': {
+                        'type': 'bigquery',
+                        'method': 'service-account-json',
+                        'threads': 1,
+                        'project': project_id,
+                        'keyfile_json': credentials,
+                        'schema': self.unique_schema(),
+                    },
+                },
+                'target': 'default2'
+            }
+        }
+
     def unique_schema(self):
         schema =  self.schema
         return "{}_{}".format(self.prefix, schema)
@@ -103,6 +128,8 @@ class DBTIntegrationTest(unittest.TestCase):
             return self.postgres_profile()
         elif adapter_type == 'snowflake':
             return self.snowflake_profile()
+        elif adapter_type == 'bigquery':
+            return self.bigquery_profile()
 
     def setUp(self):
         # create a dbt_project.yml
@@ -149,9 +176,15 @@ class DBTIntegrationTest(unittest.TestCase):
         connection = adapter.acquire_connection(profile, '__test')
         self.handle = connection.get('handle')
         self.adapter_type = profile.get('type')
+        self.profile = profile
 
-        self.run_sql('DROP SCHEMA IF EXISTS "{}" CASCADE'.format(self.unique_schema()))
-        self.run_sql('CREATE SCHEMA "{}"'.format(self.unique_schema()))
+        if self.adapter_type == 'bigquery':
+            schema_name = self.unique_schema()
+            adapter.drop_schema(profile, schema_name, '__test')
+            adapter.create_schema(profile, schema_name, '__test')
+        else:
+            self.run_sql('DROP SCHEMA IF EXISTS "{}" CASCADE'.format(self.unique_schema()))
+            self.run_sql('CREATE SCHEMA "{}"'.format(self.unique_schema()))
 
     def use_default_project(self):
         # create a dbt_project.yml
@@ -191,9 +224,14 @@ class DBTIntegrationTest(unittest.TestCase):
         connection = adapter.acquire_connection(profile, '__test')
         self.handle = connection.get('handle')
         self.adapter_type = profile.get('type')
+        self.profile = profile
 
-        self.run_sql('DROP SCHEMA IF EXISTS "{}" CASCADE'.format(self.unique_schema()))
-        self.run_sql('CREATE SCHEMA "{}"'.format(self.unique_schema()))
+        if self.adapter_type == 'bigquery':
+            adapter.drop_schema(profile, self.unique_schema(), '__test')
+            adapter.create_schema(profile, self.unique_schema(), '__test')
+        else:
+            self.run_sql('DROP SCHEMA IF EXISTS "{}" CASCADE'.format(self.unique_schema()))
+            self.run_sql('CREATE SCHEMA "{}"'.format(self.unique_schema()))
 
     def tearDown(self):
         os.remove(DBT_PROFILES)
@@ -206,10 +244,17 @@ class DBTIntegrationTest(unittest.TestCase):
         except:
             os.rename("dbt_modules", "dbt_modules-{}".format(time.time()))
 
+        if self.adapter_type == 'bigquery':
+            adapter = get_adapter(self.profile)
+            adapter.drop_schema(self.profile, self.unique_schema(), '__test')
+        else:
+            self.run_sql('DROP SCHEMA IF EXISTS "{}" CASCADE'.format(self.unique_schema()))
+            self.handle.close()
 
-        self.run_sql('DROP SCHEMA IF EXISTS "{}" CASCADE'.format(self.unique_schema()))
 
-        self.handle.close()
+        # hack for BQ -- TODO
+        if hasattr(self.handle, 'close'):
+            self.handle.close()
 
     @property
     def project_config(self):

@@ -1,4 +1,3 @@
-import dbt.clients.system
 import dbt.compat
 import logging
 import os
@@ -11,8 +10,8 @@ logging.getLogger('botocore').setLevel(logging.CRITICAL)
 logging.getLogger('contracts').setLevel(logging.CRITICAL)
 logging.getLogger('requests').setLevel(logging.CRITICAL)
 logging.getLogger('urllib3').setLevel(logging.CRITICAL)
+logging.getLogger('google').setLevel(logging.CRITICAL)
 logging.getLogger('snowflake.connector').setLevel(logging.CRITICAL)
-
 
 # Colorama needs some help on windows because we're using logger.info
 # intead of print(). If the Windows env doesn't have a TERM var set,
@@ -44,6 +43,7 @@ initialized = False
 
 
 def make_log_dir_if_missing(log_dir):
+    import dbt.clients.system
     dbt.clients.system.make_directory(log_dir)
 
 

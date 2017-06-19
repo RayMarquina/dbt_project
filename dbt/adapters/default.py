@@ -8,6 +8,7 @@ from contextlib import contextmanager
 
 import dbt.exceptions
 import dbt.flags
+import dbt.materializers
 
 from dbt.contracts.connection import validate_connection
 from dbt.logger import GLOBAL_LOGGER as logger
@@ -20,6 +21,12 @@ connections_available = []
 
 
 class DefaultAdapter(object):
+
+    requires = {}
+
+    @classmethod
+    def get_materializer(cls, model, existing):
+        return dbt.materializers.get_materializer(cls, model, existing)
 
     ###
     # ADAPTER-SPECIFIC FUNCTIONS -- each of these must be overridden in
@@ -72,6 +79,11 @@ class DefaultAdapter(object):
     def check_schema_exists(cls, profile, schema):
         raise dbt.exceptions.NotImplementedException(
             '`check_schema_exists` is not implemented for this adapter!')
+
+    @classmethod
+    def cancel_connection(cls, project, connection):
+        raise dbt.exceptions.NotImplementedException(
+            '`cancel_connection` is not implemented for this adapter!')
 
     ###
     # FUNCTIONS THAT SHOULD BE ABSTRACT
@@ -127,6 +139,10 @@ class DefaultAdapter(object):
                        to_name=to_name))
 
         connection, cursor = cls.add_query(profile, sql, model_name)
+
+    @classmethod
+    def is_cancelable(cls):
+        return True
 
     @classmethod
     def execute_model(cls, profile, model):
@@ -236,6 +252,11 @@ class DefaultAdapter(object):
     @classmethod
     def get_create_schema_sql(cls, schema):
         return ('create schema if not exists "{schema}"'
+                .format(schema=schema))
+
+    @classmethod
+    def get_drop_schema_sql(cls, schema):
+        return ('drop schema if exists "{schema} cascade"'
                 .format(schema=schema))
 
     @classmethod
@@ -531,10 +552,17 @@ class DefaultAdapter(object):
             return connection, cursor
 
     @classmethod
-    def execute_one(cls, profile, sql, model_name=None):
+    def execute_one(cls, profile, sql, model_name=None, auto_begin=False):
         cls.get_connection(profile, model_name)
 
-        return cls.add_query(profile, sql, model_name)
+        return cls.add_query(profile, sql, model_name, auto_begin)
+
+    @classmethod
+    def execute_and_fetch(cls, profile, sql, model_name=None,
+                          auto_begin=False):
+        _, cursor = cls.execute_one(profile, sql, model_name, auto_begin)
+
+        return cursor.fetchall()
 
     @classmethod
     def execute_all(cls, profile, sqls, model_name=None):
@@ -555,6 +583,12 @@ class DefaultAdapter(object):
         return cls.add_query(profile, sql, model_name)
 
     @classmethod
+    def drop_schema(cls, profile, schema, model_name=None):
+        logger.debug('Dropping schema "%s".', schema)
+        sql = cls.get_drop_schema_sql(schema)
+        return cls.add_query(profile, sql, model_name)
+
+    @classmethod
     def create_table(cls, profile, schema, table, columns, sort, dist,
                      model_name=None):
         logger.debug('Creating table "%s"."%s".', schema, table)
@@ -568,12 +602,12 @@ class DefaultAdapter(object):
         return exists
 
     @classmethod
-    def check_schema_exists(cls, profile, schema):
-        return cls.check_schema_exists(profile, schema)
-
-    @classmethod
     def already_exists(cls, profile, schema, table, model_name=None):
         """
         Alias for `table_exists`.
         """
         return cls.table_exists(profile, schema, table, model_name)
+
+    @classmethod
+    def quote_schema_and_table(cls, profile, schema, table):
+        return '"{}"."{}"'.format(schema, table)

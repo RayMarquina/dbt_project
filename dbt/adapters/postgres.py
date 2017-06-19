@@ -8,23 +8,6 @@ import dbt.exceptions
 from dbt.logger import GLOBAL_LOGGER as logger
 
 
-RELATION_PERMISSION_DENIED_MESSAGE = """
-The user '{user}' does not have sufficient permissions to create the model
-'{model}' in the schema '{schema}'. Please adjust the permissions of the
-'{user}' user on the '{schema}' schema. With a superuser account, execute the
-following commands, then re-run dbt.
-
-grant usage, create on schema "{schema}" to "{user}";
-grant select, insert, delete on all tables in schema "{schema}" to "{user}";"""
-
-RELATION_NOT_OWNER_MESSAGE = """
-The user '{user}' does not have sufficient permissions to drop the model
-'{model}' in the schema '{schema}'. This is likely because the relation was
-created by a different user. Either delete the model "{schema}"."{model}"
-manually, or adjust the permissions of the '{user}' user in the '{schema}'
-schema."""
-
-
 class PostgresAdapter(dbt.adapters.default.DefaultAdapter):
 
     @classmethod
@@ -32,28 +15,16 @@ class PostgresAdapter(dbt.adapters.default.DefaultAdapter):
     def exception_handler(cls, profile, sql, model_name=None,
                           connection_name=None):
         connection = cls.get_connection(profile, connection_name)
-        schema = connection.get('credentials', {}).get('schema')
 
         try:
             yield
-        except psycopg2.ProgrammingError as e:
+
+        except psycopg2.DatabaseError as e:
             logger.debug('Postgres error: {}'.format(str(e)))
 
             cls.rollback(connection)
-            error_data = {
-                "model": model_name,
-                "schema": schema,
-                "user": connection.get('credentials', {}).get('user')
-            }
+            raise dbt.exceptions.RuntimeException(e)
 
-            if 'must be owner of relation' in e.diag.message_primary:
-                raise RuntimeError(
-                    RELATION_NOT_OWNER_MESSAGE.format(**error_data))
-            elif "permission denied for" in e.diag.message_primary:
-                raise RuntimeError(
-                    RELATION_PERMISSION_DENIED_MESSAGE.format(**error_data))
-            else:
-                raise e
         except Exception as e:
             logger.debug("Error running SQL: %s", sql)
             logger.debug("Rolling back transaction.")
@@ -151,7 +122,8 @@ class PostgresAdapter(dbt.adapters.default.DefaultAdapter):
         where schemaname = '{schema}'
         """.format(schema=schema).strip()  # noqa
 
-        connection, cursor = cls.add_query(profile, sql, model_name)
+        connection, cursor = cls.add_query(profile, sql, model_name,
+                                           auto_begin=False)
 
         results = cursor.fetchall()
 
@@ -165,7 +137,8 @@ class PostgresAdapter(dbt.adapters.default.DefaultAdapter):
         select count(*) from pg_namespace where nspname = '{schema}'
         """.format(schema=schema).strip()  # noqa
 
-        connection, cursor = cls.add_query(profile, sql, model_name)
+        connection, cursor = cls.add_query(profile, sql, model_name,
+                                           auto_begin=False)
         results = cursor.fetchone()
 
         return results[0] > 0
