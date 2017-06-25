@@ -9,7 +9,6 @@ class TestContextVars(DBTIntegrationTest):
     def setUp(self):
         DBTIntegrationTest.setUp(self)
         os.environ["DBT_TEST_013_ENV_VAR"] = "1"
-        os.environ["DBT_TEST_013_PASSWORD"] = "password"
 
         self.fields = [
             'this',
@@ -49,7 +48,7 @@ class TestContextVars(DBTIntegrationTest):
                         'host': 'database',
                         'port': 5432,
                         'user': 'root',
-                        'pass': '{{ env_var("DBT_TEST_013_PASSWORD") }}',
+                        'pass': 'password',
                         'dbname': 'dbt',
                         'schema': self.unique_schema()
                     },
@@ -59,7 +58,7 @@ class TestContextVars(DBTIntegrationTest):
                         'host': 'database',
                         'port': 5432,
                         'user': 'root',
-                        'pass': '{{ env_var("DBT_TEST_013_PASSWORD") }}',
+                        'pass': 'password',
                         'dbname': 'dbt',
                         'schema': self.unique_schema()
                     }
