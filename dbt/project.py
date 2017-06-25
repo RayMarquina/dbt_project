@@ -118,14 +118,14 @@ class Project(object):
             is_str = isinstance(value, dbt.compat.basestring)
 
             if is_str:
-                compiled_value = dbt.clients.jinja.get_rendered(value, ctx)
+                node = "config key: '{}'".format(key)
+                compiled_val = dbt.clients.jinja.get_rendered(value, ctx, node)
             else:
-                compiled_value = value
+                compiled_val = value
 
-            compiled[key] = compiled_value
+            compiled[key] = compiled_val
 
         return compiled
-
 
     def run_environment(self):
         target_name = self.cfg['target']
@@ -149,7 +149,7 @@ class Project(object):
             return default
         else:
             msg = "Env var required but not provided: '{}'".format(var)
-            dbt.exceptions.raise_compiler_error(node=None, msg=msg)
+            dbt.clients.jinja.undefined_error(msg)
 
     def base_context(self):
         return {

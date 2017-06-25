@@ -3,11 +3,13 @@ import json
 import hashlib
 import itertools
 
-import dbt.project
 from dbt.include import GLOBAL_DBT_MODULES_PATH
-
 from dbt.compat import basestring
 from dbt.logger import GLOBAL_LOGGER as logger
+from dbt.node_types import NodeType
+
+import dbt.clients.jinja
+
 
 DBTConfigKeys = [
     'enabled',
@@ -21,32 +23,6 @@ DBTConfigKeys = [
     'post-hook',
     'vars'
 ]
-
-
-class NodeType(object):
-    Base = 'base'
-    Model = 'model'
-    Analysis = 'analysis'
-    Test = 'test'
-    Archive = 'archive'
-    Macro = 'macro'
-    Operation = 'operation'
-
-    @classmethod
-    def executable(cls):
-        return [
-            cls.Model,
-            cls.Test,
-            cls.Archive,
-            cls.Analysis,
-            cls.Operation
-        ]
-
-
-class RunHookType:
-    Start = 'on-run-start'
-    End = 'on-run-end'
-    Both = [Start, End]
 
 
 class This(object):
@@ -189,6 +165,7 @@ def find_model_by_fqn(models, fqn):
 
 
 def dependency_projects(project):
+    import dbt.project
     module_paths = [
         GLOBAL_DBT_MODULES_PATH,
         os.path.join(project['project-root'], project['modules-path'])

@@ -6,7 +6,7 @@ import jinja2.sandbox
 import jinja2.nodes
 import jinja2.ext
 
-from dbt.utils import NodeType
+from dbt.node_types import NodeType
 
 
 def create_macro_validation_extension(node):
@@ -110,3 +110,7 @@ def render_template(template, ctx, node=None):
 def get_rendered(string, ctx, node=None, capture_macros=False):
     template = get_template(string, ctx, node, capture_macros)
     return render_template(template, ctx, node)
+
+
+def undefined_error(msg):
+    raise jinja2.exceptions.UndefinedError(msg)
