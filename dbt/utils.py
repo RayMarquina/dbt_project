@@ -25,6 +25,12 @@ DBTConfigKeys = [
 ]
 
 
+class ExitCodes(object):
+    Success = 0
+    ModelError = 1
+    UnhandledError = 2
+
+
 class This(object):
     def __init__(self, schema, table, name):
         self.schema = schema
