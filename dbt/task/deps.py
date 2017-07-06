@@ -40,7 +40,7 @@ class DepsTask(BaseTask):
 
         dependency_path = os.path.join(modules_path, folder)
         start_sha = dbt.clients.git.get_current_sha(dependency_path)
-        dbt.clients.git.checkout(dependency_path, branch)
+        dbt.clients.git.checkout(dependency_path, repo, branch)
         end_sha = dbt.clients.git.get_current_sha(dependency_path)
 
         if exists:
