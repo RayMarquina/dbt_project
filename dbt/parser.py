@@ -613,11 +613,12 @@ def parse_archives_from_project(project):
             config['source_schema'] = archive_config.get('source_schema')
             config['target_schema'] = archive_config.get('target_schema')
 
+            fake_path = [config['target_schema'], config['target_table']]
             archives.append({
                 'name': table.get('target_table'),
                 'root_path': project.get('project-root'),
                 'resource_type': NodeType.Archive,
-                'path': project.get('project-root'),
+                'path': os.path.join('archive', *fake_path),
                 'package_name': project.get('name'),
                 'config': config,
                 'raw_sql': '-- noop'
