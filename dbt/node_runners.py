@@ -71,6 +71,9 @@ class BaseRunner(object):
 
         self.skip = False
 
+    def raise_on_first_error(self):
+        return False
+
     def is_ephemeral(self):
         return dbt.utils.get_materialization(self.node) == 'ephemeral'
 
@@ -168,6 +171,9 @@ class BaseRunner(object):
 class CompileRunner(BaseRunner):
     print_header = False
 
+    def raise_on_first_error(self):
+        return True
+
     def before_execute(self):
         pass
 
@@ -225,6 +231,10 @@ class CompileRunner(BaseRunner):
 
 
 class ModelRunner(CompileRunner):
+
+    def raise_on_first_error(self):
+        return False
+
     @classmethod
     def try_create_schema(cls, project, adapter):
         profile = project.run_environment()
@@ -316,6 +326,10 @@ class ModelRunner(CompileRunner):
 
 
 class TestRunner(CompileRunner):
+
+    def raise_on_first_error(self):
+        return False
+
     def describe_node(self):
         node_name = self.node.get('name')
         return "test {}".format(node_name)
@@ -360,6 +374,10 @@ class TestRunner(CompileRunner):
 
 
 class ArchiveRunner(CompileRunner):
+
+    def raise_on_first_error(self):
+        return False
+
     def describe_node(self):
         cfg = self.node.get('config', {})
         return "archive {source_schema}.{source_table} --> "\
