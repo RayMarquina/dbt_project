@@ -1,14 +1,12 @@
 import copy
+import itertools
 import multiprocessing
-import re
 import time
-import yaml
 
 from contextlib import contextmanager
 
 import dbt.exceptions
 import dbt.flags
-import dbt.materializers
 
 from dbt.contracts.connection import validate_connection
 from dbt.logger import GLOBAL_LOGGER as logger
@@ -24,9 +22,22 @@ class DefaultAdapter(object):
 
     requires = {}
 
-    @classmethod
-    def get_materializer(cls, model, existing):
-        return dbt.materializers.get_materializer(cls, model, existing)
+    context_functions = [
+        "already_exists",
+        "get_columns_in_table",
+        "get_missing_columns",
+        "query_for_existing",
+        "rename",
+        "drop",
+        "truncate",
+        "add_query",
+        "expand_target_column_types",
+    ]
+
+    raw_functions = [
+        "get_status",
+        "get_result_from_cursor"
+    ]
 
     ###
     # ADAPTER-SPECIFIC FUNCTIONS -- each of these must be overridden in
@@ -48,16 +59,6 @@ class DefaultAdapter(object):
     def date_function(cls):
         raise dbt.exceptions.NotImplementedException(
             '`date_function` is not implemented for this adapter!')
-
-    @classmethod
-    def dist_qualifier(cls):
-        raise dbt.exceptions.NotImplementedException(
-            '`dist_qualifier` is not implemented for this adapter!')
-
-    @classmethod
-    def sort_qualifier(cls):
-        raise dbt.exceptions.NotImplementedException(
-            '`sort_qualifier` is not implemented for this adapter!')
 
     @classmethod
     def get_status(cls, cursor):
@@ -88,6 +89,18 @@ class DefaultAdapter(object):
     ###
     # FUNCTIONS THAT SHOULD BE ABSTRACT
     ###
+    @classmethod
+    def get_result_from_cursor(cls, cursor):
+        data = []
+
+        if cursor.description is not None:
+            column_names = [col[0] for col in cursor.description]
+            raw_results = cursor.fetchall()
+            data = [dict(zip(column_names, row))
+                    for row in raw_results]
+
+        return data
+
     @classmethod
     def drop(cls, profile, relation, relation_type, model_name=None):
         if relation_type == 'view':
@@ -143,35 +156,6 @@ class DefaultAdapter(object):
     @classmethod
     def is_cancelable(cls):
         return True
-
-    @classmethod
-    def execute_model(cls, profile, model):
-        parts = re.split(r'-- (DBT_OPERATION .*)', model.get('wrapped_sql'))
-
-        for i, part in enumerate(parts):
-            matches = re.match(r'^DBT_OPERATION ({.*})$', part)
-            if matches is not None:
-                instruction_string = matches.groups()[0]
-                instruction = yaml.safe_load(instruction_string)
-                function = instruction['function']
-                kwargs = instruction['args']
-
-                def call_expand_target_column_types(kwargs):
-                    kwargs.update({'profile': profile,
-                                   'model_name': model.get('name')})
-                    return cls.expand_target_column_types(**kwargs)
-
-                func_map = {
-                    'expand_column_types_if_needed':
-                    call_expand_target_column_types
-                }
-
-                func_map[function](kwargs)
-            else:
-                connection, cursor = cls.add_query(
-                    profile, part, model.get('name'))
-
-        return cls.get_status(cursor)
 
     @classmethod
     def get_missing_columns(cls, profile,
@@ -258,27 +242,6 @@ class DefaultAdapter(object):
     def get_drop_schema_sql(cls, schema):
         return ('drop schema if exists "{schema} cascade"'
                 .format(schema=schema))
-
-    @classmethod
-    def get_create_table_sql(cls, schema, table, columns, sort, dist):
-        fields = ['"{field}" {data_type}'.format(
-            field=column.name, data_type=column.data_type
-        ) for column in columns]
-        fields_csv = ",\n  ".join(fields)
-        dist = cls.dist_qualifier(dist)
-        sort = cls.sort_qualifier('compound', sort)
-        sql = """
-        create table if not exists "{schema}"."{table}" (
-        {fields}
-        )
-        {dist} {sort}
-        """.format(
-            schema=schema,
-            table=table,
-            fields=fields_csv,
-            sort=sort,
-            dist=dist).strip()
-        return sql
 
     ###
     # ODBC FUNCTIONS -- these should not need to change for every adapter,
@@ -593,13 +556,6 @@ class DefaultAdapter(object):
     def drop_schema(cls, profile, schema, model_name=None):
         logger.debug('Dropping schema "%s".', schema)
         sql = cls.get_drop_schema_sql(schema)
-        return cls.add_query(profile, sql, model_name)
-
-    @classmethod
-    def create_table(cls, profile, schema, table, columns, sort, dist,
-                     model_name=None):
-        logger.debug('Creating table "%s"."%s".', schema, table)
-        sql = cls.get_create_table_sql(schema, table, columns, sort, dist)
         return cls.add_query(profile, sql, model_name)
 
     @classmethod

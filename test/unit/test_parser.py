@@ -1,6 +1,5 @@
 import unittest
 
-import jinja2.runtime
 import os
 
 import dbt.flags
@@ -28,12 +27,26 @@ class ParserTest(unittest.TestCase):
             'version': '0.1',
             'profile': 'test',
             'project-root': os.path.abspath('.'),
+            'target': 'test',
+            'outputs': {
+                'test': {
+                    'type': 'postgres',
+                    'host': 'localhost',
+                }
+            }
         }
 
         self.snowplow_project_config = {
             'name': 'snowplow',
             'version': '0.1',
             'project-root': os.path.abspath('./dbt_modules/snowplow'),
+            'target': 'test',
+            'outputs': {
+                'test': {
+                    'type': 'postgres',
+                    'host': 'localhost',
+                }
+            }
         }
 
         self.model_config = {
@@ -101,18 +114,12 @@ class ParserTest(unittest.TestCase):
             'raw_sql': ("select * from events"),
         }]
 
-        self.root_project_config = {
-            'name': 'root',
-            'version': '0.1',
-            'profile': 'test',
-            'project-root': os.path.abspath('.'),
-            'models': {
-                'materialized': 'ephemeral',
-                'root': {
-                    'nested': {
-                        'path': {
-                            'materialized': 'ephemeral'
-                        }
+        self.root_project_config['models'] = {
+            'materialized': 'ephemeral',
+            'root': {
+                'nested': {
+                    'path': {
+                        'materialized': 'ephemeral'
                     }
                 }
             }
@@ -721,17 +728,11 @@ class ParserTest(unittest.TestCase):
         )
 
     def test__root_project_config(self):
-        self.root_project_config = {
-            'name': 'root',
-            'version': '0.1',
-            'profile': 'test',
-            'project-root': os.path.abspath('.'),
-            'models': {
-                'materialized': 'ephemeral',
-                'root': {
-                    'view': {
-                        'materialized': 'view'
-                    }
+        self.root_project_config['models'] = {
+            'materialized': 'ephemeral',
+            'root': {
+                'view': {
+                    'materialized': 'view'
                 }
             }
         }
@@ -843,44 +844,33 @@ class ParserTest(unittest.TestCase):
         )
 
     def test__other_project_config(self):
-        self.root_project_config = {
-            'name': 'root',
-            'version': '0.1',
-            'profile': 'test',
-            'project-root': os.path.abspath('.'),
-            'models': {
-                'materialized': 'ephemeral',
-                'root': {
-                    'view': {
-                        'materialized': 'view'
-                    }
-                },
-                'snowplow': {
-                    'enabled': False,
-                    'views': {
-                        'materialized': 'view',
-                        'multi_sort': {
-                            'enabled': True,
-                            'materialized': 'table'
-                        }
+        self.root_project_config['models'] = {
+            'materialized': 'ephemeral',
+            'root': {
+                'view': {
+                    'materialized': 'view'
+                }
+            },
+            'snowplow': {
+                'enabled': False,
+                'views': {
+                    'materialized': 'view',
+                    'multi_sort': {
+                        'enabled': True,
+                        'materialized': 'table'
                     }
                 }
             }
         }
 
-        self.snowplow_project_config = {
-            'name': 'snowplow',
-            'version': '0.1',
-            'project-root': os.path.abspath('./dbt_modules/snowplow'),
-            'models': {
-                'snowplow': {
-                    'enabled': False,
-                    'views': {
-                        'materialized': 'table',
-                        'sort': 'timestamp',
-                        'multi_sort': {
-                            'sort': ['timestamp', 'id'],
-                        }
+        self.snowplow_project_config['models'] = {
+            'snowplow': {
+                'enabled': False,
+                'views': {
+                    'materialized': 'table',
+                    'sort': 'timestamp',
+                    'multi_sort': {
+                        'sort': ['timestamp', 'id'],
                     }
                 }
             }
@@ -1126,7 +1116,7 @@ class ParserTest(unittest.TestCase):
                     'refs': [('model_one',)],
                     'depends_on': {
                         'nodes': [],
-                        'macros': ['macro.root.test_not_null']
+                        'macros': []
                     },
                     'config': self.model_config,
                     'path': get_os_path(
@@ -1145,7 +1135,7 @@ class ParserTest(unittest.TestCase):
                     'refs': [('model_one',)],
                     'depends_on': {
                         'nodes': [],
-                        'macros': ['macro.root.test_unique']
+                        'macros': []
                     },
                     'config': self.model_config,
                     'path': get_os_path('schema_test/unique_model_one_id.sql'),
@@ -1164,7 +1154,7 @@ class ParserTest(unittest.TestCase):
                     'refs': [('model_one',)],
                     'depends_on': {
                         'nodes': [],
-                        'macros': ['macro.root.test_accepted_values']
+                        'macros': []
                     },
                     'config': self.model_config,
                     'path': get_os_path(
@@ -1184,7 +1174,7 @@ class ParserTest(unittest.TestCase):
                     'refs': [('model_one',), ('model_two',)],
                     'depends_on': {
                         'nodes': [],
-                        'macros': ['macro.root.test_relationships']
+                        'macros': []
                     },
                     'config': self.model_config,
                     'path': get_os_path('schema_test/relationships_model_one_id__id__ref_model_two_.sql'), # noqa
@@ -1296,11 +1286,9 @@ another_model:
             root_path=get_os_path('/usr/src/app'),
             package_name='root')
 
-        self.assertEquals(
-            type(result.get('macro.root.simple', {}).get('parsed_macro')),
-            jinja2.runtime.Macro)
+        self.assertTrue(callable(result['macro.root.simple']['generator']))
 
-        del result['macro.root.simple']['parsed_macro']
+        del result['macro.root.simple']['generator']
 
         self.assertEquals(
             result,
@@ -1321,38 +1309,6 @@ another_model:
             }
         )
 
-    def test__macro_with_ref__invalid(self):
-        macro_file_contents = """
-{% macro with_ref(a) -%}
-  {% if a: %}
-    {{ ref(a) }}
-  {% endif %}
-{%- endmacro %}
-"""
-
-        with self.assertRaises(dbt.exceptions.CompilationException):
-            dbt.parser.parse_macro_file(
-                macro_file_path='macro_with_ref.sql',
-                macro_file_contents=macro_file_contents,
-                root_path=get_os_path('/usr/src/app'),
-                package_name='root')
-
-    def test__macro_with_var__invalid(self):
-        macro_file_contents = """
-{% macro with_var(a) -%}
-  {% if a: %}
-    {{ var('abc') }}
-  {% endif %}
-{%- endmacro %}
-"""
-
-        with self.assertRaises(dbt.exceptions.CompilationException):
-            dbt.parser.parse_macro_file(
-                macro_file_path='macro_with_var.sql',
-                macro_file_contents=macro_file_contents,
-                root_path=get_os_path('/usr/src/app'),
-                package_name='root')
-
     def test__simple_macro_used_in_model(self):
         macro_file_contents = """
 {% macro simple(a, b) %}
@@ -1366,11 +1322,9 @@ another_model:
             root_path=get_os_path('/usr/src/app'),
             package_name='root')
 
-        self.assertEquals(
-            type(result.get('macro.root.simple', {}).get('parsed_macro')),
-            jinja2.runtime.Macro)
+        self.assertTrue(callable(result['macro.root.simple']['generator']))
 
-        del result['macro.root.simple']['parsed_macro']
+        del result['macro.root.simple']['generator']
 
         self.assertEquals(
             result,
@@ -1418,9 +1372,7 @@ another_model:
                     'refs': [],
                     'depends_on': {
                         'nodes': [],
-                        'macros': [
-                            'macro.package.simple'
-                        ]
+                        'macros': []
                     },
                     'config': self.model_config,
                     'tags': set(),
@@ -1459,9 +1411,7 @@ another_model:
                     'refs': [],
                     'depends_on': {
                         'nodes': [],
-                        'macros': [
-                            'macro.root.simple'
-                        ]
+                        'macros': []
                     },
                     'config': self.model_config,
                     'tags': set(),

@@ -1,98 +1,101 @@
+import jinja2
+import jinja2._compat
+import jinja2.ext
+import jinja2.nodes
+import jinja2.parser
+import jinja2.sandbox
+
 import dbt.compat
 import dbt.exceptions
 
-import jinja2
-import jinja2.sandbox
-import jinja2.nodes
-import jinja2.ext
-
 from dbt.node_types import NodeType
+from dbt.utils import AttrDict
+
+from dbt.logger import GLOBAL_LOGGER as logger  # noqa
+
+
+class MacroFuzzParser(jinja2.parser.Parser):
+    def parse_macro(self):
+        node = jinja2.nodes.Macro(lineno=next(self.stream).lineno)
+
+        # modified to fuzz macros defined in the same file. this way
+        # dbt can understand the stack of macros being called.
+        #  - @cmcarthur
+        node.name = dbt.utils.get_dbt_macro_name(
+            self.parse_assign_target(name_only=True).name)
+
+        self.parse_signature(node)
+        node.body = self.parse_statements(('name:endmacro',),
+                                          drop_needle=True)
+        return node
+
+
+class MacroFuzzEnvironment(jinja2.sandbox.SandboxedEnvironment):
+    def _parse(self, source, name, filename):
+        return MacroFuzzParser(
+            self, source, name,
+            jinja2._compat.encode_filename(filename)
+        ).parse()
+
+
+def macro_generator(template, node):
+    def apply_context(context):
+        def call(*args, **kwargs):
+            name = node.get('name')
+            module = template.make_module(
+                context, False, context)
+            macro = module.__dict__[dbt.utils.get_dbt_macro_name(name)]
+            module.__dict__.update(context)
+
+            try:
+                return macro(*args, **kwargs)
+            except (jinja2.exceptions.TemplateRuntimeError) as e:
+                raise dbt.exceptions.MacroRuntimeException(
+                    str(e),
+                    context.get('model'),
+                    node)
+            except dbt.exceptions.MacroRuntimeException as e:
+                e.stack.append(node)
+                raise e
+
+        return call
+    return apply_context
 
 
 class MaterializationExtension(jinja2.ext.Extension):
     tags = set(['materialization'])
 
-    def get_args(self):
-        args = [
-            'materialization',
-            'model',
-            'schema',
-            'dist',
-            'sort',
-            'pre_hooks',
-            'post_hooks',
-            'sql',
-            'flags',
-            'adapter',
-        ]
-
-        return [jinja2.nodes.Name(arg, 'param') for arg in args]
-
     def parse(self, parser):
         node = jinja2.nodes.Macro(lineno=next(parser.stream).lineno)
-        materialization_name = parser.parse_assign_target(name_only=True).name
+        materialization_name = \
+            parser.parse_assign_target(name_only=True).name
 
-        node.name = "dbt__create_{}".format(materialization_name)
-        node.args = self.get_args()
+        adapter_name = 'default'
+        node.args = []
         node.defaults = []
+
+        while parser.stream.skip_if('comma'):
+            target = parser.parse_assign_target(name_only=True)
+
+            if target.name == 'default':
+                pass
+
+            elif target.name == 'adapter':
+                parser.stream.expect('assign')
+                value = parser.parse_expression()
+                adapter_name = value.value
+
+            else:
+                dbt.exceptions.invalid_materialization_argument(
+                    materialization_name, target.name)
+
+        node.name = dbt.utils.get_materialization_macro_name(
+            materialization_name, adapter_name)
+
         node.body = parser.parse_statements(('name:endmaterialization',),
                                             drop_needle=True)
 
         return node
-
-
-def create_statement_extension(node, ctx, execute):
-
-    class SQLStatementExtension(jinja2.ext.Extension):
-        tags = set(['statement'])
-
-        def parse(self, parser):
-            lineno = next(parser.stream).lineno
-
-            body = parser.parse_statements(['name:endstatement'],
-                                           drop_needle=True)
-
-            return jinja2.nodes.CallBlock(
-                self.call_method('_run_statement',
-                                 [jinja2.nodes.Const(execute)]),
-                [], [], body).set_lineno(lineno)
-
-        def _run_statement(self, execute, caller):
-            body = caller()
-
-            if execute:
-                ctx['adapter'].add_query(ctx['profile'], body, node['name'])
-
-            return body
-
-    return SQLStatementExtension
-
-
-def create_macro_validation_extension(node):
-
-    class MacroContextCatcherExtension(jinja2.ext.Extension):
-        DisallowedFuncs = ('ref', 'var')
-
-        def onError(self, token):
-            error = "The context variable '{}' is not allowed in macros." \
-                    .format(token.value)
-            dbt.exceptions.raise_compiler_error(node, error)
-
-        def filter_stream(self, stream):
-            while not stream.eos:
-                token = next(stream)
-                held = [token]
-
-                if token.test('name') and token.value in self.DisallowedFuncs:
-                    next_token = next(stream)
-                    held.append(next_token)
-                    if next_token.test('lparen'):
-                        self.onError(token)
-
-                for token in held:
-                    yield token
-
-    return MacroContextCatcherExtension
 
 
 def create_macro_capture_env(node):
@@ -122,20 +125,12 @@ def create_macro_capture_env(node):
             return self
 
         def __call__(self, *args, **kwargs):
-            path = '{}.{}.{}'.format(NodeType.Macro,
-                                     self.package_name,
-                                     self.name)
-
-            if path not in self.node['depends_on']['macros']:
-                self.node['depends_on']['macros'].append(path)
-
             return True
 
     return ParserMacroCapture
 
 
-def get_template(string, ctx, node=None, capture_macros=False,
-                 validate_macro=False, execute_statements=False):
+def get_template(string, ctx, node=None, capture_macros=False):
     try:
         args = {
             'extensions': []
@@ -144,19 +139,15 @@ def get_template(string, ctx, node=None, capture_macros=False,
         if capture_macros:
             args['undefined'] = create_macro_capture_env(node)
 
-        if validate_macro:
-            args['extensions'].append(create_macro_validation_extension(node))
-
         args['extensions'].append(MaterializationExtension)
-        args['extensions'].append(
-            create_statement_extension(node, ctx, execute_statements))
 
-        env = jinja2.sandbox.SandboxedEnvironment(**args)
+        env = MacroFuzzEnvironment(**args)
 
         return env.from_string(dbt.compat.to_string(string), globals=ctx)
 
     except (jinja2.exceptions.TemplateSyntaxError,
             jinja2.exceptions.UndefinedError) as e:
+        e.translated = False
         dbt.exceptions.raise_compiler_error(node, str(e))
 
 
@@ -166,15 +157,15 @@ def render_template(template, ctx, node=None):
 
     except (jinja2.exceptions.TemplateSyntaxError,
             jinja2.exceptions.UndefinedError) as e:
+        e.translated = False
         dbt.exceptions.raise_compiler_error(node, str(e))
 
 
 def get_rendered(string, ctx, node=None,
-                 capture_macros=False,
-                 execute_statements=False):
+                 capture_macros=False):
     template = get_template(string, ctx, node,
-                            capture_macros=capture_macros,
-                            execute_statements=execute_statements)
+                            capture_macros=capture_macros)
+
     return render_template(template, ctx, node)
 
 
