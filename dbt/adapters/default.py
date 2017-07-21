@@ -114,42 +114,30 @@ class DefaultAdapter(object):
 
     @classmethod
     def drop_view(cls, profile, view, model_name):
-        schema = cls.get_default_schema(profile)
-
-        sql = ('drop view if exists "{schema}"."{view}" cascade'
-               .format(schema=schema,
-                       view=view))
+        sql = ('drop view if exists {} cascade'
+               .format(cls._get_quoted_identifier(profile, view)))
 
         connection, cursor = cls.add_query(profile, sql, model_name)
 
     @classmethod
     def drop_table(cls, profile, table, model_name):
-        schema = cls.get_default_schema(profile)
-
-        sql = ('drop table if exists "{schema}"."{table}" cascade'
-               .format(schema=schema,
-                       table=table))
+        sql = ('drop table if exists {} cascade'
+               .format(cls._get_quoted_identifier(profile, table)))
 
         connection, cursor = cls.add_query(profile, sql, model_name)
 
     @classmethod
     def truncate(cls, profile, table, model_name=None):
-        schema = cls.get_default_schema(profile)
-
-        sql = ('truncate table "{schema}"."{table}"'
-               .format(schema=schema,
-                       table=table))
+        sql = ('truncate table {}'
+               .format(cls._get_quoted_identifier(profile, table)))
 
         connection, cursor = cls.add_query(profile, sql, model_name)
 
     @classmethod
     def rename(cls, profile, from_name, to_name, model_name=None):
-        schema = cls.get_default_schema(profile)
-
-        sql = ('alter table "{schema}"."{from_name}" rename to "{to_name}"'
-               .format(schema=schema,
-                       from_name=from_name,
-                       to_name=to_name))
+        sql = ('alter table {} rename to {}'
+               .format(cls._get_quoted_identifier(profile, from_name),
+                       cls.quote(to_name)))
 
         connection, cursor = cls.add_query(profile, sql, model_name)
 
@@ -203,17 +191,22 @@ class DefaultAdapter(object):
         return columns
 
     @classmethod
+    def _table_columns_to_dict(cls, columns):
+        return {col.name: col for col in columns}
+
+    @classmethod
     def expand_target_column_types(cls, profile,
                                    temp_table,
                                    to_schema, to_table,
                                    model_name=None):
 
-        reference_columns = {col.name: col for col in
-                             cls.get_columns_in_table(
-                                 profile, None, temp_table, model_name)}
-        target_columns = {col.name: col for col in
-                          cls.get_columns_in_table(
-                              profile, to_schema, to_table, model_name)}
+        reference_columns = cls._table_columns_to_dict(
+            cls.get_columns_in_table(
+                profile, None, temp_table, model_name))
+
+        target_columns = cls._table_columns_to_dict(
+            cls.get_columns_in_table(
+                profile, to_schema, to_table, model_name))
 
         for column_name, reference_column in reference_columns.items():
             target_column = target_columns.get(column_name)
@@ -572,5 +565,15 @@ class DefaultAdapter(object):
         return cls.table_exists(profile, schema, table, model_name)
 
     @classmethod
+    def _get_quoted_identifier(cls, profile, identifier):
+        return cls.quote_schema_and_table(
+            profile, cls.get_default_schema(profile), identifier)
+
+    @classmethod
+    def quote(cls, identifier):
+        return '"{}"'.format(identifier)
+
+    @classmethod
     def quote_schema_and_table(cls, profile, schema, table):
-        return '"{}"."{}"'.format(schema, table)
+        return '{}.{}'.format(cls.quote(schema),
+                              cls.quote(table))
