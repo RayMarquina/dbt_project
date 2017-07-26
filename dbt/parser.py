@@ -135,8 +135,8 @@ def parse_macro_file(macro_file_path,
     context = {}
 
     base_node = {
-        'name': 'macro',
         'path': macro_file_path,
+        'original_file_path': macro_file_path,
         'resource_type': NodeType.Macro,
         'package_name': package_name,
         'depends_on': {
@@ -144,8 +144,12 @@ def parse_macro_file(macro_file_path,
         }
     }
 
-    template = dbt.clients.jinja.get_template(
-        macro_file_contents, context, node=base_node)
+    try:
+        template = dbt.clients.jinja.get_template(
+            macro_file_contents, context, node=base_node)
+    except dbt.exceptions.CompilationException as e:
+        e.node = base_node
+        raise e
 
     for key, item in template.module.__dict__.items():
         if type(item) == jinja2.runtime.Macro:
@@ -162,6 +166,7 @@ def parse_macro_file(macro_file_path,
                 'tags': tags,
                 'root_path': root_path,
                 'path': macro_file_path,
+                'original_file_path': macro_file_path,
                 'raw_sql': macro_file_contents,
             })
 
@@ -286,11 +291,16 @@ def load_and_parse_sql(package_name, root_project, all_projects, root_dir,
         else:
             path = file_match.get('relative_path')
 
+        original_file_path = os.path.join(
+            file_match.get('searched_path'),
+            path)
+
         result.append({
             'name': name,
             'root_path': root_dir,
             'resource_type': resource_type,
             'path': path,
+            'original_file_path': original_file_path,
             'package_name': package_name,
             'raw_sql': file_contents
         })
@@ -337,6 +347,7 @@ def load_and_parse_run_hook_type(root_project, all_projects, hook_type):
             'root_path': "{}/dbt_project.yml".format(project_name),
             'resource_type': NodeType.Operation,
             'path': hook_path,
+            'original_file_path': hook_path,
             'package_name': project_name,
             'raw_sql': hooks
         })
@@ -503,6 +514,7 @@ def parse_schema_test(test_base, model_name, test_config, test_type,
         'package_name': test_base.get('package_name'),
         'root_path': test_base.get('root_path'),
         'path': pseudo_path,
+        'original_file_path': test_base.get('original_file_path'),
         'raw_sql': raw_sql
     }
 
@@ -534,6 +546,9 @@ def load_and_parse_yml(package_name, root_project, all_projects, root_dir,
         file_contents = dbt.clients.system.load_file_contents(
             file_match.get('absolute_path'), strip=False)
 
+        original_file_path = os.path.join(file_match.get('searched_path'),
+                                          file_match.get('relative_path'))
+
         parts = dbt.utils.split_path(file_match.get('relative_path', ''))
         name, _ = os.path.splitext(parts[-1])
 
@@ -542,6 +557,7 @@ def load_and_parse_yml(package_name, root_project, all_projects, root_dir,
             'root_path': root_dir,
             'resource_type': NodeType.Test,
             'path': file_match.get('relative_path'),
+            'original_file_path': original_file_path,
             'package_name': package_name,
             'raw_yml': file_contents
         })
@@ -592,6 +608,7 @@ def parse_archives_from_project(project):
                 'root_path': project.get('project-root'),
                 'resource_type': NodeType.Archive,
                 'path': os.path.join('archive', *fake_path),
+                'original_file_path': 'dbt_project.yml',
                 'package_name': project.get('name'),
                 'config': config,
                 'raw_sql': '{{config(materialized="archive")}} -- noop'

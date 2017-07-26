@@ -205,35 +205,45 @@ def print_run_status_line(results):
 
 
 def print_run_result_error(result):
-    node = result.node
+    logger.info("")
 
     if result.failed:
-        status = 'FAIL {}'.format(result.status)
+        logger.info(yellow("Failure in {} {} ({})").format(
+            result.node.get('resource_type'),
+            result.node.get('name'),
+            result.node.get('original_file_path')))
+        logger.info("  Got {} results, expected 0.".format(result.status))
+
+        if result.node.get('build_path') is not None:
+            logger.info("")
+            logger.info("  compiled SQL at {}".format(
+                result.node.get('build_path')))
+
     else:
-        status = result.status
-
-    msg = " - {status} in {type} {package_name}.{node_name} ({path})".format(
-        status=red(status),
-        type=node.get('resource_type'),
-        package_name=node.get('package_name'),
-        node_name=node.get('name'),
-        path=node.get('build_path')
-    )
-    logger.info(msg)
+        first = True
+        for line in result.error.split("\n"):
+            if first:
+                logger.info(yellow(line))
+                first = False
+            else:
+                logger.info(line)
 
 
-def print_end_of_run_summary(num_errors):
-    if num_errors > 0:
+def print_end_of_run_summary(num_errors, early_exit=False):
+    if early_exit:
+        message = yellow('Exited because of keyboard interrupt.')
+    elif num_errors > 0:
         message = red('Completed with {} errors:'.format(num_errors))
     else:
         message = green('Completed successfully')
 
-    logger.info('\n{}'.format(message))
+    logger.info('')
+    logger.info('{}'.format(message))
 
 
-def print_run_end_messages(results):
+def print_run_end_messages(results, early_exit=False):
     errors = [r for r in results if r.errored or r.failed]
-    print_end_of_run_summary(len(errors))
+    print_end_of_run_summary(len(errors), early_exit)
 
     for error in errors:
         print_run_result_error(error)

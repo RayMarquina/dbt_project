@@ -10,36 +10,81 @@ class InternalException(Exception):
 
 
 class RuntimeException(RuntimeError, Exception):
-    pass
-
-
-class MacroRuntimeException(RuntimeException):
-    def __init__(self, msg, model, macro):
-        self.stack = [macro]
-        self.model = model
+    def __init__(self, msg, node=None):
+        self.stack = []
+        self.node = node
         self.msg = msg
 
-    def __str__(self):
-        to_return = self.msg
+    @property
+    def type(self):
+        return 'Runtime'
 
-        to_return += "\n    in macro {} ({})".format(
-            self.stack[0].get('name'), self.stack[0].get('path'))
+    def node_to_string(self, node):
+        return "{} {} ({})".format(
+            node.get('resource_type'),
+            node.get('name', 'unknown'),
+            node.get('original_file_path'))
 
-        for item in self.stack[1:]:
-            to_return += "\n    called by macro {} ({})".format(
-                item.get('name'), item.get('path'))
+    def process_stack(self):
+        lines = []
+        stack = self.stack + [self.node]
+        first = True
 
-        to_return += "\n    called by model {} ({})".format(
-            self.model.get('name'), self.model.get('path'))
+        if len(stack) > 1:
+            lines.append("")
 
-        return to_return
+            for item in stack:
+                msg = 'called by'
+
+                if first:
+                    msg = 'in'
+                    first = False
+
+                lines.append("> {} {}".format(
+                    msg,
+                    self.node_to_string(item)))
+
+        return lines
+
+    def __str__(self, prefix="! "):
+        node_string = ""
+
+        if self.node is not None:
+            node_string = " in {}".format(self.node_to_string(self.node))
+
+        lines = ["{}{}".format(self.type + ' Error',
+                               node_string)] + \
+            self.msg.split("\n")
+
+        lines += self.process_stack()
+
+        return lines[0] + "\n" + "\n".join(
+            ["  " + line for line in lines[1:]])
 
 
-class ValidationException(RuntimeException):
-    pass
+class DatabaseException(RuntimeException):
+
+    def process_stack(self):
+        lines = []
+
+        if self.node is not None and self.node.get('build_path'):
+            lines.append(
+                "compiled SQL at {}".format(self.node.get('build_path')))
+
+        return lines + RuntimeException.process_stack(self)
+
+    @property
+    def type(self):
+        return 'Database'
 
 
 class CompilationException(RuntimeException):
+    @property
+    def type(self):
+        return 'Compilation'
+
+
+class ValidationException(RuntimeException):
     pass
 
 
@@ -47,44 +92,25 @@ class NotImplementedException(Exception):
     pass
 
 
-class ProgrammingException(Exception):
-    pass
-
-
-class FailedToConnectException(Exception):
+class FailedToConnectException(DatabaseException):
     pass
 
 
 from dbt.utils import get_materialization  # noqa
 
 
-def raise_compiler_error(node, msg):
-    name = '<Unknown>'
-    node_type = 'model'
+def raise_compiler_error(msg, node=None):
+    raise CompilationException(msg, node)
 
-    if node is None:
-        name = '<None>'
-    elif isinstance(node, basestring):
-        name = node
-    elif isinstance(node, dict):
-        name = node.get('name')
-        node_type = node.get('resource_type')
 
-        if node_type == 'macro':
-            name = node.get('path')
-    else:
-        name = node.nice_name
-
-    raise CompilationException(
-        "! Compilation error while compiling {} {}:\n! {}\n"
-        .format(node_type, name, msg))
+def raise_database_error(msg, node=None):
+    raise DatabaseException(msg, node)
 
 
 def ref_invalid_args(model, args):
     raise_compiler_error(
-        model,
-        "ref() takes at most two arguments ({} given)".format(
-            len(args)))
+        "ref() takes at most two arguments ({} given)".format(len(args)),
+        model)
 
 
 def ref_bad_context(model, target_model_name, target_model_package):
@@ -105,8 +131,7 @@ To fix this, add the following hint to the top of the model "{model_name}":
         model_path=model['path'],
         ref_string=ref_string
     )
-    raise_compiler_error(
-        model, error_msg)
+    raise_compiler_error(error_msg, model)
 
 
 def ref_target_not_found(model, target_model_name, target_model_package):
@@ -116,26 +141,26 @@ def ref_target_not_found(model, target_model_name, target_model_package):
         target_package_string = "in package '{}' ".format(target_model_package)
 
     raise_compiler_error(
-        model,
         "Model '{}' depends on model '{}' {}which was not found."
         .format(model.get('unique_id'),
                 target_model_name,
-                target_package_string))
+                target_package_string),
+        model)
 
 
 def ref_disabled_dependency(model, target_model):
     raise_compiler_error(
-        model,
         "Model '{}' depends on model '{}' which is disabled in "
         "the project config".format(model.get('unique_id'),
-                                    target_model.get('unique_id')))
+                                    target_model.get('unique_id')),
+        model)
 
 
 def dependency_not_found(model, target_model_name):
     raise_compiler_error(
-        model,
         "'{}' depends on '{}' which is not in the graph!"
-        .format(model.get('unique_id'), target_model_name))
+        .format(model.get('unique_id'), target_model_name),
+        model)
 
 
 def macro_not_found(model, target_macro_id):
@@ -149,9 +174,9 @@ def materialization_not_available(model, adapter_type):
     materialization = get_materialization(model)
 
     raise_compiler_error(
-        model,
         "Materialization '{}' is not available for {}!"
-        .format(materialization, adapter_type))
+        .format(materialization, adapter_type),
+        model)
 
 
 def missing_materialization(model, adapter_type):
@@ -163,34 +188,31 @@ def missing_materialization(model, adapter_type):
         valid_types = "'default' and '{}'".format(adapter_type)
 
     raise_compiler_error(
-        model,
         "No materialization '{}' was found for adapter {}! (searched types {})"
-        .format(materialization, adapter_type, valid_types))
-
-
-def missing_sql_where(model):
-    raise_compiler_error(
-        model,
-        "Model '{}' is materialized as 'incremental', but does not have a "
-        "sql_where defined in its config.".format(model.get('unique_id')))
+        .format(materialization, adapter_type, valid_types),
+        model)
 
 
 def bad_package_spec(repo, spec, error_message):
-    raise RuntimeException(
+    raise InternalException(
         "Error checking out spec='{}' for repo {}\n{}".format(
             spec, repo, error_message))
 
 
 def missing_config(model, name):
     raise_compiler_error(
-        model,
         "Model '{}' does not define a required config parameter '{}'."
-        .format(model.get('unique_id'), name))
+        .format(model.get('unique_id'), name),
+        model)
+
+
+def missing_relation(relation_name, model=None):
+    raise_compiler_error(
+        "Relation {} not found!".format(relation_name),
+        model)
 
 
 def invalid_materialization_argument(name, argument):
-    msg = "Received an unknown argument '{}'.".format(argument)
-
-    raise CompilationException(
-        "! Compilation error while compiling materialization {}:\n! {}\n"
-        .format(name, msg))
+    raise_compiler_error(
+        "materialization '{}' received unknown argument '{}'."
+        .format(name, argument))

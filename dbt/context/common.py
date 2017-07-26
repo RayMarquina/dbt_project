@@ -176,11 +176,11 @@ class Var(object):
     def assert_var_defined(self, var_name, default):
         if var_name not in self.local_vars and default is None:
             pretty_vars = self.pretty_dict(self.local_vars)
-            dbt.utils.compiler_error(
-                self.model,
+            dbt.exceptions.raise_compiler_error(
                 self.UndefinedVarError.format(
                     var_name, self.model_name, pretty_vars
-                )
+                ),
+                self.model
             )
 
     def assert_var_not_none(self, var_name):
@@ -188,11 +188,11 @@ class Var(object):
         if raw is None:
             pretty_vars = self.pretty_dict(self.local_vars)
             model_name = dbt.utils.get_model_name_or_none(self.model)
-            dbt.utils.compiler_error(
-                self.model,
+            dbt.exceptions.raise_compiler_error(
                 self.NoneVarError.format(
                     var_name, model_name, pretty_vars
-                )
+                ),
+                self.model
             )
 
     def __call__(self, var_name, default=None):
@@ -214,7 +214,9 @@ class Var(object):
 
 def write(node, target_path, subdirectory):
     def fn(payload):
-        dbt.writer.write_node(node, target_path, subdirectory, payload)
+        node['build_path'] = dbt.writer.write_node(
+            node, target_path, subdirectory, payload)
+
     return fn
 
 
@@ -273,9 +275,7 @@ def generate(model, project, flat_graph, provider=None):
             schema,
             dbt.utils.model_immediate_name(model, dbt.flags.NON_DESTRUCTIVE),
             model.get('name')
-        ),
-        "var": Var(model, context=context),
-        "write": write(model, project.get('target-path'), 'run'),
+        )
     })
 
     context = _add_tracking(context)
@@ -286,7 +286,9 @@ def generate(model, project, flat_graph, provider=None):
 
     context = _add_macros(context, model, flat_graph)
 
+    context["write"] = write(model, project.get('target-path'), 'run')
     context["render"] = render(context, model)
+    context["var"] = Var(model, context=context)
     context['context'] = context
 
     return context
