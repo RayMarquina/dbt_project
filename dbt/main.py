@@ -3,6 +3,7 @@ from dbt.logger import initialize_logger, GLOBAL_LOGGER as logger
 import argparse
 import os.path
 import sys
+import traceback
 
 import dbt.version
 import dbt.flags as flags
@@ -53,6 +54,8 @@ def main(args=None):
     except BaseException as e:
         logger.info("Encountered an error:")
         logger.info(str(e))
+
+        logger.debug(traceback.format_exc())
         exit_code = ExitCodes.UnhandledError
 
     sys.exit(exit_code)
