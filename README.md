@@ -2,12 +2,20 @@
 
 dbt (data build tool) helps analysts write reliable, modular code using a workflow that closely mirrors software development.
 
+![dbt dag](/etc/dag.png?raw=true)
+
 ---
+### Getting Started
 
 - [What is dbt]?
 - Read the [dbt viewpoint]
 - [Installation]
 - Join the [chat][slack-url] on Slack for live questions and support.
+
+---
+### The dbt ecosystem
+- Visualize your dbt graph [here](https://app.sinterdata.com/)
+- Run your dbt projects on a schedule [here](http://sinterdata.com/)
 
 ---
 
