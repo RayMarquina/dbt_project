@@ -1,3 +1,14 @@
+## dbt 0.9.0 (Unreleased)
+
+### Overview
+
+- Documentation
+
+### Documentation
+- Document how to [create a package](https://dbt.readme.io/v0.8/docs/building-packages)
+- Document how to [make a materialization](https://dbt.readme.io/v0.8/docs/creating-new-materializations)
+- Document how to [make custom schema tests](https://dbt.readme.io/v0.8/docs/custom-schema-tests)
+
 ## dbt 0.8.3 (July 14, 2017)
 
 ### Overview
