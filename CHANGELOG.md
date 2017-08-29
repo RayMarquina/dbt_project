@@ -5,7 +5,7 @@
 - More powerful macros
 - BigQuery improvements
 - Bugfixes
-- Documentation
+- Documentation (0.9.0 docs can be found [here](https://dbt.readme.io/v0.9/))
 
 ### Breaking Changes
 dbt 0.9.0 Alpha 1 introduces a number of new features intended to help dbt-ers write flexible, reusable code. The majority of these changes involve the `macro` and `materialization` Jinja blocks. As this is an alpha release, there may exist bugs or incompatibilites, particularly surrounding these two blocks. A list of known breaking changes is provided below. If you find new bugs, or have questions about dbt 0.9.0, please don't hesitate to reach out in [slack](http://ac-slackin.herokuapp.com/) or [open a new issue](https://github.com/fishtown-analytics/dbt/issues/new?milestone=0.9.0+alpha-1).
