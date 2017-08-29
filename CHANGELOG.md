@@ -8,9 +8,9 @@
 - Documentation
 
 ### Breaking Changes
-dbt 0.9.0 Alpha 1 introduces a number of new features intended to help dbt-ers flexibly write reusable code. The majority of these changes involve the `macro` and `materialization` Jinja blocks. As this is an alpha release, there may exist bugs or incompatibilites, particularly surrounding these two blocks. A list of known breaking changes is provided below. If you find new bugs, or have questions about dbt 0.9.0, please don't hesitate to reach out in [slack](http://ac-slackin.herokuapp.com/) or [open a new issue](https://github.com/fishtown-analytics/dbt/issues/new?milestone=0.9.0+alpha-1).
+dbt 0.9.0 Alpha 1 introduces a number of new features intended to help dbt-ers write flexible, reusable code. The majority of these changes involve the `macro` and `materialization` Jinja blocks. As this is an alpha release, there may exist bugs or incompatibilites, particularly surrounding these two blocks. A list of known breaking changes is provided below. If you find new bugs, or have questions about dbt 0.9.0, please don't hesitate to reach out in [slack](http://ac-slackin.herokuapp.com/) or [open a new issue](https://github.com/fishtown-analytics/dbt/issues/new?milestone=0.9.0+alpha-1).
 
-#### Adapter functions must be namespaced to the `adapter` context variable
+##### 1. Adapter functions must be namespaced to the `adapter` context variable
 This will manifest as a compilation error that looks like:
 ```
 Compilation Error in model {your_model} (models/path/to/your_model.sql)
@@ -24,7 +24,8 @@ To fix this error, use `adapter.already_exists` instead of just `already_exists`
 - Run tests defined in an ephemeral directory ([#509](https://github.com/fishtown-analytics/dbt/pull/509))
 
 ### Changes
-- Build custom tests and materializations in user-land ([#466](https://github.com/fishtown-analytics/dbt/pull/466/files))
+- use `adapter`, `ref`, and `var` inside of macros ([#466](https://github.com/fishtown-analytics/dbt/pull/466/files))
+- Build custom tests and materializations in dbt packages ([#466](https://github.com/fishtown-analytics/dbt/pull/466/files))
 - Support pre- and post- hooks that run outside of a transaction ([#510](https://github.com/fishtown-analytics/dbt/pull/510))
 - Support table materializations for BigQuery ([#507](https://github.com/fishtown-analytics/dbt/pull/507))
 - Support querying external data sources in BigQuery ([#507](https://github.com/fishtown-analytics/dbt/pull/507))
