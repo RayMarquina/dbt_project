@@ -16,16 +16,23 @@ import google.oauth2
 import google.cloud.exceptions
 import google.cloud.bigquery
 
+import time
+import uuid
+
 
 class BigQueryAdapter(PostgresAdapter):
 
     context_functions = [
         "query_for_existing",
-        "drop_view",
         "execute_model",
+        "drop",
     ]
 
-    QUERY_TIMEOUT = 60 * 1000
+    SCOPE = ('https://www.googleapis.com/auth/bigquery',
+             'https://www.googleapis.com/auth/cloud-platform',
+             'https://www.googleapis.com/auth/drive')
+
+    QUERY_TIMEOUT = 300
 
     @classmethod
     def handle_error(cls, error, message, sql):
@@ -81,12 +88,12 @@ class BigQueryAdapter(PostgresAdapter):
         creds = google.oauth2.service_account.Credentials
 
         if method == 'oauth':
-            credentials, project_id = google.auth.default()
+            credentials, project_id = google.auth.default(scopes=cls.SCOPE)
             return credentials
 
         elif method == 'service-account':
             keyfile = config.get('keyfile')
-            return creds.from_service_account_file(keyfile)
+            return creds.from_service_account_file(keyfile, scopes=cls.SCOPE)
 
         elif method == 'service-account-json':
             details = config.get('keyfile_json')
@@ -141,7 +148,8 @@ class BigQueryAdapter(PostgresAdapter):
 
         relation_type_lookup = {
             'TABLE': 'table',
-            'VIEW': 'view'
+            'VIEW': 'view',
+            'EXTERNAL': 'external'
         }
 
         existing = [(table.name, relation_type_lookup.get(table.table_type))
@@ -150,46 +158,27 @@ class BigQueryAdapter(PostgresAdapter):
         return dict(existing)
 
     @classmethod
-    def drop_view(cls, profile, view_name, model_name):
+    def drop(cls, profile, relation, relation_type, model_name=None):
         schema = cls.get_default_schema(profile)
         dataset = cls.get_dataset(profile, schema, model_name)
-        view = dataset.table(view_name)
-        view.delete()
+        relation_object = dataset.table(relation)
+        relation_object.delete()
 
     @classmethod
     def rename(cls, profile, from_name, to_name, model_name=None):
         raise dbt.exceptions.NotImplementedException(
             '`rename` is not implemented for this adapter!')
 
-    # Hack because of current API limitations. We should set a flag on the
-    # Table object indicating StandardSQL when it's implemented
-    # https://github.com/GoogleCloudPlatform/google-cloud-python/issues/3388
     @classmethod
-    def format_sql_for_bigquery(cls, sql):
-        return "#standardSQL\n{}".format(sql)
+    def get_timeout(cls, conn):
+        credentials = conn['credentials']
+        return credentials.get('timeout_seconds', cls.QUERY_TIMEOUT)
 
     @classmethod
-    def execute_model(cls, profile, model, model_name=None):
-        connection = cls.get_connection(profile, model.get('name'))
-
-        if flags.STRICT_MODE:
-            validate_connection(connection)
-
-        model_name = model.get('name')
-        model_sql = cls.format_sql_for_bigquery(model.get('injected_sql'))
-
-        materialization = dbt.utils.get_materialization(model)
-        allowed_materializations = ['view', 'ephemeral']
-
-        if materialization not in allowed_materializations:
-            msg = "Unsupported materialization: {}".format(materialization)
-            raise dbt.exceptions.RuntimeException(msg)
-
-        schema = cls.get_default_schema(profile)
-        dataset = cls.get_dataset(profile, schema, model_name)
-
+    def materialize_as_view(cls, profile, dataset, model_name, model_sql):
         view = dataset.table(model_name)
         view.view_query = model_sql
+        view.view_use_legacy_sql = False
 
         logger.debug("Model SQL ({}):\n{}".format(model_name, model_sql))
 
@@ -197,9 +186,70 @@ class BigQueryAdapter(PostgresAdapter):
             view.create()
 
         if view.created is None:
-            raise RuntimeError("Error creating view {}".format(model_name))
+            msg = "Error creating view {}".format(model_name)
+            raise dbt.exceptions.RuntimeException(msg)
 
         return "CREATE VIEW"
+
+    @classmethod
+    def poll_until_job_completes(cls, job, timeout):
+        retry_count = timeout
+
+        while retry_count > 0 and job.state != 'DONE':
+            retry_count -= 1
+            time.sleep(1)
+            job.reload()
+
+        if job.state != 'DONE':
+            raise dbt.exceptions.RuntimeException("BigQuery Timeout Exceeded")
+
+        elif job.error_result:
+            raise job.exception()
+
+    @classmethod
+    def materialize_as_table(cls, profile, dataset, model_name, model_sql):
+        conn = cls.get_connection(profile, model_name)
+        client = conn.get('handle')
+
+        table = dataset.table(model_name)
+        job_id = 'dbt-create-{}-{}'.format(model_name, uuid.uuid4())
+        job = client.run_async_query(job_id, model_sql)
+        job.use_legacy_sql = False
+        job.destination = table
+        job.write_disposition = 'WRITE_TRUNCATE'
+        job.begin()
+
+        logger.debug("Model SQL ({}):\n{}".format(model_name, model_sql))
+
+        with cls.exception_handler(profile, model_sql, model_name, model_name):
+            cls.poll_until_job_completes(job, cls.get_timeout(conn))
+
+        return "CREATE TABLE"
+
+    @classmethod
+    def execute_model(cls, profile, model, materialization, model_name=None):
+        connection = cls.get_connection(profile, model.get('name'))
+
+        if flags.STRICT_MODE:
+            validate_connection(connection)
+
+        model_name = model.get('name')
+        model_sql = model.get('injected_sql')
+
+        schema = cls.get_default_schema(profile)
+        dataset = cls.get_dataset(profile, schema, model_name)
+
+        if materialization == 'view':
+            res = cls.materialize_as_view(profile, dataset, model_name,
+                                          model_sql)
+        elif materialization == 'table':
+            res = cls.materialize_as_table(profile, dataset, model_name,
+                                           model_sql)
+        else:
+            msg = "Invalid relation type: '{}'".format(materialization)
+            raise dbt.exceptions.RuntimeException(msg, model)
+
+        return res
 
     @classmethod
     def fetch_query_results(cls, query):
@@ -220,12 +270,12 @@ class BigQueryAdapter(PostgresAdapter):
         conn = cls.get_connection(profile, model_name)
         client = conn.get('handle')
 
-        formatted_sql = cls.format_sql_for_bigquery(sql)
-        query = client.run_sync_query(formatted_sql)
-        query.timeout_ms = cls.QUERY_TIMEOUT
+        query = client.run_sync_query(sql)
+        query.timeout_ms = cls.get_timeout(conn) * 1000
+        query.use_legacy_sql = False
 
         debug_message = "Fetching data for query {}:\n{}"
-        logger.debug(debug_message.format(model_name, formatted_sql))
+        logger.debug(debug_message.format(model_name, sql))
 
         query.run()
 
