@@ -32,13 +32,13 @@ class DefaultAdapter(object):
         "truncate",
         "add_query",
         "expand_target_column_types",
+        "quote_schema_and_table",
     ]
 
     raw_functions = [
         "get_status",
         "get_result_from_cursor",
         "quote",
-        "quote_schema_and_table",
     ]
 
     ###
@@ -397,6 +397,10 @@ class DefaultAdapter(object):
         return cls.add_query(profile, 'BEGIN', name, auto_begin=False)
 
     @classmethod
+    def add_commit_query(cls, profile, name):
+        return cls.add_query(profile, 'COMMIT', name, auto_begin=False)
+
+    @classmethod
     def begin(cls, profile, name='master'):
         global connections_in_use
         connection = cls.get_connection(profile, name)
@@ -428,10 +432,10 @@ class DefaultAdapter(object):
 
         connection = cls.get_connection(profile, name, False)
 
-        return cls.commit(connection)
+        return cls.commit(profile, connection)
 
     @classmethod
-    def commit(cls, connection):
+    def commit(cls, profile, connection):
         global connections_in_use
 
         if dbt.flags.STRICT_MODE:
@@ -445,7 +449,7 @@ class DefaultAdapter(object):
                 'it does not have one open!'.format(connection.get('name')))
 
         logger.debug('On {}: COMMIT'.format(connection.get('name')))
-        connection.get('handle').commit()
+        cls.add_commit_query(profile, connection.get('name'))
 
         connection['transaction_open'] = False
         connections_in_use[connection.get('name')] = connection
@@ -513,6 +517,12 @@ class DefaultAdapter(object):
             return connection, cursor
 
     @classmethod
+    def clear_transaction(cls, profile, conn_name='master'):
+        conn = cls.begin(profile, conn_name)
+        cls.commit(profile, conn)
+        return conn_name
+
+    @classmethod
     def execute_one(cls, profile, sql, model_name=None, auto_begin=False):
         cls.get_connection(profile, model_name)
 
@@ -576,6 +586,6 @@ class DefaultAdapter(object):
         return '"{}"'.format(identifier)
 
     @classmethod
-    def quote_schema_and_table(cls, profile, schema, table):
+    def quote_schema_and_table(cls, profile, schema, table, model_name=None):
         return '{}.{}'.format(cls.quote(schema),
                               cls.quote(table))

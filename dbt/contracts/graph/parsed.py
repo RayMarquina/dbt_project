@@ -12,12 +12,16 @@ from dbt.contracts.graph.unparsed import unparsed_node_contract, \
 
 from dbt.logger import GLOBAL_LOGGER as logger  # noqa
 
+hook_contract = Schema({
+    Required('sql'): basestring,
+    Required('transaction'): bool,
+})
 
 config_contract = Schema({
     Required('enabled'): bool,
     Required('materialized'): basestring,
-    Required('post-hook'): list,
-    Required('pre-hook'): list,
+    Required('post-hook'): [hook_contract],
+    Required('pre-hook'): [hook_contract],
     Required('vars'): dict,
 }, extra=ALLOW_EXTRA)
 
@@ -67,6 +71,10 @@ parsed_graph_contract = Schema({
     Required('nodes'): parsed_nodes_contract,
     Required('macros'): parsed_macros_contract,
 })
+
+
+def validate_hook(hook):
+    validate_with(hook_contract, hooks)
 
 
 def validate_nodes(parsed_nodes):

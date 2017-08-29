@@ -74,7 +74,7 @@ class BigQueryAdapter(PostgresAdapter):
         pass
 
     @classmethod
-    def commit(cls, connection):
+    def commit(cls, profile, connection):
         pass
 
     @classmethod

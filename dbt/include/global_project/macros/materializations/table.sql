@@ -16,7 +16,10 @@
     {%- endif %}
   {%- endif %}
 
-  {{ run_hooks(pre_hooks) }}
+  {{ run_hooks(pre_hooks, inside_transaction=False) }}
+
+  -- `BEGIN` happens here:
+  {{ run_hooks(pre_hooks, inside_transaction=True) }}
 
   -- build model
   {% call statement('main') -%}
@@ -39,7 +42,7 @@
     {%- endif -%}
   {%- endcall %}
 
-  {{ run_hooks(post_hooks) }}
+  {{ run_hooks(post_hooks, inside_transaction=True) }}
 
   -- cleanup
   {% if non_destructive_mode -%}
@@ -49,5 +52,8 @@
     {{ adapter.rename(tmp_identifier, identifier) }}
   {%- endif %}
 
+  -- `COMMIT` happens here
   {{ adapter.commit() }}
+
+  {{ run_hooks(post_hooks, inside_transaction=False) }}
 {% endmaterialization %}

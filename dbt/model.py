@@ -91,22 +91,13 @@ class SourceConfig(object):
         self.in_model_config.update(config)
 
     def __get_hooks(self, relevant_configs, key):
-        hooks = []
-
         if key not in relevant_configs:
             return []
 
-        new_hooks = relevant_configs[key]
-        if type(new_hooks) not in [list, tuple]:
-            new_hooks = [new_hooks]
+        hooks = relevant_configs[key]
+        if not isinstance(hooks, (list, tuple)):
+            hooks = [hooks]
 
-        for hook in new_hooks:
-            if not isinstance(hook, basestring):
-                name = ".".join(self.fqn)
-                dbt.exceptions.raise_compiler_error(
-                    "{} for model {} is not a string!".format(key, name))
-
-            hooks.append(hook)
         return hooks
 
     def smart_update(self, mutable_config, new_configs):
