@@ -1,12 +1,21 @@
-## dbt 0.9.0 (unreleased)
+## dbt 0.9.0 Alpha 3 (September 26, 2017)
+
+### Overview
+ - Bugfixes
+ - Faster schema tests on Postgres
 
 ### Improvements
 
-- Replace schema test CTEs with subqueries to speed them up for Postgres ([#536](https://github.com/fishtown-analytics/dbt/pull/536))
+- Replace schema test CTEs with subqueries to speed them up for Postgres ([#536](https://github.com/fishtown-analytics/dbt/pull/536)) ([@ronnyli](https://github.com/ronnyli))
+
+### Bugfixes
+- Fix broken integration tests ([#539](https://github.com/fishtown-analytics/dbt/pull/539))
+- Fix for `--non-destructive` on views ([#539](https://github.com/fishtown-analytics/dbt/pull/539))
+- Fix for package models materialized in the wrong schema ([#538](https://github.com/fishtown-analytics/dbt/pull/538))
 
 ### New Contributors
 
-- @ronnyli
+- [@ronnyli](https://github.com/ronnyli)
   - https://github.com/fishtown-analytics/dbt/pull/536
 
 ## dbt 0.9.0 Alpha 2 (September 20, 2017)
