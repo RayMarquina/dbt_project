@@ -1,8 +1,9 @@
-## dbt 0.9.0 Alpha 3 (September 26, 2017)
+## dbt 0.9.0 Alpha 3 (October 3, 2017)
 
 ### Overview
  - Bugfixes
  - Faster schema tests on Postgres
+ - Fix for broken environment variables
 
 ### Improvements
 
@@ -12,6 +13,7 @@
 - Fix broken integration tests ([#539](https://github.com/fishtown-analytics/dbt/pull/539))
 - Fix for `--non-destructive` on views ([#539](https://github.com/fishtown-analytics/dbt/pull/539))
 - Fix for package models materialized in the wrong schema ([#538](https://github.com/fishtown-analytics/dbt/pull/538))
+- Fix for broken environment variables ([#543](https://github.com/fishtown-analytics/dbt/pull/543))
 
 ### New Contributors
 
