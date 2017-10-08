@@ -43,7 +43,7 @@ Everyone interacting in the dbt project's codebases, issue trackers, chat rooms,
 
 
 [PyPA Code of Conduct]: https://www.pypa.io/en/latest/code-of-conduct/
-[slack-url]: http://slack.getdbt.com/
+[slack-url]: https://slack.getdbt.com/
 [Installation]: https://docs.getdbt.com/docs/installation
 [What is dbt]: https://docs.getdbt.com/docs/overview
 [dbt viewpoint]: https://docs.getdbt.com/docs/viewpoint
