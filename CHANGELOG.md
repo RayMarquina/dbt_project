@@ -1,3 +1,8 @@
+## dbt 0.9.0 Alpha 5 (October 24, 2017)
+
+### Overview
+ - Bump Snowflake dependency, remove pyasn1 ([#570](https://github.com/fishtown-analytics/dbt/pull/570))
+
 ## dbt 0.9.0 Alpha 4 (October 3, 2017)
 
 ### Bugfixes
