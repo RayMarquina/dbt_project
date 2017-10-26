@@ -1,5 +1,7 @@
 ## dbt 0.9.0 (October 25, 2017)
 
+This release focuses on improvements to macros, materializations, and package management. Check out [the blog post](https://blog.fishtownanalytics.com/whats-new-in-dbt-0-9-0-dd36f3572ac6) to learn more about what's possible in this new version of dbt.
+
 ### Installation
 
 Full installation instructions for macOS, Windows, and Linux can be found [here](https://docs.getdbt.com/v0.9/docs/installation). If you use Windows or Linux, installation works the same as with previous versions of dbt. If you use macOS and Homebrew to install dbt, note that installation instructions have changed:
