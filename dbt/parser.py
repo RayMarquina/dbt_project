@@ -4,6 +4,7 @@ import re
 import hashlib
 import collections
 
+import dbt.exceptions
 import dbt.flags
 import dbt.model
 import dbt.utils
@@ -272,14 +273,27 @@ def parse_sql_nodes(nodes, root_project, projects, tags=None, macros=None):
                              package_name,
                              node.get('name'))
 
-        # TODO if this is set, raise a compiler error
-        to_return[node_path] = parse_node(node,
-                                          node_path,
-                                          root_project,
-                                          projects.get(package_name),
-                                          projects,
-                                          tags=tags,
-                                          macros=macros)
+        node_parsed = parse_node(node,
+                                 node_path,
+                                 root_project,
+                                 projects.get(package_name),
+                                 projects,
+                                 tags=tags,
+                                 macros=macros)
+
+        # Ignore disabled nodes
+        if not node_parsed['config']['enabled']:
+            continue
+
+        # Check for duplicate model names
+        existing_node = to_return.get(node_path)
+        if existing_node is not None:
+            raise dbt.exceptions.CompilationException(
+                'Found models with the same name:\n- %s\n- %s' % (
+                    existing_node.get('original_file_path'),
+                    node.get('original_file_path')))
+
+        to_return[node_path] = node_parsed
 
     dbt.contracts.graph.parsed.validate_nodes(to_return)
 
