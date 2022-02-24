@@ -12,4 +12,4 @@ jobs:
    schedule: 0 0 * * * # This example will run every day at midnight.
    steps:
      - name: run models
-       command: dbt run --models my_first_model my_second_model # This example will run two specific models.
+       command: dbt run -m my_first_model my_second_model # This example will run two specific models.
