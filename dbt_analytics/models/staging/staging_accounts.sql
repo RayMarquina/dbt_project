@@ -1,7 +1,7 @@
 with acc
 as(
 select * from 
-{{source('sharex','account')}}
+{{source('sharex','accounts')}}
 
 )
 select * from acc
